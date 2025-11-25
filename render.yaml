@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: quantum-signal-trader
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        value: 8410509549:AAGA69J7j6JV4bKzfFwheJT5TOw4f4x7b7Y
+      - key: ADMIN_ID
+        value: 5376388604
+      - key: SUPABASE_URL
+        value: TU_URL_DE_SUPABASE
+      - key: SUPABASE_KEY
+        value: TU_CLAVE_ANONIMA_DE_SUPABASE
+      - key: RENDER_URL
+        value: https://tu-app.onrender.com
