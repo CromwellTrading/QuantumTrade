@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "bot": "node bot.js"
+    "bot": "node bot.js",
+    "test": "node -e \"console.log('Testing environment...'); require('dotenv').config(); console.log('BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'OK' : 'MISSING')\""
   },
   "dependencies": {
     "express": "^4.18.2",
