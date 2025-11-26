@@ -9,25 +9,33 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('🔧 Iniciando configuración del bot...');
+console.log('=== 🔧 INICIANDO CONFIGURACIÓN DEL BOT ===');
+console.log('📋 Variables de entorno:');
+console.log('- TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? '✅ PRESENTE' : '❌ FALTANTE');
+console.log('- SUPABASE_URL:', SUPABASE_URL ? '✅ PRESENTE' : '❌ FALTANTE');
+console.log('- SUPABASE_KEY:', SUPABASE_KEY ? '✅ PRESENTE' : '❌ FALTANTE');
+console.log('- ADMIN_ID:', ADMIN_ID);
+console.log('- RENDER_URL:', RENDER_URL);
 
 // Verificar que tenemos todas las variables necesarias
 if (!TELEGRAM_BOT_TOKEN) {
-    console.error('❌ ERROR: TELEGRAM_BOT_TOKEN no está definido');
+    console.error('❌ ERROR CRÍTICO: TELEGRAM_BOT_TOKEN no está definido');
     process.exit(1);
 }
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ ERROR: Variables de Supabase no están definidas');
+    console.error('❌ ERROR CRÍTICO: Variables de Supabase no están definidas');
     process.exit(1);
 }
 
 // Inicializar Supabase
+console.log('🔄 Inicializando Supabase...');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 console.log('✅ Supabase inicializado');
 
 // Función para crear teclado principal
 function createMainKeyboard() {
+    console.log('📱 Creando teclado principal...');
     return {
         reply_markup: {
             resize_keyboard: true,
@@ -51,6 +59,7 @@ function createMainKeyboard() {
 
 // Función para crear teclado inline para VIP
 function createVIPInlineKeyboard() {
+    console.log('📱 Creando teclado inline VIP...');
     return {
         reply_markup: {
             inline_keyboard: [
@@ -67,6 +76,7 @@ function createVIPInlineKeyboard() {
 
 // Función para obtener estado del usuario
 async function getUserStatus(userId) {
+    console.log(`🔍 Obteniendo estado del usuario: ${userId}`);
     try {
         const { data: user, error } = await supabase
             .from('users')
@@ -74,29 +84,42 @@ async function getUserStatus(userId) {
             .eq('telegram_id', userId)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error obteniendo usuario:', error);
+            throw error;
+        }
+        
+        console.log(`✅ Usuario obtenido:`, user ? 'Encontrado' : 'No encontrado');
         return user;
     } catch (error) {
-        console.error('Error obteniendo usuario:', error);
+        console.error('❌ Error en getUserStatus:', error);
         return null;
     }
 }
 
 // Función para enviar notificaciones
-async function sendNotification(bot, chatId, message) {
+async function sendNotification(bot, chatId, message, options = {}) {
+    console.log(`📤 Enviando notificación a ${chatId}:`, message.substring(0, 50) + '...');
     try {
-        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-        console.log('✅ Notificación enviada');
+        const result = await bot.sendMessage(chatId, message, { 
+            parse_mode: 'Markdown', 
+            ...options 
+        });
+        console.log('✅ Notificación enviada exitosamente');
+        return result;
     } catch (error) {
         console.error('❌ Error enviando notificación:', error);
+        throw error;
     }
 }
 
 // Función para inicializar el bot
 async function initializeBot() {
-    console.log('🤖 Inicializando bot de Telegram...');
+    console.log('\n=== 🤖 INICIALIZANDO BOT DE TELEGRAM ===');
 
     try {
+        console.log('🔄 Creando instancia del bot...');
+        
         // Configurar opciones del bot con manejo mejorado de errores
         const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
             polling: {
@@ -109,39 +132,57 @@ async function initializeBot() {
             }
         });
 
-        console.log('✅ Bot de Telegram creado exitosamente');
+        console.log('✅ Instancia del bot creada');
 
         // Manejar errores de polling
         bot.on('polling_error', (error) => {
-            console.error('❌ Error de polling:', error.code, error.message);
+            console.error('❌ ERROR DE POLLING:', {
+                code: error.code,
+                message: error.message,
+                stack: error.stack
+            });
             
             // Si es error 409 (conflict), esperar y reiniciar
             if (error.code === 409) {
-                console.log('🔄 Reiniciando bot debido a conflicto...');
+                console.log('🔄 Detectado error 409 - Conflicto de múltiples instancias');
+                console.log('🔄 Reiniciando bot en 5 segundos...');
                 setTimeout(() => {
+                    console.log('🔄 Deteniendo polling...');
                     bot.stopPolling();
-                    setTimeout(() => bot.startPolling(), 2000);
+                    setTimeout(() => {
+                        console.log('🔄 Reiniciando polling...');
+                        bot.startPolling();
+                    }, 2000);
                 }, 5000);
             }
         });
 
         bot.on('webhook_error', (error) => {
-            console.error('❌ Error de webhook:', error);
+            console.error('❌ ERROR DE WEBHOOK:', error);
         });
 
         bot.on('error', (error) => {
-            console.error('❌ Error general del bot:', error);
+            console.error('❌ ERROR GENERAL DEL BOT:', error);
         });
 
         // Verificar que el bot está funcionando
-        const me = await bot.getMe();
-        console.log(`✅ Bot conectado como: @${me.username}`);
-        console.log(`✅ Bot ID: ${me.id}`);
-        console.log(`✅ Bot nombre: ${me.first_name}`);
+        console.log('🔍 Verificando conexión del bot...');
+        try {
+            const me = await bot.getMe();
+            console.log('✅ Bot conectado exitosamente:');
+            console.log(`   - Username: @${me.username}`);
+            console.log(`   - ID: ${me.id}`);
+            console.log(`   - Nombre: ${me.first_name}`);
+        } catch (error) {
+            console.error('❌ Error verificando conexión del bot:', error);
+            throw error;
+        }
 
         // =============================================
         // MANEJADORES DE MENSAJES Y BOTONES
         // =============================================
+
+        console.log('🔄 Configurando manejadores de mensajes...');
 
         // COMANDO /start - MENÚ PRINCIPAL
         bot.onText(/\/start/, async (msg) => {
@@ -149,9 +190,15 @@ async function initializeBot() {
             const userId = msg.from.id.toString();
             const username = msg.from.username || 'Sin username';
             
-            console.log(`📨 Comando /start recibido de: ${userId}`);
+            console.log(`\n📨 COMANDO /start RECIBIDO:`);
+            console.log(`   - Chat ID: ${chatId}`);
+            console.log(`   - User ID: ${userId}`);
+            console.log(`   - Username: @${username}`);
+            console.log(`   - Nombre: ${msg.from.first_name}`);
 
             try {
+                console.log('💾 Guardando usuario en la base de datos...');
+                
                 // Guardar usuario en la base de datos
                 const { data, error } = await supabase
                     .from('users')
@@ -172,6 +219,8 @@ async function initializeBot() {
                     return;
                 }
 
+                console.log('✅ Usuario guardado exitosamente');
+
                 const welcomeMessage = `
 🎯 *BIENVENIDO A QUANTUM SIGNAL TRADER PRO* 🚀
 
@@ -180,10 +229,12 @@ async function initializeBot() {
 Usa los botones de abajo para navegar por el sistema:
                 `;
                 
+                console.log('📤 Enviando mensaje de bienvenida...');
                 await sendNotification(bot, chatId, welcomeMessage, createMainKeyboard());
+                console.log('✅ Mensaje de bienvenida enviado');
                 
             } catch (error) {
-                console.error('❌ Error en comando /start:', error);
+                console.error('❌ ERROR EN COMANDO /START:', error);
                 await sendNotification(bot, chatId, 
                     '❌ Error al procesar tu solicitud. Por favor, intenta nuevamente.',
                     createMainKeyboard()
@@ -200,35 +251,45 @@ Usa los botones de abajo para navegar por el sistema:
             const messageText = msg.text;
             const userId = msg.from.id.toString();
 
-            console.log(`📨 Mensaje/botón recibido de ${userId}: ${messageText}`);
+            console.log(`\n📨 MENSAJE/BOTÓN RECIBIDO:`);
+            console.log(`   - User ID: ${userId}`);
+            console.log(`   - Chat ID: ${chatId}`);
+            console.log(`   - Mensaje: "${messageText}"`);
 
             try {
                 switch (messageText) {
                     case '📊 VER SEÑALES':
+                        console.log('🔄 Ejecutando: VER SEÑALES');
                         await handleViewSignals(bot, chatId, userId);
                         break;
                         
                     case '💎 PLAN VIP':
+                        console.log('🔄 Ejecutando: PLAN VIP');
                         await handleVIPInfo(bot, chatId);
                         break;
                         
                     case '👤 MI ESTADO':
+                        console.log('🔄 Ejecutando: MI ESTADO');
                         await handleUserStatus(bot, chatId, userId);
                         break;
                         
                     case '🌐 ABRIR WEBAPP':
+                        console.log('🔄 Ejecutando: ABRIR WEBAPP');
                         await handleWebApp(bot, chatId);
                         break;
                         
                     case '🆘 AYUDA':
+                        console.log('🔄 Ejecutando: AYUDA');
                         await handleHelp(bot, chatId);
                         break;
                         
                     case '📞 CONTACTO':
+                        console.log('🔄 Ejecutando: CONTACTO');
                         await handleContact(bot, chatId);
                         break;
                         
                     default:
+                        console.log('ℹ️  Mensaje no reconocido, mostrando menú principal');
                         // Si no es un botón conocido, mostrar menú principal
                         if (!messageText.startsWith('/')) {
                             await sendNotification(bot, chatId, 
@@ -239,7 +300,7 @@ Usa los botones de abajo para navegar por el sistema:
                         break;
                 }
             } catch (error) {
-                console.error('Error procesando mensaje:', error);
+                console.error('❌ ERROR PROCESANDO MENSAJE:', error);
                 await sendNotification(bot, chatId, '❌ Error al procesar tu solicitud.');
             }
         });
@@ -251,26 +312,32 @@ Usa los botones de abajo para navegar por el sistema:
             const data = callbackQuery.data;
             const userId = callbackQuery.from.id.toString();
 
-            console.log(`🔘 Callback recibido: ${data} de ${userId}`);
+            console.log(`\n🔘 CALLBACK RECIBIDO:`);
+            console.log(`   - User ID: ${userId}`);
+            console.log(`   - Chat ID: ${chatId}`);
+            console.log(`   - Data: ${data}`);
 
             try {
                 switch (data) {
                     case 'refresh_signals':
+                        console.log('🔄 Ejecutando callback: REFRESH SIGNALS');
                         await handleViewSignals(bot, chatId, userId);
                         break;
                         
                     case 'refresh_status':
+                        console.log('🔄 Ejecutando callback: REFRESH STATUS');
                         await handleUserStatus(bot, chatId, userId);
                         break;
                         
                     default:
-                        console.log('Callback no manejado:', data);
+                        console.log('ℹ️  Callback no manejado:', data);
                 }
 
                 // Responder al callback para quitar el "loading" del botón
+                console.log('✅ Respondiendo al callback query');
                 await bot.answerCallbackQuery(callbackQuery.id);
             } catch (error) {
-                console.error('Error en callback:', error);
+                console.error('❌ ERROR EN CALLBACK:', error);
                 await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al procesar la solicitud' });
             }
         });
@@ -281,6 +348,7 @@ Usa los botones de abajo para navegar por el sistema:
 
         // 🌐 ABRIR WEBAPP
         async function handleWebApp(bot, chatId) {
+            console.log('🌐 Procesando apertura de WebApp...');
             const webAppMessage = `
 🌐 *ACCESO A LA WEBAPP PROFESIONAL*
 
@@ -313,6 +381,7 @@ Haz clic en el botón de abajo para abrir la WebApp:
 
         // 📊 VER SEÑALES
         async function handleViewSignals(bot, chatId, userId) {
+            console.log('📊 Obteniendo señales...');
             try {
                 // Obtener las señales más recientes
                 const { data: signals, error } = await supabase
@@ -321,7 +390,12 @@ Haz clic en el botón de abajo para abrir la WebApp:
                     .order('created_at', { ascending: false })
                     .limit(5);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Error obteniendo señales:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Señales obtenidas: ${signals?.length || 0}`);
 
                 let signalsMessage = `📊 *SEÑALES RECIENTES*\n\n`;
 
@@ -362,7 +436,7 @@ Haz clic en el botón de abajo para abrir la WebApp:
                 await sendNotification(bot, chatId, signalsMessage, inlineKeyboard);
 
             } catch (error) {
-                console.error('Error obteniendo señales:', error);
+                console.error('❌ ERROR EN HANDLE VIEW SIGNALS:', error);
                 await sendNotification(bot, chatId, 
                     '❌ Error al obtener las señales. Intenta nuevamente.',
                     createMainKeyboard()
@@ -372,6 +446,7 @@ Haz clic en el botón de abajo para abrir la WebApp:
 
         // 💎 PLAN VIP
         async function handleVIPInfo(bot, chatId) {
+            console.log('💎 Mostrando información VIP...');
             const vipMessage = `
 💎 *PLAN VIP - QUANTUM SIGNAL TRADER*
 
@@ -402,16 +477,20 @@ Contacta directamente a @Asche90 y menciona que quieres activar el plan VIP.
 
         // 👤 MI ESTADO
         async function handleUserStatus(bot, chatId, userId) {
+            console.log(`👤 Obteniendo estado del usuario ${userId}...`);
             try {
                 const user = await getUserStatus(userId);
                 
                 if (!user) {
+                    console.log('❌ Usuario no encontrado');
                     await sendNotification(bot, chatId, 
                         '❌ No se pudo obtener tu información. Usa /start para registrarte.',
                         createMainKeyboard()
                     );
                     return;
                 }
+
+                console.log(`✅ Estado del usuario obtenido: VIP=${user.is_vip}`);
 
                 let statusMessage = `
 👤 *INFORMACIÓN DE TU CUENTA*
@@ -456,7 +535,7 @@ Contacta directamente a @Asche90 y menciona que quieres activar el plan VIP.
                 await sendNotification(bot, chatId, statusMessage, inlineKeyboard);
 
             } catch (error) {
-                console.error('Error en estado de usuario:', error);
+                console.error('❌ ERROR EN HANDLE USER STATUS:', error);
                 await sendNotification(bot, chatId, 
                     '❌ Error al obtener tu estado. Intenta nuevamente.',
                     createMainKeyboard()
@@ -466,6 +545,7 @@ Contacta directamente a @Asche90 y menciona que quieres activar el plan VIP.
 
         // 🆘 AYUDA
         async function handleHelp(bot, chatId) {
+            console.log('🆘 Mostrando ayuda...');
             const helpMessage = `
 🆘 *CENTRO DE AYUDA - QUANTUM TRADER*
 
@@ -496,6 +576,7 @@ Si necesitas ayuda adicional:
 
         // 📞 CONTACTO
         async function handleContact(bot, chatId) {
+            console.log('📞 Mostrando contacto...');
             const contactMessage = `
 📞 *CONTACTO Y SOPORTE*
 
@@ -526,6 +607,8 @@ Envía un mensaje directo al administrador con:
         // SUSCRIPCIÓN A CAMBIOS EN SUPABASE PARA NOTIFICACIONES
         // =============================================
 
+        console.log('🔄 Configurando suscripciones de Supabase...');
+
         // Suscribirse a nuevas señales
         supabase
             .channel('signals-notifications')
@@ -536,7 +619,7 @@ Envía un mensaje directo al administrador con:
                     table: 'signals' 
                 }, 
                 async (payload) => {
-                    console.log('🔔 Nueva señal para notificar:', payload.new);
+                    console.log('🔔 NUEVA SEÑAL DETECTADA:', payload.new);
                     
                     const signal = payload.new;
                     const signalMessage = `
@@ -550,6 +633,7 @@ Envía un mensaje directo al administrador con:
                     `;
                     
                     // Enviar notificación al admin
+                    console.log('📤 Enviando notificación de nueva señal al admin');
                     await sendNotification(bot, ADMIN_ID, signalMessage);
                 }
             )
@@ -565,11 +649,13 @@ Envía un mensaje directo al administrador con:
                     table: 'signals' 
                 }, 
                 async (payload) => {
+                    console.log('🔄 ACTUALIZACIÓN DE SEÑAL DETECTADA:', payload.new);
+                    
                     const signal = payload.new;
                     
                     // Solo notificar cuando cambia el estado a profit/loss
                     if (payload.old.status === 'pending' && (signal.status === 'profit' || signal.status === 'loss')) {
-                        console.log('🔔 Resultado de señal:', signal);
+                        console.log('💰 RESULTADO DE SEÑAL:', signal);
                         
                         const resultMessage = `
 🔄 *RESULTADO DE SEÑAL*
@@ -580,6 +666,7 @@ Envía un mensaje directo al administrador con:
                         `;
                         
                         // Enviar notificación al admin
+                        console.log('📤 Enviando notificación de resultado al admin');
                         await sendNotification(bot, ADMIN_ID, resultMessage);
                     }
                 }
@@ -587,12 +674,13 @@ Envía un mensaje directo al administrador con:
             .subscribe();
 
         console.log('✅ Todos los handlers del bot configurados');
-        console.log('🚀 Bot con interfaz de botones listo para recibir mensajes...');
+        console.log('🎉 BOT INICIALIZADO EXITOSAMENTE');
+        console.log('🚀 Bot listo para recibir mensajes...');
 
         return bot;
 
     } catch (error) {
-        console.error('❌ ERROR CRÍTICO al inicializar el bot:', error);
+        console.error('❌ ERROR CRÍTICO AL INICIALIZAR EL BOT:', error);
         
         // Reintentar después de 10 segundos si hay error
         console.log('🔄 Reintentando en 10 segundos...');
@@ -603,19 +691,20 @@ Envía un mensaje directo al administrador con:
 }
 
 // Inicializar el bot
+console.log('\n=== 🚀 INICIANDO APLICACIÓN ===');
 initializeBot().then(bot => {
     if (bot) {
-        console.log('🎉 Bot inicializado exitosamente');
+        console.log('🎉 APLICACIÓN INICIALIZADA EXITOSAMENTE');
     } else {
-        console.log('❌ No se pudo inicializar el bot');
+        console.log('❌ NO SE PUDO INICIALIZAR LA APLICACIÓN');
     }
 });
 
 // Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
-    console.error('❌ Error no capturado:', error);
+    console.error('❌ ERROR NO CAPTURADO:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Promise rechazada no manejada:', reason);
+    console.error('❌ PROMESA RECHAZADA NO MANEJADA:', reason);
 });
