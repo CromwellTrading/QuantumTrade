@@ -989,6 +989,90 @@
             background: var(--loss);
         }
 
+        /* Estilos para gestión de usuarios VIP */
+        .user-management-section {
+            background: rgba(0, 240, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-btn {
+            background: var(--primary);
+            color: var(--dark);
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .user-search-result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(19, 19, 46, 0.8);
+            border: 1px solid var(--border);
+        }
+
+        .user-found, .user-not-found {
+            text-align: center;
+        }
+
+        .user-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .user-details {
+            text-align: left;
+        }
+
+        .user-status.vip {
+            color: var(--vip);
+            font-weight: bold;
+        }
+
+        .user-status.regular {
+            color: var(--text-secondary);
+        }
+
+        .vip-time-remaining {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(255, 204, 0, 0.1);
+            border-radius: 5px;
+            border: 1px solid var(--vip);
+        }
+
+        .days-left {
+            color: var(--vip);
+            font-weight: bold;
+        }
+
+        .error {
+            color: var(--loss);
+            text-align: center;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
         @media (max-width: 1024px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -1026,6 +1110,10 @@
             .user-actions {
                 flex-direction: column;
             }
+            
+            .search-container {
+                flex-direction: column;
+            }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1048,7 +1136,7 @@
                 <button class="header-btn" id="showStats"><i class="fas fa-chart-bar"></i> Estadísticas</button>
                 <button class="header-btn" id="showUsers" style="display: none;"><i class="fas fa-users"></i> Usuarios</button>
                 <button class="header-btn vip" id="vipAccess"><i class="fas fa-crown"></i> VIP</button>
-                <button class="header-btn" id="adminBtn"><i class="fas fa-user-shield"></i> Admin</button>
+                <button class="header-btn" id="adminBtn" style="display: none;"><i class="fas fa-user-shield"></i> Admin</button>
             </div>
         </header>
         
@@ -1063,7 +1151,30 @@
         
         <div class="grid">
             <div class="panel admin-panel" id="adminPanel" style="display: none;">
-                <h3><i class="fas fa-user-shield"></i> Panel de Control</h3>
+                <h3><i class="fas fa-user-shield"></i> Panel de Control Administrativo</h3>
+                
+                <!-- Gestión de Usuarios VIP -->
+                <div class="user-management-section">
+                    <h4><i class="fas fa-users-cog"></i> Gestión de Usuarios VIP</h4>
+                    
+                    <div class="form-group">
+                        <label for="userSearchInput"><i class="fas fa-search"></i> Buscar Usuario por ID de Telegram</label>
+                        <div class="search-container">
+                            <input type="text" id="userSearchInput" placeholder="Ej: 123456789">
+                            <button id="searchUserBtn" class="search-btn"><i class="fas fa-search"></i> Buscar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="userSearchResult" class="user-search-result" style="display: none;">
+                        <!-- Los resultados de búsqueda aparecerán aquí -->
+                    </div>
+                    
+                    <div class="user-actions" id="userActions" style="display: none;">
+                        <button id="makeVipBtn" class="admin-btn btn-vip"><i class="fas fa-crown"></i> Hacer VIP</button>
+                        <button id="removeVipBtn" class="admin-btn btn-loss"><i class="fas fa-times"></i> Quitar VIP</button>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="asset"><i class="fas fa-chart-line"></i> Activo</label>
                     <input type="text" id="asset" placeholder="Ej: EUR/USD, BTC/USD, etc.">
@@ -1103,7 +1214,7 @@
                 </button>
                 <div class="user-status" id="userStatus">
                     <div class="session-info">
-                        <i class="fas fa-user"></i> Estado: Usuario Regular - Solo primera señal gratuita
+                        <i class="fas fa-user"></i> Estado: Cargando información del usuario...
                     </div>
                 </div>
                 <div id="signalsContainer">
@@ -1294,6 +1405,8 @@
                 this.hasReceivedFreeSignal = false;
                 this.serverConnected = false;
                 this.currentUserId = null;
+                this.userData = null;
+                this.searchedUser = null;
                 
                 // Elementos del DOM
                 this.initializeDOMElements();
@@ -1301,73 +1414,94 @@
                 this.loadFromLocalStorage();
                 this.updateStats();
                 this.initChart();
-                this.updateUserStatus();
-                this.loadSignalsFromSupabase();
+                this.detectUserAndInitialize();
                 this.setupRealtimeSubscription();
                 this.checkServerConnection();
-                this.detectUser();
                 
                 // Verificar conexión periódicamente
                 setInterval(() => this.checkServerConnection(), 30000);
             }
             
-            async detectUser() {
-                // En un entorno real, aquí obtendrías el ID del usuario de Telegram
-                // Por ahora, simulamos la detección
+            async detectUserAndInitialize() {
+                // Obtener el ID de usuario de la URL o localStorage
                 try {
-                    // Intentar obtener el usuario de la URL o localStorage
                     const urlParams = new URLSearchParams(window.location.search);
-                    const tgId = urlParams.get('tgid') || localStorage.getItem('tg_user_id');
+                    let tgId = urlParams.get('tgid') || localStorage.getItem('tg_user_id');
+                    
+                    // Si no hay ID en la URL, intentar obtenerlo de Telegram WebApp
+                    if (!tgId && window.Telegram && Telegram.WebApp) {
+                        tgId = Telegram.WebApp.initDataUnsafe?.user?.id;
+                    }
                     
                     if (tgId) {
                         this.currentUserId = tgId;
-                        this.checkAdminStatus();
-                        this.checkVIPStatus();
+                        localStorage.setItem('tg_user_id', tgId);
+                        await this.loadUserData();
+                    } else {
+                        console.log('No se pudo detectar el ID de usuario');
+                        this.updateUserStatus();
                     }
                 } catch (error) {
                     console.error('Error detectando usuario:', error);
                 }
             }
             
-            async checkAdminStatus() {
+            async loadUserData() {
                 if (!this.currentUserId) return;
                 
-                this.isAdmin = this.currentUserId === ADMIN_ID;
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/user/${this.currentUserId}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.userData = result.data;
+                        this.isAdmin = result.data.is_admin;
+                        this.isVIP = result.data.is_vip;
+                        
+                        // Verificar si el VIP ha expirado
+                        if (this.isVIP && this.userData.vip_expires_at) {
+                            const expiryDate = new Date(this.userData.vip_expires_at);
+                            if (expiryDate < new Date()) {
+                                this.isVIP = false;
+                            }
+                        }
+                        
+                        console.log('Datos del usuario cargados:', this.userData);
+                        this.updateUI();
+                    }
+                } catch (error) {
+                    console.error('Error cargando datos del usuario:', error);
+                }
+            }
+            
+            updateUI() {
+                // Actualizar estado del usuario
+                this.updateUserStatus();
                 
+                // Ocultar/mostrar botón de admin automáticamente
                 if (this.isAdmin) {
-                    this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Admin Activo';
+                    this.adminBtn.style.display = 'block';
+                    this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Panel Admin';
                     this.adminBtn.classList.add('active');
                     this.adminPanel.style.display = 'block';
                     this.showUsers.style.display = 'block';
                     this.loadUsersFromSupabase();
+                } else {
+                    this.adminBtn.style.display = 'none';
+                    this.adminPanel.style.display = 'none';
+                    this.showUsers.style.display = 'none';
                 }
-            }
-            
-            async checkVIPStatus() {
-                if (!this.currentUserId) return;
                 
-                try {
-                    const { data: user, error } = await supabase
-                        .from('users')
-                        .select('is_vip, vip_expires_at')
-                        .eq('telegram_id', this.currentUserId)
-                        .single();
-                    
-                    if (!error && user) {
-                        this.isVIP = user.is_vip;
-                        if (user.vip_expires_at) {
-                            const expiry = new Date(user.vip_expires_at);
-                            if (expiry < new Date()) {
-                                this.isVIP = false;
-                            }
-                        }
-                        this.updateUserStatus();
-                    }
-                } catch (error) {
-                    console.error('Error verificando estado VIP:', error);
+                // Actualizar estado VIP
+                if (this.isVIP) {
+                    this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP ACTIVO';
+                    this.vipAccess.classList.add('active');
+                } else {
+                    this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP';
+                    this.vipAccess.classList.remove('active');
                 }
             }
-            
+
             initializeDOMElements() {
                 this.sendSignalBtn = document.getElementById('sendSignal');
                 this.signalsContainer = document.getElementById('signalsContainer');
@@ -1395,6 +1529,15 @@
                 this.connectionStatus = document.getElementById('connectionStatus');
                 this.statusDot = document.getElementById('statusDot');
                 this.statusText = document.getElementById('statusText');
+                
+                // Nuevos elementos para gestión de usuarios
+                this.userSearchInput = document.getElementById('userSearchInput');
+                this.searchUserBtn = document.getElementById('searchUserBtn');
+                this.userSearchResult = document.getElementById('userSearchResult');
+                this.makeVipBtn = document.getElementById('makeVipBtn');
+                this.removeVipBtn = document.getElementById('removeVipBtn');
+                this.userActions = document.getElementById('userActions');
+                
                 this.isReady = false;
                 
                 // Estadísticas
@@ -1466,8 +1609,6 @@
                 this.adminBtn.addEventListener('click', () => {
                     if (this.isAdmin) {
                         this.showAdminPanel();
-                    } else {
-                        this.showNotification('No tienes permisos de administrador', 'error');
                     }
                 });
                 
@@ -1490,6 +1631,19 @@
                 this.refreshUsers.addEventListener('click', () => {
                     this.loadUsersFromSupabase();
                 });
+
+                // Nuevos event listeners para gestión de usuarios
+                this.searchUserBtn.addEventListener('click', () => {
+                    this.searchUser();
+                });
+                
+                this.makeVipBtn.addEventListener('click', () => {
+                    this.makeUserVip();
+                });
+                
+                this.removeVipBtn.addEventListener('click', () => {
+                    this.removeUserVip();
+                });
                 
                 // Filtros de tiempo para estadísticas
                 document.querySelectorAll('.time-filter').forEach(filter => {
@@ -1499,6 +1653,148 @@
                         this.updateStats(filter.dataset.period);
                     });
                 });
+            }
+
+            // Nuevos métodos para gestión de usuarios
+            async searchUser() {
+                const searchId = this.userSearchInput.value.trim();
+                if (!searchId) {
+                    alert('Por favor, ingresa un ID de Telegram');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/users/search/${searchId}`);
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.searchedUser = result.data;
+                        this.displayUserSearchResult();
+                    } else {
+                        this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
+                        this.userSearchResult.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Error buscando usuario:', error);
+                    this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
+                    this.userSearchResult.style.display = 'block';
+                }
+            }
+
+            displayUserSearchResult() {
+                if (!this.searchedUser) {
+                    this.userSearchResult.innerHTML = `
+                        <div class="user-not-found">
+                            <i class="fas fa-user-times"></i>
+                            <p>Usuario no encontrado</p>
+                            <p>El ID ${this.userSearchInput.value} no está registrado en el sistema</p>
+                        </div>
+                    `;
+                } else {
+                    const isVip = this.searchedUser.is_vip;
+                    const vipExpires = this.searchedUser.vip_expires_at ? new Date(this.searchedUser.vip_expires_at) : null;
+                    const now = new Date();
+                    const daysLeft = vipExpires ? Math.ceil((vipExpires - now) / (1000 * 60 * 60 * 24)) : 0;
+                    
+                    let vipStatus = 'No VIP';
+                    let daysLeftHtml = '';
+                    
+                    if (isVip && vipExpires && vipExpires > now) {
+                        vipStatus = 'Usuario VIP';
+                        daysLeftHtml = `<div class="vip-time-remaining">Tiempo restante: <span class="days-left">${daysLeft} días</span></div>`;
+                    } else if (isVip && vipExpires && vipExpires <= now) {
+                        vipStatus = 'VIP Expirado';
+                    }
+
+                    this.userSearchResult.innerHTML = `
+                        <div class="user-found">
+                            <div class="user-header">
+                                <i class="fas fa-user"></i>
+                                <h4>Usuario Encontrado</h4>
+                            </div>
+                            <div class="user-details">
+                                <p><strong>ID:</strong> ${this.searchedUser.telegram_id}</p>
+                                <p><strong>Nombre:</strong> ${this.searchedUser.first_name || 'No especificado'}</p>
+                                <p><strong>Usuario:</strong> @${this.searchedUser.username || 'No especificado'}</p>
+                                <p><strong>Estado:</strong> <span class="user-status ${isVip && vipExpires > now ? 'vip' : 'regular'}">${vipStatus}</span></p>
+                                ${daysLeftHtml}
+                            </div>
+                        </div>
+                    `;
+
+                    // Mostrar botones según el estado VIP
+                    this.userActions.style.display = 'flex';
+                    this.makeVipBtn.style.display = (!isVip || (vipExpires && vipExpires <= now)) ? 'block' : 'none';
+                    this.removeVipBtn.style.display = (isVip && vipExpires && vipExpires > now) ? 'block' : 'none';
+                }
+
+                this.userSearchResult.style.display = 'block';
+            }
+
+            async makeUserVip() {
+                if (!this.searchedUser) return;
+
+                const days = prompt('¿Por cuántos días quieres hacer VIP al usuario?', '30');
+                if (!days || isNaN(days)) return;
+
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/users/vip`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: this.searchedUser.telegram_id,
+                            userId: this.currentUserId,
+                            days: parseInt(days)
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showNotification(result.message, 'success');
+                        // Recargar la información del usuario
+                        await this.searchUser();
+                    } else {
+                        this.showNotification('Error al hacer VIP: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error haciendo usuario VIP:', error);
+                    this.showNotification('Error al hacer VIP al usuario', 'error');
+                }
+            }
+
+            async removeUserVip() {
+                if (!this.searchedUser) return;
+
+                if (!confirm('¿Estás seguro de que quieres quitar el VIP a este usuario?')) return;
+
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/users/remove-vip`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: this.searchedUser.telegram_id,
+                            userId: this.currentUserId
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showNotification(result.message, 'success');
+                        // Recargar la información del usuario
+                        await this.searchUser();
+                    } else {
+                        this.showNotification('Error al quitar VIP: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error quitando VIP:', error);
+                    this.showNotification('Error al quitar VIP al usuario', 'error');
+                }
             }
             
             async loadSignalsFromSupabase() {
@@ -1587,45 +1883,62 @@
             }
             
             async makeVip(telegramId) {
-                const vipExpiresAt = new Date();
-                vipExpiresAt.setDate(vipExpiresAt.getDate() + 30);
-                
+                const days = prompt('¿Por cuántos días quieres hacer VIP al usuario?', '30');
+                if (!days || isNaN(days)) return;
+
                 try {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .update({ 
-                            is_vip: true,
-                            vip_expires_at: vipExpiresAt.toISOString()
+                    const response = await fetch(`${SERVER_URL}/api/users/vip`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: telegramId,
+                            userId: this.currentUserId,
+                            days: parseInt(days)
                         })
-                        .eq('telegram_id', telegramId);
-                    
-                    if (error) throw error;
-                    
-                    this.showNotification(`Usuario ${telegramId} ahora es VIP por 30 días.`, 'success');
-                    this.loadUsersFromSupabase();
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showNotification(result.message, 'success');
+                        this.loadUsersFromSupabase();
+                    } else {
+                        this.showNotification('Error al hacer VIP: ' + result.error, 'error');
+                    }
                 } catch (error) {
-                    console.error('Error making user VIP:', error);
-                    this.showNotification('Error al hacer VIP al usuario.', 'error');
+                    console.error('Error haciendo usuario VIP:', error);
+                    this.showNotification('Error al hacer VIP al usuario', 'error');
                 }
             }
             
             async removeVip(telegramId) {
+                if (!confirm('¿Estás seguro de que quieres quitar el VIP a este usuario?')) return;
+
                 try {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .update({ 
-                            is_vip: false,
-                            vip_expires_at: null
+                    const response = await fetch(`${SERVER_URL}/api/users/remove-vip`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: telegramId,
+                            userId: this.currentUserId
                         })
-                        .eq('telegram_id', telegramId);
-                    
-                    if (error) throw error;
-                    
-                    this.showNotification(`Usuario ${telegramId} ya no es VIP.`, 'success');
-                    this.loadUsersFromSupabase();
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showNotification(result.message, 'success');
+                        this.loadUsersFromSupabase();
+                    } else {
+                        this.showNotification('Error al quitar VIP: ' + result.error, 'error');
+                    }
                 } catch (error) {
-                    console.error('Error removing VIP from user:', error);
-                    this.showNotification('Error al quitar VIP al usuario.', 'error');
+                    console.error('Error quitando VIP:', error);
+                    this.showNotification('Error al quitar VIP al usuario', 'error');
                 }
             }
             
@@ -1724,6 +2037,12 @@
                     this.userStatus.innerHTML = `
                         <div class="session-info" style="border-color: var(--vip);">
                             <i class="fas fa-crown"></i> Estado: <span class="vip-badge">USUARIO VIP</span> - Recibiendo todas las señales
+                        </div>
+                    `;
+                } else if (this.isAdmin) {
+                    this.userStatus.innerHTML = `
+                        <div class="session-info" style="border-color: var(--primary);">
+                            <i class="fas fa-user-shield"></i> Estado: <span style="color: var(--primary); font-weight: bold;">ADMINISTRADOR</span> - Acceso completo al sistema
                         </div>
                     `;
                 } else {
@@ -2275,11 +2594,6 @@
                             <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
                         `;
                         this.sessionInfo.classList.add('session-active');
-                    }
-                    
-                    if (this.isVIP) {
-                        this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP ACTIVO';
-                        this.vipAccess.classList.add('active');
                     }
                     
                     this.updateUserStatus();
