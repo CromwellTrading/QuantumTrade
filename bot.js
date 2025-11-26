@@ -7,7 +7,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8410509549:AAGA69J
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
-const RENDER_URL = process.env.RENDER_URL || 'https://tu-app.onrender.com';
+const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('🔧 Iniciando configuración del bot...');
 console.log('Token:', TELEGRAM_BOT_TOKEN ? '✅ Presente' : '❌ Faltante');
@@ -40,7 +40,7 @@ const botOptions = {
     }
 };
 
-console.log('🤖 Inicializando bot de Telegram con interfaz de botones...');
+console.log('🤖 Inicializando bot de Telegram...');
 
 try {
     const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, botOptions);
@@ -64,6 +64,17 @@ try {
         console.error('❌ Error obteniendo info del bot:', error);
     });
 
+    // Función para enviar notificaciones al canal/admin
+    async function sendNotification(message) {
+        try {
+            // Enviar al admin
+            await bot.sendMessage(ADMIN_ID, message, { parse_mode: 'Markdown' });
+            console.log('✅ Notificación enviada al admin');
+        } catch (error) {
+            console.error('❌ Error enviando notificación:', error);
+        }
+    }
+
     // =============================================
     // FUNCIONES AUXILIARES
     // =============================================
@@ -80,7 +91,10 @@ try {
                     ],
                     [
                         { text: '👤 MI ESTADO' },
-                        { text: '🌐 PLATAFORMA WEB' }
+                        { 
+                            text: '🌐 ABRIR WEBAPP',
+                            web_app: { url: RENDER_URL }
+                        }
                     ],
                     [
                         { text: '🆘 AYUDA' },
@@ -98,57 +112,7 @@ try {
                 inline_keyboard: [
                     [
                         { 
-                            text: '💳 ACTIVAR VIP', 
-                            url: 'https://t.me/Asche90' 
-                        }
-                    ],
-                    [
-                        { 
-                            text: '📋 VER BENEFICIOS', 
-                            callback_data: 'vip_benefits' 
-                        }
-                    ]
-                ]
-            }
-        };
-    }
-
-    // Función para crear teclado inline para web
-    function createWebInlineKeyboard() {
-        return {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { 
-                            text: '🌐 ACCEDER A LA PLATAFORMA', 
-                            url: RENDER_URL 
-                        }
-                    ],
-                    [
-                        { 
-                            text: '📱 ABRIR EN NAVEGADOR', 
-                            url: RENDER_URL 
-                        }
-                    ]
-                ]
-            }
-        };
-    }
-
-    // Función para crear teclado inline de contacto
-    function createContactInlineKeyboard() {
-        return {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { 
-                            text: '📞 CONTACTAR ADMIN', 
-                            url: 'https://t.me/Asche90' 
-                        }
-                    ],
-                    [
-                        { 
-                            text: '💬 CHAT DIRECTO', 
+                            text: '💳 CONTACTAR PARA VIP', 
                             url: 'https://t.me/Asche90' 
                         }
                     ]
@@ -265,8 +229,12 @@ Usa los botones de abajo para navegar por el sistema:
                 await handleUserStatus(chatId, userId);
                 break;
                 
-            case '🌐 PLATAFORMA WEB':
-                await handleWebPlatform(chatId);
+            case '🌐 ABRIR WEBAPP':
+                // El web_app ya maneja la apertura automática
+                await bot.sendMessage(chatId, 
+                    '🌐 *Redirigiendo a la WebApp...*\n\nSerás redirigido automáticamente a nuestra plataforma web profesional.',
+                    { parse_mode: 'Markdown' }
+                );
                 break;
                 
             case '🆘 AYUDA':
@@ -371,9 +339,6 @@ Usa los botones de abajo para navegar por el sistema:
                         [
                             { text: '🔄 ACTUALIZAR', callback_data: 'refresh_signals' },
                             { text: '💎 ACTIVAR VIP', url: 'https://t.me/Asche90' }
-                        ],
-                        [
-                            { text: '🌐 VER EN PLATAFORMA', url: RENDER_URL }
                         ]
                     ]
                 }
@@ -409,13 +374,15 @@ Usa los botones de abajo para navegar por el sistema:
 • ✅ Señales antes que los usuarios free
 
 💰 *INVERSIÓN:*
-$50 USD / mes
+5000 CUP / mes
 
 ⏰ *DURACIÓN:*
 30 días completos
 
-📊 *RESULTADOS:*
-+85% de señales ganadoras en promedio
+📞 *Para activar:*
+Contacta directamente a @Asche90 y menciona que quieres activar el plan VIP.
+
+¡No esperes más para potenciar tus ganancias! 🚀
         `;
 
         await bot.sendMessage(chatId, vipMessage, {
@@ -491,34 +458,6 @@ $50 USD / mes
         }
     }
 
-    // 🌐 PLATAFORMA WEB
-    async function handleWebPlatform(chatId) {
-        const webMessage = `
-🌐 *PLATAFORMA WEB QUANTUM TRADER*
-
-Accede a nuestra plataforma web para una experiencia completa de trading:
-
-📊 *CARACTERÍSTICAS:*
-• Dashboard en tiempo real
-• Gráficos y estadísticas avanzadas
-• Historial completo de señales
-• Gestión de tu cuenta
-• Alertas visuales
-• Panel de administración (para admins)
-
-🚀 *BENEFICIOS:*
-• Interfaz profesional y responsive
-• Acceso desde cualquier dispositivo
-• Navegación intuitiva
-• Actualizaciones en tiempo real
-        `;
-
-        await bot.sendMessage(chatId, webMessage, {
-            parse_mode: 'Markdown',
-            ...createWebInlineKeyboard()
-        });
-    }
-
     // 🆘 AYUDA
     async function handleHelp(chatId) {
         const helpMessage = `
@@ -529,7 +468,7 @@ Accede a nuestra plataforma web para una experiencia completa de trading:
 • *📊 VER SEÑALES* - Muestra las señales más recientes
 • *💎 PLAN VIP* - Información sobre el plan VIP
 • *👤 MI ESTADO* - Ver tu información y estado VIP
-• *🌐 PLATAFORMA WEB* - Acceder a la plataforma web
+• *🌐 ABRIR WEBAPP* - Abrir la plataforma web
 • *📞 CONTACTO* - Contactar al administrador
 
 *🔧 SOPORTE:*
@@ -578,8 +517,7 @@ Envía un mensaje directo al administrador con:
         `;
 
         await bot.sendMessage(chatId, contactMessage, {
-            parse_mode: 'Markdown',
-            ...createContactInlineKeyboard()
+            parse_mode: 'Markdown'
         });
     }
 
@@ -599,11 +537,6 @@ Envía un mensaje directo al administrador con:
 • Análisis personalizados
 • Señales antes que usuarios free
 
-*📈 MEJORES RESULTADOS:*
-• +85% tasa de acierto promedio
-• Gestión de riesgo profesional
-• Análisis técnico avanzado
-
 *💰 GARANTÍA:*
 Si no estás satisfecho, contáctanos para resolver cualquier issue.
         `;
@@ -615,29 +548,66 @@ Si no estás satisfecho, contáctanos para resolver cualquier issue.
     }
 
     // =============================================
-    // COMANDOS DE TEXTO LEGACY (por si acaso)
+    // SUSCRIPCIÓN A CAMBIOS EN SUPABASE PARA NOTIFICACIONES
     // =============================================
 
-    bot.onText(/\/help/, (msg) => {
-        const chatId = msg.chat.id;
-        handleHelp(chatId);
-    });
+    // Suscribirse a nuevas señales
+    supabase
+        .channel('signals-notifications')
+        .on('postgres_changes', 
+            { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'signals' 
+            }, 
+            async (payload) => {
+                console.log('🔔 Nueva señal para notificar:', payload.new);
+                
+                const signal = payload.new;
+                const signalMessage = `
+🎯 *NUEVA SEÑAL GENERADA*
 
-    bot.onText(/\/vip/, (msg) => {
-        const chatId = msg.chat.id;
-        handleVIPInfo(chatId);
-    });
+• ID: ${signal.id}
+• Activo: ${signal.asset}
+• Dirección: ${signal.direction === 'up' ? 'ALZA 🟢' : 'BAJA 🔴'}
+• Timeframe: ${signal.timeframe} minutos
+• Tipo: ${signal.is_free ? 'GRATIS 🆓' : 'VIP 💎'}
+                `;
+                
+                await sendNotification(signalMessage);
+            }
+        )
+        .subscribe();
 
-    bot.onText(/\/status/, (msg) => {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id.toString();
-        handleUserStatus(chatId, userId);
-    });
+    // Suscribirse a actualizaciones de señales (resultados)
+    supabase
+        .channel('signals-updates')
+        .on('postgres_changes', 
+            { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'signals' 
+            }, 
+            async (payload) => {
+                const signal = payload.new;
+                
+                // Solo notificar cuando cambia el estado a profit/loss
+                if (payload.old.status === 'pending' && (signal.status === 'profit' || signal.status === 'loss')) {
+                    console.log('🔔 Resultado de señal:', signal);
+                    
+                    const resultMessage = `
+🔄 *RESULTADO DE SEÑAL*
 
-    bot.onText(/\/web/, (msg) => {
-        const chatId = msg.chat.id;
-        handleWebPlatform(chatId);
-    });
+• ID: ${signal.id}
+• Activo: ${signal.asset}
+• Resultado: ${signal.status === 'profit' ? 'PROFIT ✅' : 'LOSS ❌'}
+                    `;
+                    
+                    await sendNotification(resultMessage);
+                }
+            }
+        )
+        .subscribe();
 
     console.log('✅ Todos los handlers del bot configurados');
     console.log('🚀 Bot con interfaz de botones listo para recibir mensajes...');
