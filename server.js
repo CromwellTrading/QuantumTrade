@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const TelegramBot = require('node-telegram-bot-api');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 // CONFIGURACIÓN
 // =============================================
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8410509549:AAGA69J7j6JV4bKzfFwheJT5TOw4f4x7b7Y';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
@@ -21,7 +19,7 @@ const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender
 console.log('🚀 Iniciando Quantum Signal Trader Pro...');
 
 // Verificar configuración
-if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
+if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('❌ ERROR: Faltan variables de entorno críticas');
     process.exit(1);
 }
@@ -32,51 +30,6 @@ if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 console.log('✅ Supabase inicializado');
-
-// =============================================
-// INICIALIZACIÓN DEL BOT DE TELEGRAM
-// =============================================
-
-console.log('🤖 Inicializando bot de Telegram...');
-
-let bot;
-
-try {
-    bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
-        polling: {
-            interval: 300,
-            autoStart: true,
-            params: {
-                timeout: 10
-            }
-        }
-    });
-    console.log('✅ Bot de Telegram creado exitosamente');
-
-    // Verificar conexión del bot
-    bot.getMe().then((me) => {
-        console.log(`✅ Bot conectado como: @${me.username}`);
-    }).catch((error) => {
-        console.error('❌ Error obteniendo info del bot:', error);
-    });
-
-} catch (error) {
-    console.error('❌ ERROR CRÍTICO al inicializar el bot:', error);
-    process.exit(1);
-}
-
-// =============================================
-// FUNCIÓN PARA ENVIAR NOTIFICACIONES
-// =============================================
-
-async function sendNotification(message) {
-    try {
-        await bot.sendMessage(ADMIN_ID, message, { parse_mode: 'Markdown' });
-        console.log('✅ Notificación enviada al admin');
-    } catch (error) {
-        console.error('❌ Error enviando notificación:', error);
-    }
-}
 
 // =============================================
 // CONFIGURACIÓN DEL SERVIDOR WEB
@@ -152,17 +105,6 @@ app.post('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
-        // Enviar notificación al admin
-        const signalMessage = `
-🎯 *SEÑAL ENVIADA DESDE WEBAPP*
-
-• Activo: ${asset}
-• Dirección: ${direction === 'up' ? 'ALZA 🟢' : 'BAJA 🔴'}
-• Timeframe: ${timeframe} minutos
-• ID: ${data[0].id}
-        `;
-        await sendNotification(signalMessage);
-
         res.status(200).json({ 
             success: true, 
             data,
@@ -193,15 +135,6 @@ app.put('/api/signals/:id', async (req, res) => {
             .select();
 
         if (error) throw error;
-
-        // Enviar notificación del resultado
-        const resultMessage = `
-🔄 *RESULTADO ACTUALIZADO DESDE WEBAPP*
-
-• ID: ${id}
-• Resultado: ${status === 'profit' ? 'PROFIT ✅' : 'LOSS ❌'}
-        `;
-        await sendNotification(resultMessage);
 
         res.status(200).json({ 
             success: true, 
@@ -326,9 +259,6 @@ app.post('/api/notify', async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
-        // Enviar notificación
-        await sendNotification('⏰ *ALERTA: Sesión de trading en 10 minutos*');
-
         res.status(200).json({ 
             success: true, 
             message: 'Notificación de 10 minutos enviada' 
@@ -348,9 +278,6 @@ app.post('/api/sessions/start', async (req, res) => {
         if (userId !== ADMIN_ID) {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
-
-        // Enviar notificación
-        await sendNotification('🚀 *SESIÓN DE TRADING INICIADA*');
 
         res.status(200).json({ 
             success: true,
@@ -372,9 +299,6 @@ app.post('/api/sessions/end', async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
-        // Enviar notificación
-        await sendNotification('🛑 *SESIÓN DE TRADING FINALIZADA*');
-
         res.status(200).json({ 
             success: true,
             message: 'Sesión finalizada correctamente'
@@ -391,7 +315,6 @@ app.post('/api/sessions/end', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Servidor web ejecutándose en puerto ${PORT}`);
-    console.log(`✅ Bot de Telegram inicializado y escuchando`);
     console.log(`📱 Health check: ${RENDER_URL}/health`);
     console.log(`🌐 App principal: ${RENDER_URL}`);
     console.log('🚀 Sistema completamente operativo');
