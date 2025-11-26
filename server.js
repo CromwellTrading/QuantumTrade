@@ -16,11 +16,6 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 
 console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
-console.log('📋 Variables de entorno:');
-console.log('- SUPABASE_URL:', SUPABASE_URL ? '✅ PRESENTE' : '❌ FALTANTE');
-console.log('- SUPABASE_KEY:', SUPABASE_KEY ? '✅ PRESENTE' : '❌ FALTANTE');
-console.log('- ADMIN_ID:', ADMIN_ID);
-console.log('- PORT:', PORT);
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -32,14 +27,9 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // INICIALIZACIÓN DE SUPABASE
 // =============================================
 
-console.log('🔄 Inicializando Supabase...');
-try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    console.log('✅ Supabase inicializado correctamente');
-} catch (error) {
-    console.error('❌ Error inicializando Supabase:', error);
-    process.exit(1);
-}
+console.log('🔄 Conectando con la base de datos...');
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log('✅ Conexión a Supabase establecida');
 
 // =============================================
 // CONFIGURACIÓN DEL SERVIDOR WEB
@@ -52,56 +42,198 @@ app.use(express.static(path.join(__dirname)));
 
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
-    console.log('📄 Petición recibida para servir index.html');
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Health check
 app.get('/health', (req, res) => {
-    console.log('🔍 Health check recibido');
     res.status(200).json({ 
         status: 'OK', 
         message: 'Quantum Signal Trader is running',
-        timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        timestamp: new Date().toISOString()
     });
 });
 
-// Endpoint para verificar usuario admin
-app.get('/api/check-admin/:userId', async (req, res) => {
-    console.log('🔍 Verificando admin para usuario:', req.params.userId);
+// Endpoint para obtener información del usuario
+app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+        
+        // Verificar si es admin
         const isAdmin = userId === ADMIN_ID;
         
-        console.log(`✅ Resultado verificación admin: ${isAdmin}`);
-        res.json({ isAdmin });
+        // Obtener información del usuario de Supabase
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('telegram_id', userId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        const userData = {
+            telegram_id: userId,
+            is_admin: isAdmin,
+            is_vip: user?.is_vip || false,
+            vip_expires_at: user?.vip_expires_at || null,
+            username: user?.username || null,
+            first_name: user?.first_name || null
+        };
+
+        res.json({ success: true, data: userData });
     } catch (error) {
-        console.error('❌ Error verificando admin:', error);
+        console.error('Error obteniendo usuario:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para obtener todos los usuarios
+app.get('/api/users', async (req, res) => {
+    try {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        console.error('Error obteniendo usuarios:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para buscar usuario por ID
+app.get('/api/users/search/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('telegram_id', telegramId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        res.status(200).json({ 
+            success: true, 
+            data: user,
+            found: !!user
+        });
+    } catch (error) {
+        console.error('Error buscando usuario:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para hacer usuario VIP
+app.post('/api/users/vip', async (req, res) => {
+    try {
+        const { telegramId, userId, days = 30 } = req.body;
+
+        // Verificar que el usuario es admin
+        if (userId !== ADMIN_ID) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const vipExpiresAt = new Date();
+        vipExpiresAt.setDate(vipExpiresAt.getDate() + parseInt(days));
+
+        // Verificar si el usuario existe
+        const { data: existingUser, error: findError } = await supabase
+            .from('users')
+            .select('telegram_id')
+            .eq('telegram_id', telegramId)
+            .single();
+
+        let result;
+        if (findError && findError.code === 'PGRST116') {
+            // Usuario no existe, crear uno nuevo
+            result = await supabase
+                .from('users')
+                .insert({
+                    telegram_id: telegramId,
+                    is_vip: true,
+                    vip_expires_at: vipExpiresAt.toISOString(),
+                    created_at: new Date().toISOString()
+                })
+                .select();
+        } else {
+            // Usuario existe, actualizar
+            result = await supabase
+                .from('users')
+                .update({ 
+                    is_vip: true,
+                    vip_expires_at: vipExpiresAt.toISOString()
+                })
+                .eq('telegram_id', telegramId)
+                .select();
+        }
+
+        if (result.error) throw result.error;
+
+        res.status(200).json({ 
+            success: true, 
+            data: result.data,
+            message: `Usuario ${telegramId} ahora es VIP por ${days} días`
+        });
+    } catch (error) {
+        console.error('Error haciendo usuario VIP:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para quitar VIP
+app.post('/api/users/remove-vip', async (req, res) => {
+    try {
+        const { telegramId, userId } = req.body;
+
+        // Verificar que el usuario es admin
+        if (userId !== ADMIN_ID) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const { data, error } = await supabase
+            .from('users')
+            .update({ 
+                is_vip: false,
+                vip_expires_at: null
+            })
+            .eq('telegram_id', telegramId)
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json({ 
+            success: true, 
+            data,
+            message: `Usuario ${telegramId} ya no es VIP`
+        });
+    } catch (error) {
+        console.error('Error quitando VIP:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // Endpoint para enviar señales (solo admin)
 app.post('/api/signals', async (req, res) => {
-    console.log('📨 Recibida solicitud para enviar señal:', req.body);
-    
     try {
         const { asset, timeframe, direction, userId } = req.body;
 
-        console.log(`🔍 Verificando permisos de admin para: ${userId}`);
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
-            console.log('❌ Usuario no es admin:', userId);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
         if (!asset || !timeframe || !direction) {
-            console.log('❌ Faltan campos requeridos');
             return res.status(400).json({ error: 'Faltan campos requeridos' });
         }
-
-        console.log('✅ Datos válidos, insertando señal en Supabase...');
 
         // Calcular fecha de expiración
         const expiresAt = new Date();
@@ -121,27 +253,21 @@ app.post('/api/signals', async (req, res) => {
             ])
             .select();
 
-        if (error) {
-            console.error('❌ Error insertando señal en Supabase:', error);
-            throw error;
-        }
+        if (error) throw error;
 
-        console.log('✅ Señal insertada correctamente en Supabase, ID:', data[0].id);
         res.status(200).json({ 
             success: true, 
             data,
             message: 'Señal enviada correctamente'
         });
     } catch (error) {
-        console.error('❌ Error enviando señal:', error);
+        console.error('Error enviando señal:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // Endpoint para actualizar estado de una señal (solo admin)
 app.put('/api/signals/:id', async (req, res) => {
-    console.log('📨 Recibida solicitud para actualizar señal:', req.params.id, req.body);
-    
     try {
         const { id } = req.params;
         const { status, userId } = req.body;
@@ -173,7 +299,6 @@ app.put('/api/signals/:id', async (req, res) => {
 
 // Endpoint para obtener señales
 app.get('/api/signals', async (req, res) => {
-    console.log('📨 Solicitando lista de señales');
     try {
         const { data, error } = await supabase
             .from('signals')
@@ -183,7 +308,6 @@ app.get('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
-        console.log(`✅ Señales obtenidas: ${data?.length || 0}`);
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Error obteniendo señales:', error);
@@ -191,97 +315,8 @@ app.get('/api/signals', async (req, res) => {
     }
 });
 
-// Endpoint para obtener usuarios
-app.get('/api/users', async (req, res) => {
-    console.log('📨 Solicitando lista de usuarios');
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        console.log(`✅ Usuarios obtenidos: ${data?.length || 0}`);
-        res.status(200).json({ success: true, data });
-    } catch (error) {
-        console.error('Error obteniendo usuarios:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint para hacer usuario VIP
-app.post('/api/users/vip', async (req, res) => {
-    console.log('📨 Solicitando hacer usuario VIP:', req.body);
-    try {
-        const { telegramId, userId } = req.body;
-
-        // Verificar que el usuario es admin
-        if (userId !== ADMIN_ID) {
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        const vipExpiresAt = new Date();
-        vipExpiresAt.setDate(vipExpiresAt.getDate() + 30);
-
-        const { data, error } = await supabase
-            .from('users')
-            .update({ 
-                is_vip: true,
-                vip_expires_at: vipExpiresAt.toISOString()
-            })
-            .eq('telegram_id', telegramId)
-            .select();
-
-        if (error) throw error;
-
-        res.status(200).json({ 
-            success: true, 
-            data,
-            message: `Usuario ${telegramId} ahora es VIP`
-        });
-    } catch (error) {
-        console.error('Error haciendo usuario VIP:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint para quitar VIP
-app.post('/api/users/remove-vip', async (req, res) => {
-    console.log('📨 Solicitando quitar VIP:', req.body);
-    try {
-        const { telegramId, userId } = req.body;
-
-        // Verificar que el usuario es admin
-        if (userId !== ADMIN_ID) {
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        const { data, error } = await supabase
-            .from('users')
-            .update({ 
-                is_vip: false,
-                vip_expires_at: null
-            })
-            .eq('telegram_id', telegramId)
-            .select();
-
-        if (error) throw error;
-
-        res.status(200).json({ 
-            success: true, 
-            data,
-            message: `Usuario ${telegramId} ya no es VIP`
-        });
-    } catch (error) {
-        console.error('Error quitando VIP:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 // Endpoint para notificar a los clientes (10 minutos)
 app.post('/api/notify', async (req, res) => {
-    console.log('📨 Solicitando notificación de 10 minutos:', req.body);
     try {
         const { userId } = req.body;
 
@@ -302,7 +337,6 @@ app.post('/api/notify', async (req, res) => {
 
 // Endpoint para iniciar sesión
 app.post('/api/sessions/start', async (req, res) => {
-    console.log('📨 Solicitando inicio de sesión:', req.body);
     try {
         const { userId } = req.body;
 
@@ -323,7 +357,6 @@ app.post('/api/sessions/start', async (req, res) => {
 
 // Endpoint para finalizar sesión
 app.post('/api/sessions/end', async (req, res) => {
-    console.log('📨 Solicitando fin de sesión:', req.body);
     try {
         const { userId } = req.body;
 
@@ -348,8 +381,6 @@ app.post('/api/sessions/end', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Servidor web ejecutándose en puerto ${PORT}`);
-    console.log(`🌐 Health check disponible en: http://localhost:${PORT}/health`);
-    console.log(`📊 API disponible en: http://localhost:${PORT}/api`);
     console.log('🚀 Servidor completamente operativo');
 });
 
