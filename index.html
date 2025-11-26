@@ -1141,7 +1141,7 @@
             position: fixed;
             top: 10px;
             right: 10px;
-            background: rgba(255, 0, 0, 0.8);
+            background: rgba(255, 0, 0, 0.9);
             color: white;
             padding: 10px;
             z-index: 10000;
@@ -1149,6 +1149,7 @@
             border-radius: 5px;
             max-width: 300px;
             word-break: break-all;
+            border: 2px solid white;
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1426,6 +1427,86 @@
                 particlesContainer.appendChild(particle);
             }
         }
+
+        // Función para parsear datos de Telegram Web App
+        function parseTelegramWebAppData() {
+            console.log('🔍 [TELEGRAM] Iniciando parseo de datos de Telegram Web App');
+            
+            // Obtener el fragmento de URL (después del #)
+            const fragment = window.location.hash.substring(1);
+            console.log('🔍 [TELEGRAM] Fragmento URL:', fragment);
+            
+            if (!fragment) {
+                console.log('❌ [TELEGRAM] No hay fragmento en la URL');
+                return null;
+            }
+            
+            try {
+                // Parsear los parámetros del fragmento
+                const params = new URLSearchParams(fragment);
+                const tgWebAppData = params.get('tgWebAppData');
+                
+                console.log('🔍 [TELEGRAM] tgWebAppData:', tgWebAppData);
+                
+                if (!tgWebAppData) {
+                    console.log('❌ [TELEGRAM] No se encontró tgWebAppData');
+                    return null;
+                }
+                
+                // Parsear tgWebAppData
+                const webAppParams = new URLSearchParams(tgWebAppData);
+                const userString = webAppParams.get('user');
+                
+                console.log('🔍 [TELEGRAM] user string:', userString);
+                
+                if (!userString) {
+                    console.log('❌ [TELEGRAM] No se encontró user en tgWebAppData');
+                    return null;
+                }
+                
+                // Decodificar y parsear el objeto user
+                const decodedUserString = decodeURIComponent(userString);
+                console.log('🔍 [TELEGRAM] user string decodificado:', decodedUserString);
+                
+                const userData = JSON.parse(decodedUserString);
+                console.log('✅ [TELEGRAM] Datos de usuario parseados:', userData);
+                
+                return userData;
+            } catch (error) {
+                console.error('❌ [TELEGRAM] Error parseando datos de Telegram:', error);
+                return null;
+            }
+        }
+
+        // Función para obtener userId de múltiples fuentes
+        function getUserIdFromMultipleSources() {
+            console.log('🔍 [USER_ID] Buscando ID de usuario desde múltiples fuentes');
+            
+            // 1. Intentar desde Telegram Web App
+            const telegramData = parseTelegramWebAppData();
+            if (telegramData && telegramData.id) {
+                console.log('✅ [USER_ID] ID obtenido de Telegram Web App:', telegramData.id);
+                return telegramData.id.toString();
+            }
+            
+            // 2. Intentar desde parámetro tgid en query string
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgId = urlParams.get('tgid');
+            if (tgId) {
+                console.log('✅ [USER_ID] ID obtenido de parámetro tgid:', tgId);
+                return tgId;
+            }
+            
+            // 3. Intentar desde localStorage
+            const storedId = localStorage.getItem('tg_user_id');
+            if (storedId) {
+                console.log('✅ [USER_ID] ID obtenido de localStorage:', storedId);
+                return storedId;
+            }
+            
+            console.log('❌ [USER_ID] No se pudo obtener ID de ninguna fuente');
+            return null;
+        }
         
         // Clase principal del sistema
         class SignalManager {
@@ -1441,6 +1522,9 @@
                 this.currentUserId = null;
                 this.userData = null;
                 this.searchedUser = null;
+                this.telegramUserData = null;
+                
+                console.log('🚀 [APP] Inicializando SignalManager');
                 
                 // Elementos del DOM
                 this.initializeDOMElements();
@@ -1448,79 +1532,71 @@
                 this.loadFromLocalStorage();
                 this.updateStats();
                 this.initChart();
-                this.detectUserFromURL();
+                this.detectUserFromMultipleSources();
                 this.setupRealtimeSubscription();
                 this.checkServerConnection();
                 
                 setInterval(() => this.checkServerConnection(), 30000);
             }
             
-            // Detectar usuario desde parámetro URL
-            detectUserFromURL() {
-                console.log('🔍 [CLIENTE] Iniciando detección de usuario desde URL');
+            // Detectar usuario desde múltiples fuentes
+            detectUserFromMultipleSources() {
+                console.log('🔍 [APP] Iniciando detección de usuario desde múltiples fuentes');
                 
                 try {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const tgId = urlParams.get('tgid');
+                    // Obtener datos de Telegram Web App
+                    this.telegramUserData = parseTelegramWebAppData();
+                    console.log('🔍 [APP] Datos de Telegram:', this.telegramUserData);
                     
-                    console.log('🔍 [CLIENTE] URL completa:', window.location.href);
-                    console.log('🔍 [CLIENTE] Parámetros de URL:', Object.fromEntries(urlParams));
-                    console.log('🔍 [CLIENTE] tgid encontrado:', tgId);
-
-                    if (tgId) {
-                        console.log('✅ [CLIENTE] ID detectado desde URL:', tgId);
-                        this.currentUserId = tgId;
+                    // Obtener ID de usuario
+                    this.currentUserId = getUserIdFromMultipleSources();
+                    
+                    console.log('🔍 [APP] UserID final:', this.currentUserId);
+                    
+                    if (this.currentUserId) {
+                        console.log('✅ [APP] ID detectado:', this.currentUserId);
                         localStorage.setItem('tg_user_id', this.currentUserId);
                         
                         // Detección inmediata de admin
                         if (this.currentUserId === ADMIN_ID) {
                             this.isAdmin = true;
-                            console.log('🎯 [CLIENTE] Usuario identificado como ADMIN');
+                            console.log('🎯 [APP] Usuario identificado como ADMIN');
                         }
                         
                         this.loadUserData();
                     } else {
-                        // Si no hay ID en URL, intentar desde localStorage
-                        const storedId = localStorage.getItem('tg_user_id');
-                        console.log('📁 [CLIENTE] ID cargado desde localStorage:', storedId);
-                        if (storedId) {
-                            this.currentUserId = storedId;
-                            console.log('📁 [CLIENTE] ID cargado desde localStorage:', storedId);
-                            this.loadUserData();
-                        } else {
-                            console.log('❌ [CLIENTE] No se pudo detectar ID de usuario');
-                            this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
-                            this.updateUserStatus();
-                        }
+                        console.log('❌ [APP] No se pudo detectar ID de usuario');
+                        this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                        this.updateUserStatus();
                     }
                     
                     this.updateUI();
                 } catch (error) {
-                    console.error('❌ [CLIENTE] Error detectando usuario desde URL:', error);
+                    console.error('❌ [APP] Error detectando usuario:', error);
                     this.currentUserId = 'error_' + Math.random().toString(36).substr(2, 9);
                 }
             }
             
             async loadUserData() {
                 if (!this.currentUserId) {
-                    console.log('❌ [CLIENTE] No hay currentUserId para cargar datos');
+                    console.log('❌ [APP] No hay currentUserId para cargar datos');
                     return;
                 }
                 
                 try {
-                    console.log('🔍 [CLIENTE] Cargando datos del usuario:', this.currentUserId);
+                    console.log('🔍 [APP] Cargando datos del usuario:', this.currentUserId);
                     const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
-                    console.log('🔍 [CLIENTE] URL de API:', apiUrl);
+                    console.log('🔍 [APP] URL de API:', apiUrl);
                     
                     const response = await fetch(apiUrl);
-                    console.log('🔍 [CLIENTE] Respuesta de API recibida, status:', response.status);
+                    console.log('🔍 [APP] Respuesta de API recibida, status:', response.status);
                     
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
                     const result = await response.json();
-                    console.log('🔍 [CLIENTE] Resultado de API:', result);
+                    console.log('🔍 [APP] Resultado de API:', result);
                     
                     if (result.success) {
                         this.userData = result.data;
@@ -1532,25 +1608,27 @@
                             const expiryDate = new Date(this.userData.vip_expires_at);
                             if (expiryDate < new Date()) {
                                 this.isVIP = false;
-                                console.log('⚠️ [CLIENTE] VIP expirado');
+                                console.log('⚠️ [APP] VIP expirado');
                             }
                         }
                         
-                        console.log('✅ [CLIENTE] Datos de usuario cargados:', {
+                        console.log('✅ [APP] Datos de usuario cargados:', {
                             id: this.currentUserId,
                             admin: this.isAdmin,
                             vip: this.isVIP
                         });
                         this.updateUI();
                     } else {
-                        console.error('❌ [CLIENTE] Error en respuesta del servidor:', result);
+                        console.error('❌ [APP] Error en respuesta del servidor:', result);
                     }
                 } catch (error) {
-                    console.error('❌ [CLIENTE] Error cargando datos del usuario:', error);
+                    console.error('❌ [APP] Error cargando datos del usuario:', error);
                 }
             }
             
             updateUI() {
+                console.log('🔄 [APP] Actualizando UI con UserID:', this.currentUserId);
+                
                 // Mostrar el ID del usuario
                 const userIdDisplay = document.getElementById('userIdDisplay');
                 if (userIdDisplay) {
@@ -1587,10 +1665,13 @@
                     this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP';
                     this.vipAccess.classList.remove('active');
                 }
+                
+                // Actualizar panel de debug
+                this.updateDebugPanel();
             }
 
             initializeDOMElements() {
-                console.log('🏗️ [CLIENTE] Inicializando elementos DOM');
+                console.log('🏗️ [APP] Inicializando elementos DOM');
                 
                 this.sendSignalBtn = document.getElementById('sendSignal');
                 this.signalsContainer = document.getElementById('signalsContainer');
@@ -1636,21 +1717,39 @@
                 this.operationsTable = document.getElementById('operationsTable');
                 this.performanceChart = null;
                 
+                // Crear panel de debug
+                this.createDebugPanel();
+            }
+            
+            createDebugPanel() {
                 // Agregar un elemento de debug visible
-                const debugDiv = document.createElement('div');
-                debugDiv.id = 'debugInfo';
-                debugDiv.style.cssText = 'position:fixed; top:10px; right:10px; background:red; color:white; padding:10px; z-index:10000; font-size:12px;';
-                document.body.appendChild(debugDiv);
+                let debugDiv = document.getElementById('debugInfo');
+                if (!debugDiv) {
+                    debugDiv = document.createElement('div');
+                    debugDiv.id = 'debugInfo';
+                    debugDiv.style.cssText = 'position:fixed; top:10px; right:10px; background:rgba(255,0,0,0.9); color:white; padding:10px; z-index:10000; font-size:12px; border-radius:5px; max-width:300px; word-break: break-all;';
+                    document.body.appendChild(debugDiv);
+                }
+                this.debugDiv = debugDiv;
+                this.updateDebugPanel();
+            }
+            
+            updateDebugPanel() {
+                if (!this.debugDiv) return;
                 
-                // Actualizar debug info
-                setTimeout(() => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    debugDiv.innerHTML = `
-                        URL: ${window.location.href}<br>
-                        tgid: ${urlParams.get('tgid') || 'NO'}<br>
-                        UserID: ${this.currentUserId || 'NO'}
-                    `;
-                }, 1000);
+                const urlParams = new URLSearchParams(window.location.search);
+                const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
+                
+                this.debugDiv.innerHTML = `
+                    <strong>🔍 DEBUG INFO</strong><br>
+                    URL: ${window.location.href.substring(0, 50)}...<br>
+                    tgid: ${urlParams.get('tgid') || 'NO'}<br>
+                    UserID: ${this.currentUserId || 'NO'}<br>
+                    Telegram Data: ${this.telegramUserData ? '✅' : '❌'}<br>
+                    isAdmin: ${this.isAdmin}<br>
+                    isVIP: ${this.isVIP}<br>
+                    Fragment: ${window.location.hash ? '✅' : '❌'}
+                `;
             }
             
             async checkServerConnection() {
@@ -2709,6 +2808,7 @@
         // Inicializar la aplicación cuando el DOM esté listo
         let signalManager;
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
             createParticles();
             
             signalManager = new SignalManager();
@@ -2736,23 +2836,25 @@
         console.log('=== 🐛 DEBUG SCRIPT INICIADO ===');
         console.log('URL completa:', window.location.href);
         console.log('Parámetros URL:', Object.fromEntries(new URLSearchParams(window.location.search)));
+        console.log('Fragmento URL:', window.location.hash);
         console.log('UserAgent:', navigator.userAgent);
         console.log('Plataforma:', navigator.platform);
 
         // Probar la API directamente
         async function testAPI() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tgid = urlParams.get('tgid');
+            const userId = getUserIdFromMultipleSources();
             
-            if (tgid) {
-                console.log('🔍 TEST: Probando API con tgid:', tgid);
+            if (userId) {
+                console.log('🔍 TEST: Probando API con userId:', userId);
                 try {
-                    const response = await fetch(`/api/user/${tgid}`);
+                    const response = await fetch(`/api/user/${userId}`);
                     const result = await response.json();
                     console.log('🔍 TEST: Respuesta API:', result);
                 } catch (error) {
                     console.error('🔍 TEST: Error API:', error);
                 }
+            } else {
+                console.log('❌ TEST: No se pudo obtener userId para testing');
             }
         }
 
