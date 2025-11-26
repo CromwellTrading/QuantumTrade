@@ -82,6 +82,18 @@
             backdrop-filter: blur(10px);
         }
 
+        .user-id-display {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 8px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 5px;
@@ -1114,6 +1126,14 @@
             .search-container {
                 flex-direction: column;
             }
+            
+            .user-id-display {
+                position: relative;
+                top: 0;
+                left: 0;
+                margin-bottom: 10px;
+                text-align: center;
+            }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1128,8 +1148,10 @@
     <div class="container">
         <header>
             <div>
+                <!-- Display del ID del usuario -->
+                <div id="userIdDisplay" class="user-id-display">ID: Cargando...</div>
                 <h1>QUANTUM SIGNAL TRADER PRO</h1>
-                <p class="header-subtitle">Sistema Avanzado de Señales en Tiempo Real</p>
+                <p class="header-subtitle">Sistema de Señales para Opciones Binarias</p>
             </div>
             <div class="header-controls">
                 <button class="header-btn active" id="showSignals"><i class="fas fa-broadcast-tower"></i> Señales</button>
@@ -1336,7 +1358,7 @@
             </p>
             <div style="text-align: center; margin: 25px 0;">
                 <a href="https://t.me/Asche90" target="_blank" style="display: inline-block; background: linear-gradient(90deg, var(--vip), #ff9900); color: var(--dark); padding: 14px 30px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all 0.3s ease; font-size: 1.1rem;">
-                    <i class="fab fa-telegram"></i> Contactar a @Asche90
+                    <i class="fab fa-telegram"></i> Contactar al administrador
                 </a>
             </div>
             <p style="text-align: center; margin: 15px 0; color: var(--text-secondary); font-size: 0.9rem;">
@@ -1434,16 +1456,30 @@
                     }
                     
                     if (tgId) {
-                        this.currentUserId = tgId;
-                        localStorage.setItem('tg_user_id', tgId);
+                        this.currentUserId = tgId.toString();
+                        localStorage.setItem('tg_user_id', this.currentUserId);
+                        
+                        // Detección inmediata de admin basada en ID
+                        if (this.currentUserId === ADMIN_ID) {
+                            this.isAdmin = true;
+                            console.log('Admin detectado por ID');
+                        }
+                        
                         await this.loadUserData();
                     } else {
                         console.log('No se pudo detectar el ID de usuario');
+                        // Generar un ID temporal para usuarios no autenticados
+                        this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
                         this.updateUserStatus();
                     }
                 } catch (error) {
                     console.error('Error detectando usuario:', error);
+                    // Generar ID temporal en caso de error
+                    this.currentUserId = 'error_' + Math.random().toString(36).substr(2, 9);
                 }
+                
+                // Actualizar la UI inmediatamente después de detectar el usuario
+                this.updateUI();
             }
             
             async loadUserData() {
@@ -1455,7 +1491,7 @@
                     
                     if (result.success) {
                         this.userData = result.data;
-                        this.isAdmin = result.data.is_admin;
+                        this.isAdmin = result.data.is_admin || this.isAdmin; // Mantener detección por ID
                         this.isVIP = result.data.is_vip;
                         
                         // Verificar si el VIP ha expirado
@@ -1475,6 +1511,17 @@
             }
             
             updateUI() {
+                // Mostrar el ID del usuario en la esquina superior izquierda
+                const userIdDisplay = document.getElementById('userIdDisplay');
+                if (userIdDisplay) {
+                    userIdDisplay.textContent = `ID: ${this.currentUserId}`;
+                    if (this.isAdmin) {
+                        userIdDisplay.innerHTML += ' <span style="color: var(--primary);">(Admin)</span>';
+                    } else if (this.isVIP) {
+                        userIdDisplay.innerHTML += ' <span style="color: var(--vip);">(VIP)</span>';
+                    }
+                }
+
                 // Actualizar estado del usuario
                 this.updateUserStatus();
                 
