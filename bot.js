@@ -42,13 +42,15 @@ console.log('🚀 Inicializando bot de Telegram...');
 
 let bot;
 try {
+    // Configuración mejorada para evitar conflictos
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
         polling: {
-            interval: 1000,
-            timeout: 10,
+            interval: 3000, // Aumentado a 3 segundos
+            timeout: 30,
             autoStart: true,
             params: {
-                timeout: 60
+                timeout: 60,
+                limit: 100
             }
         }
     });
@@ -62,7 +64,7 @@ try {
 // FUNCIONES AUXILIARES
 // =============================================
 
-// Función para crear teclado principal mejorado
+// Función para crear teclado principal
 function createMainKeyboard() {
     return {
         reply_markup: {
@@ -81,20 +83,18 @@ function createVIPInlineKeyboard() {
     return {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '💬 CONTACTAR ADMINISTRADOR', url: 'https://t.me/Asche90' }],
-                [{ text: '📋 VER BENEFICIOS', callback_data: 'vip_benefits' }]
+                [{ text: '💬 CONTACTAR ADMINISTRADOR', url: 'https://t.me/Asche90' }]
             ]
         }
     };
 }
 
-// Función para crear teclado inline para WebApp
+// Función para crear teclado inline para WebApp (SOLO UN BOTÓN)
 function createWebAppInlineKeyboard() {
     return {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🚀 ACCEDER A LA PLATAFORMA', web_app: { url: RENDER_URL } }],
-                [{ text: '📱 ABRIR EN NAVEGADOR', url: RENDER_URL }]
+                [{ text: '🚀 ACCEDER A LA PLATAFORMA', web_app: { url: RENDER_URL } }]
             ]
         }
     };
@@ -109,7 +109,11 @@ async function getUserStatus(userId) {
             .eq('telegram_id', userId)
             .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error en getUserStatus:', error);
+            return null;
+        }
+        
         return user;
     } catch (error) {
         console.error('Error obteniendo usuario:', error);
@@ -124,8 +128,10 @@ async function sendNotification(chatId, message, options = {}) {
             parse_mode: 'Markdown', 
             ...options 
         });
+        return true;
     } catch (error) {
-        console.error('Error enviando notificación:', error);
+        console.error('Error enviando notificación:', error.message);
+        return false;
     }
 }
 
@@ -150,12 +156,17 @@ bot.getMe().then((me) => {
 // MANEJADORES DE EVENTOS
 // =============================================
 
-// Manejar errores
+// Manejar errores de polling de manera más específica
 bot.on('polling_error', (error) => {
-    console.error('❌ Error de polling:', error.message);
+    if (error.code === 409) {
+        console.log('⚠️  Conflicto de polling detectado. Verificando instancias...');
+        // No salir del proceso, solo loguear el error
+    } else {
+        console.error('❌ Error de polling:', error.message);
+    }
 });
 
-// COMANDO /start - MENÚ PRINCIPAL MEJORADO
+// COMANDO /start - MENÚ PRINCIPAL
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id.toString();
@@ -178,7 +189,9 @@ bot.onText(/\/start/, async (msg) => {
                 ignoreDuplicates: false 
             });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error guardando usuario:', error);
+        }
 
         const welcomeMessage = `
 🤖 *Quantum Signal Trader*
@@ -186,11 +199,6 @@ bot.onText(/\/start/, async (msg) => {
 ¡Hola *${userName}*! 
 
 Este bot envía señales de trading para opciones binarias.
-
-*Funcionalidades:*
-• Señales en tiempo real
-• Plataforma web integrada
-• Plan VIP disponible
 
 *Usa los botones para navegar:* 👇
         `;
@@ -212,15 +220,8 @@ bot.onText(/\/estado/, async (msg) => {
 
 🟢 *Sistema Operativo*
 
-📊 *Métricas:*
-• Bot: Conectado
-• Base de datos: Sincronizada
-• Servidor Web: Respondiendo
-
 ⏰ *Última actualización:*
-${new Date().toLocaleString('es-ES', { 
-    timeZone: 'America/Havana'
-})}
+${new Date().toLocaleString('es-ES')}
     `;
 
     await sendNotification(chatId, statusMessage);
@@ -235,7 +236,7 @@ bot.on('message', async (msg) => {
     const userId = msg.from.id.toString();
     const userName = msg.from.first_name || 'Usuario';
 
-    console.log(`📨 Interacción de ${userName}: ${messageText}`);
+    console.log(`📨 Mensaje de ${userName} (${userId}): ${messageText}`);
 
     try {
         switch (messageText) {
@@ -288,7 +289,7 @@ bot.on('callback_query', async (callbackQuery) => {
     const data = callbackQuery.data;
     const userId = callbackQuery.from.id.toString();
 
-    console.log(`🔘 Callback recibido: ${data}`);
+    console.log(`🔘 Callback de ${userId}: ${data}`);
 
     try {
         switch (data) {
@@ -318,10 +319,10 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 
 // =============================================
-// FUNCIONES DE MANEJO MEJORADAS
+// FUNCIONES DE MANEJO
 // =============================================
 
-// 🌐 PLATAFORMA WEB MEJORADA
+// 🌐 PLATAFORMA WEB
 async function handleWebApp(chatId) {
     const webAppMessage = `
 🌐 *Plataforma Web Quantum Trader*
@@ -329,8 +330,8 @@ async function handleWebApp(chatId) {
 Accede a nuestra plataforma web para:
 
 • Ver señales en tiempo real
-• Historial completo de operaciones
-• Gestión de tu cuenta
+• Historial completo
+• Gestión de cuenta
 
 *Haz clic para acceder:* 👇
     `;
@@ -338,7 +339,7 @@ Accede a nuestra plataforma web para:
     await sendNotification(chatId, webAppMessage, createWebAppInlineKeyboard());
 }
 
-// 📈 SEÑALES MEJORADAS
+// 📈 SEÑALES
 async function handleViewSignals(chatId, userId) {
     try {
         const { data: signals, error } = await supabase
@@ -352,7 +353,7 @@ async function handleViewSignals(chatId, userId) {
         let signalsMessage = `📊 *Señales Recientes*\n\n`;
 
         if (signals && signals.length > 0) {
-            signals.forEach((signal, index) => {
+            signals.forEach((signal) => {
                 const directionEmoji = signal.direction === 'up' ? '🟢' : '🔴';
                 const directionText = signal.direction === 'up' ? 'ALZA' : 'BAJA';
                 const statusEmoji = signal.status === 'profit' ? '💰' : 
@@ -369,11 +370,10 @@ async function handleViewSignals(chatId, userId) {
                 signalsMessage += `━━━━━━━━━━━━━━━━━━━━\n\n`;
             });
         } else {
-            signalsMessage += '*No hay señales activas en este momento.*\n\n';
-            signalsMessage += 'Nuestro equipo está monitoreando los mercados.\n\n';
+            signalsMessage += '*No hay señales activas.*\n';
         }
 
-        signalsMessage += `💎 *¿Quieres acceso a todas las señales?*\nActiva tu membresía VIP.`;
+        signalsMessage += `💎 *¿Quieres acceso completo?*\nActiva tu membresía VIP.`;
 
         const inlineKeyboard = {
             reply_markup: {
@@ -394,13 +394,13 @@ async function handleViewSignals(chatId, userId) {
     } catch (error) {
         console.error('Error obteniendo señales:', error);
         await sendNotification(chatId, 
-            '⚠️ Error al cargar señales. Intenta más tarde.',
+            '⚠️ Error al cargar señales.',
             createMainKeyboard()
         );
     }
 }
 
-// 💎 PLAN VIP MEJORADO
+// 💎 PLAN VIP
 async function handleVIPInfo(chatId) {
     const vipMessage = `
 💎 *Plan VIP Quantum Trader*
@@ -419,22 +419,17 @@ async function handleVIPInfo(chatId) {
     await sendNotification(chatId, vipMessage, createVIPInlineKeyboard());
 }
 
-// 💎 BENEFICIOS VIP DETALLADOS
+// 💎 BENEFICIOS VIP
 async function handleVIPBenefits(chatId) {
     const benefitsMessage = `
 💎 *Beneficios VIP*
 
-*Señales Completas:*
-• Forex, índices, commodities
-• Criptomonedas
-• Acciones
-
-*Herramientas:*
+*Incluye:*
+• Todas las señales
 • Dashboard avanzado
-• Alertas personalizadas
 • Soporte 24/7
 
-*Inversión: 5,000 CUP/mes*
+*Precio: 5,000 CUP/mes*
 
 *Contacta al administrador para activar.*
     `;
@@ -452,36 +447,36 @@ async function handleVIPBenefits(chatId) {
     await sendNotification(chatId, benefitsMessage, inlineKeyboard);
 }
 
-// 👤 ESTADO DE USUARIO MEJORADO
+// 👤 ESTADO DE USUARIO
 async function handleUserStatus(chatId, userId) {
     try {
         const user = await getUserStatus(userId);
         
-        if (!user) {
-            await sendNotification(chatId, 
-                '🔍 Cuenta no registrada. Usa /start para registrar.',
-                createMainKeyboard()
-            );
-            return;
-        }
-
         let statusMessage = `
-👤 *Información de Cuanta*
+👤 *Información de Cuenta*
 
 🆔 *ID:* ${userId}
-👤 *Nombre:* ${user.first_name || 'No especificado'}
-📊 *Membresía:* ${user.is_vip ? '🎖️ VIP' : '👤 Standard'}
         `;
 
-        if (user.is_vip && user.vip_expires_at) {
-            const expiryDate = new Date(user.vip_expires_at);
-            const now = new Date();
-            const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-            
-            statusMessage += `\n⏰ *Vigencia VIP:* ${expiryDate.toLocaleDateString('es-ES')}`;
-            statusMessage += `\n📅 *Días restantes:* ${daysLeft}`;
-        } else if (!user.is_vip) {
-            statusMessage += `\n\n💎 *Mejora a VIP para acceso completo.*`;
+        if (user) {
+            statusMessage += `👤 *Nombre:* ${user.first_name || 'No especificado'}\n`;
+            statusMessage += `📊 *Membresía:* ${user.is_vip ? '🎖️ VIP' : '👤 Standard'}\n`;
+
+            if (user.is_vip && user.vip_expires_at) {
+                const expiryDate = new Date(user.vip_expires_at);
+                const now = new Date();
+                const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                
+                statusMessage += `⏰ *Vigencia VIP:* ${expiryDate.toLocaleDateString('es-ES')}\n`;
+                statusMessage += `📅 *Días restantes:* ${daysLeft}\n`;
+            }
+        } else {
+            statusMessage += `👤 *Nombre:* No registrado\n`;
+            statusMessage += `📊 *Membresía:* 👤 Standard\n`;
+        }
+
+        if (!user?.is_vip) {
+            statusMessage += `\n💎 *Mejora a VIP para acceso completo.*`;
         }
 
         const inlineKeyboard = {
@@ -490,7 +485,7 @@ async function handleUserStatus(chatId, userId) {
                     [
                         { text: '🔄 ACTUALIZAR', callback_data: 'refresh_status' }
                     ],
-                    user.is_vip ? 
+                    (user?.is_vip) ? 
                     [
                         { text: '💎 RENOVAR VIP', url: 'https://t.me/Asche90' }
                     ] :
@@ -512,17 +507,12 @@ async function handleUserStatus(chatId, userId) {
     }
 }
 
-// ❓ AYUDA MEJORADA
+// ❓ AYUDA
 async function handleHelp(chatId) {
     const helpMessage = `
 ❓ *Centro de Ayuda*
 
-*Soporte Técnico:*
-• Configuración
-• Problemas de conexión
-• Errores del sistema
-
-*Contacta al administrador:* 👇
+*Para soporte técnico contacta al administrador:* 👇
     `;
 
     const inlineKeyboard = {
@@ -541,7 +531,7 @@ async function handleHelp(chatId) {
     await sendNotification(chatId, helpMessage, inlineKeyboard);
 }
 
-// 📞 CONTACTO MEJORADO
+// 📞 CONTACTO
 async function handleContact(chatId) {
     const contactMessage = `
 📞 *Contacto*
@@ -552,9 +542,6 @@ async function handleContact(chatId) {
 • Activación de VIP
 • Soporte técnico
 • Consultas generales
-
-*Horarios:*
-Lunes a Domingo, 9:00 - 23:00
     `;
 
     const inlineKeyboard = {
@@ -577,7 +564,7 @@ Lunes a Domingo, 9:00 - 23:00
 console.log('🔄 Activando sistema de notificaciones...');
 
 // Suscribirse a nuevas señales
-supabase
+const signalsChannel = supabase
     .channel('signals-notifications')
     .on('postgres_changes', 
         { 
@@ -586,59 +573,33 @@ supabase
             table: 'signals' 
         }, 
         async (payload) => {
-            console.log('🔔 Nueva señal detectada en el sistema');
+            console.log('🔔 Nueva señal detectada');
             
             const signal = payload.new;
             const signalMessage = `
-🎯 *Nueva Señal Generada*
+🎯 *Nueva Señal*
 
 • Activo: ${signal.asset}
 • Dirección: ${signal.direction === 'up' ? 'ALZA 🟢' : 'BAJA 🔴'}
-• Timeframe: ${signal.timeframe} minutos
-• Tipo: ${signal.is_free ? 'GRATUITA 🎯' : 'VIP 💎'}
+• Timeframe: ${signal.timeframe} min
+• Tipo: ${signal.is_free ? 'GRATIS 🎯' : 'VIP 💎'}
             `;
             
             await sendNotification(ADMIN_ID, signalMessage);
         }
     )
-    .subscribe();
-
-// Suscribirse a actualizaciones de señales
-supabase
-    .channel('signals-updates')
-    .on('postgres_changes', 
-        { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'signals' 
-        }, 
-        async (payload) => {
-            const signal = payload.new;
-            
-            if (payload.old.status === 'pending' && (signal.status === 'profit' || signal.status === 'loss')) {
-                console.log('💰 Resultado de operación registrado');
-                
-                const resultMessage = `
-📊 *Resultado de Operación*
-
-• ID: ${signal.id}
-• Activo: ${signal.asset}
-• Resultado: ${signal.status === 'profit' ? 'GANADA ✅' : 'PERDIDA 📉'}
-                `;
-                
-                await sendNotification(ADMIN_ID, resultMessage);
-            }
+    .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+            console.log('✅ Suscrito a señales');
         }
-    )
-    .subscribe();
+    });
 
 console.log('✅ Sistema de notificaciones activado');
 console.log('🎉 === BOT QUANTUM TRADER OPERATIVO ===');
-console.log('📡 Esperando interacciones de usuarios...');
 
-// Log de actividad periódica
+// Log de estado cada 10 minutos
 setInterval(() => {
-    console.log('💓 Sistema Quantum Trader - Operativo...');
-}, 300000); // Log cada 5 minutos
+    console.log('💓 Bot activo -', new Date().toLocaleTimeString());
+}, 600000);
 
 module.exports = bot;
