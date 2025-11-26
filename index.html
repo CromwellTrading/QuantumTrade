@@ -1387,6 +1387,10 @@
     </div>
 
     <script>
+        // =============================================
+        // CONFIGURACIÓN GLOBAL Y DETECCIÓN DE USUARIO
+        // =============================================
+        
         // Configuración de Supabase
         const SUPABASE_URL = 'https://flodrkrvaqsmelbkfknv.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2Rya3J2YXFzbWVsYmtma252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODY0NjgsImV4cCI6MjA3OTY2MjQ2OH0.zVTaUbkiLCJ0dUFs808TZErgnIXCYsYQ2lw-CEmVCFI';
@@ -1400,7 +1404,94 @@
         // ID del administrador
         const ADMIN_ID = "5376388604";
         
-        // Sistema de partículas
+        // Variable global para el manager
+        let signalManager = null;
+
+        // =============================================
+        // FUNCIÓN PRINCIPAL DE DETECCIÓN DE USER ID
+        // =============================================
+        
+        function getUserIdSuperRobust() {
+            console.log('🔍 [USER_ID] Iniciando detección de User ID');
+            
+            // 1. PRIMERA PRIORIDAD: tgid de la URL (más confiable)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgId = urlParams.get('tgid');
+            if (tgId) {
+                console.log('🎯 [USER_ID] ID obtenido desde tgid URL:', tgId);
+                return tgId;
+            }
+            
+            // 2. SEGUNDA OPCIÓN: Telegram Web App SDK
+            if (window.Telegram && window.Telegram.WebApp) {
+                console.log('🔧 [TELEGRAM] Telegram Web App SDK detectado');
+                const tg = window.Telegram.WebApp;
+                tg.expand();
+                
+                const user = tg.initDataUnsafe?.user;
+                if (user && user.id) {
+                    console.log('🎯 [USER_ID] ID obtenido desde SDK:', user.id);
+                    return user.id.toString();
+                }
+            }
+            
+            // 3. TERCERA OPCIÓN: Fragmento de URL (tgWebAppData)
+            try {
+                const fragment = window.location.hash.substring(1);
+                if (fragment) {
+                    const fragmentParams = new URLSearchParams(fragment);
+                    const tgWebAppData = fragmentParams.get('tgWebAppData');
+                    
+                    if (tgWebAppData) {
+                        console.log('🔍 [TELEGRAM] Procesando tgWebAppData del fragmento');
+                        const decodedWebAppData = decodeURIComponent(tgWebAppData);
+                        const webAppParams = new URLSearchParams(decodedWebAppData);
+                        const userString = webAppParams.get('user');
+                        
+                        if (userString) {
+                            const userData = JSON.parse(decodeURIComponent(userString));
+                            if (userData && userData.id) {
+                                console.log('🎯 [USER_ID] ID obtenido desde fragmento:', userData.id);
+                                return userData.id.toString();
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ [TELEGRAM] Error parseando fragmento:', error);
+            }
+            
+            // 4. CUARTA OPCIÓN: localStorage
+            const storedId = localStorage.getItem('tg_user_id');
+            if (storedId) {
+                console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
+                return storedId;
+            }
+            
+            // 5. ÚLTIMO RECURSO: Generar guest ID
+            const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
+            console.log('⚠️ [USER_ID] Generando ID de guest:', guestId);
+            return guestId;
+        }
+
+        // =============================================
+        // INICIALIZACIÓN INMEDIATA DEL USER ID
+        // =============================================
+        
+        // Detectar User ID inmediatamente al cargar la página
+        const detectedUserId = getUserIdSuperRobust();
+        console.log('🚀 [APP] User ID detectado al inicio:', detectedUserId);
+        
+        // Guardar en localStorage inmediatamente
+        if (detectedUserId && !detectedUserId.startsWith('guest_')) {
+            localStorage.setItem('tg_user_id', detectedUserId);
+            console.log('💾 [APP] User ID guardado en localStorage');
+        }
+
+        // =============================================
+        // SISTEMA DE PARTÍCULAS
+        // =============================================
+        
         function createParticles() {
             const particlesContainer = document.getElementById('particles');
             const particleCount = 50;
@@ -1429,137 +1520,10 @@
             }
         }
 
-        // Función para parsear datos de Telegram Web App CORREGIDA
-        function parseTelegramWebAppData() {
-            console.log('🔍 [TELEGRAM] Iniciando parseo de datos de Telegram Web App');
-            
-            // Obtener el fragmento de URL (después del #)
-            const fragment = window.location.hash.substring(1);
-            console.log('🔍 [TELEGRAM] Fragmento URL completo:', fragment);
-            
-            if (!fragment) {
-                console.log('❌ [TELEGRAM] No hay fragmento en la URL');
-                return null;
-            }
-            
-            try {
-                // Parsear los parámetros del fragmento
-                const fragmentParams = new URLSearchParams(fragment);
-                const tgWebAppData = fragmentParams.get('tgWebAppData');
-                
-                console.log('🔍 [TELEGRAM] tgWebAppData crudo:', tgWebAppData);
-                
-                if (!tgWebAppData) {
-                    console.log('❌ [TELEGRAM] No se encontró tgWebAppData');
-                    return null;
-                }
-                
-                // Decodificar una vez para obtener los parámetros reales
-                const decodedWebAppData = decodeURIComponent(tgWebAppData);
-                console.log('🔍 [TELEGRAM] tgWebAppData decodificado una vez:', decodedWebAppData);
-                
-                // Parsear los parámetros decodificados
-                const webAppParams = new URLSearchParams(decodedWebAppData);
-                const userString = webAppParams.get('user');
-                
-                console.log('🔍 [TELEGRAM] user string codificado:', userString);
-                
-                if (!userString) {
-                    console.log('❌ [TELEGRAM] No se encontró user en tgWebAppData');
-                    return null;
-                }
-                
-                // El user string está DOBLEMENTE codificado, necesitamos decodificar 2 veces
-                const decodedOnce = decodeURIComponent(userString);
-                console.log('🔍 [TELEGRAM] user string decodificado una vez:', decodedOnce);
-                
-                const decodedTwice = decodeURIComponent(decodedOnce);
-                console.log('🔍 [TELEGRAM] user string decodificado dos veces:', decodedTwice);
-                
-                const userData = JSON.parse(decodedTwice);
-                console.log('✅ [TELEGRAM] Datos de usuario parseados correctamente:', userData);
-                
-                return userData;
-            } catch (error) {
-                console.error('❌ [TELEGRAM] Error parseando datos de Telegram:', error);
-                console.error('❌ [TELEGRAM] Error stack:', error.stack);
-                return null;
-            }
-        }
-
-        // Función alternativa usando Telegram Web App SDK
-        function initTelegramWebApp() {
-            console.log('🔧 [TELEGRAM] Inicializando Telegram Web App SDK');
-            
-            // Verificar si estamos en un cliente de Telegram
-            if (window.Telegram && window.Telegram.WebApp) {
-                console.log('✅ [TELEGRAM] Telegram Web App SDK detectado');
-                const tg = window.Telegram.WebApp;
-                
-                // Expandir la web app para ocupar toda la pantalla
-                tg.expand();
-                
-                // Obtener datos del usuario
-                const user = tg.initDataUnsafe?.user;
-                console.log('🔍 [TELEGRAM] Datos del usuario desde SDK:', user);
-                
-                if (user && user.id) {
-                    console.log('✅ [TELEGRAM] ID obtenido desde SDK:', user.id);
-                    return {
-                        id: user.id.toString(),
-                        first_name: user.first_name,
-                        username: user.username
-                    };
-                }
-            } else {
-                console.log('❌ [TELEGRAM] Telegram Web App SDK no disponible');
-            }
-            
-            return null;
-        }
-
-        // Función SUPER mejorada para obtener userId
-        function getUserIdSuperRobust() {
-            console.log('🔍 [USER_ID] Búsqueda SUPER robusta de ID de usuario');
-            
-            // Intentar en este orden:
-            
-            // 1. Telegram Web App SDK (más confiable)
-            const telegramSDKData = initTelegramWebApp();
-            if (telegramSDKData && telegramSDKData.id) {
-                console.log('🎯 [USER_ID] ID obtenido desde Telegram SDK:', telegramSDKData.id);
-                return telegramSDKData.id;
-            }
-            
-            // 2. Parser manual de Telegram Web App
-            const telegramData = parseTelegramWebAppData();
-            if (telegramData && telegramData.id) {
-                console.log('🎯 [USER_ID] ID obtenido desde parser manual:', telegramData.id);
-                return telegramData.id.toString();
-            }
-            
-            // 3. Parámetro tgid en query string
-            const urlParams = new URLSearchParams(window.location.search);
-            const tgId = urlParams.get('tgid');
-            if (tgId) {
-                console.log('🎯 [USER_ID] ID obtenido desde query parameter:', tgId);
-                return tgId;
-            }
-            
-            // 4. localStorage
-            const storedId = localStorage.getItem('tg_user_id');
-            if (storedId) {
-                console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
-                return storedId;
-            }
-            
-            // 5. Generar ID de guest como último recurso
-            const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
-            console.log('⚠️ [USER_ID] Generando ID de guest:', guestId);
-            return guestId;
-        }
+        // =============================================
+        // CLASE PRINCIPAL SIGNAL MANAGER
+        // =============================================
         
-        // Clase principal del sistema
         class SignalManager {
             constructor() {
                 this.signals = [];
@@ -1570,82 +1534,61 @@
                 this.isVIP = false;
                 this.hasReceivedFreeSignal = false;
                 this.serverConnected = false;
-                this.currentUserId = null;
+                
+                // Usar el User ID ya detectado globalmente
+                this.currentUserId = detectedUserId;
                 this.userData = null;
                 this.searchedUser = null;
-                this.telegramUserData = null;
                 
-                console.log('🚀 [APP] Inicializando SignalManager');
+                console.log('🚀 [APP] Inicializando SignalManager con User ID:', this.currentUserId);
                 
-                // Elementos del DOM
+                // Inicialización inmediata
                 this.initializeDOMElements();
                 this.initEventListeners();
                 this.loadFromLocalStorage();
                 this.updateStats();
                 this.initChart();
-                this.detectUserFromMultipleSources();
+                
+                // Detectar admin inmediatamente
+                this.detectAdminStatus();
+                
+                // Cargar datos del usuario
+                this.loadUserData();
                 this.setupRealtimeSubscription();
                 this.checkServerConnection();
                 
                 setInterval(() => this.checkServerConnection(), 30000);
+                
+                // Actualizar UI inmediatamente
+                this.updateUI();
             }
             
-            // Detectar usuario desde múltiples fuentes MEJORADO
-            detectUserFromMultipleSources() {
-                console.log('🔍 [APP] Iniciando detección SUPER robusta de usuario');
-                
-                try {
-                    // Usar la función SUPER robusta
-                    this.currentUserId = getUserIdSuperRobust();
-                    this.telegramUserData = parseTelegramWebAppData();
-                    
-                    console.log('🔍 [APP] UserID final detectado:', this.currentUserId);
-                    console.log('🔍 [APP] Datos de Telegram detectados:', this.telegramUserData);
-                    
-                    if (this.currentUserId && this.currentUserId !== 'NO') {
-                        console.log('✅ [APP] ID detectado exitosamente:', this.currentUserId);
-                        localStorage.setItem('tg_user_id', this.currentUserId);
-                        
-                        // Detección inmediata de admin
-                        if (this.currentUserId === ADMIN_ID) {
-                            this.isAdmin = true;
-                            console.log('🎯 [APP] Usuario identificado como ADMIN');
-                        }
-                        
-                        this.loadUserData();
-                    } else {
-                        console.log('❌ [APP] No se pudo detectar ID de usuario válido');
-                        this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
-                        this.updateUserStatus();
-                    }
-                    
-                    this.updateUI();
-                } catch (error) {
-                    console.error('❌ [APP] Error crítico detectando usuario:', error);
-                    this.currentUserId = 'error_' + Math.random().toString(36).substr(2, 9);
+            // Detectar si es admin basado en el User ID
+            detectAdminStatus() {
+                if (this.currentUserId === ADMIN_ID) {
+                    this.isAdmin = true;
+                    console.log('🎯 [APP] Usuario identificado como ADMIN');
                 }
             }
             
             async loadUserData() {
-                if (!this.currentUserId) {
-                    console.log('❌ [APP] No hay currentUserId para cargar datos');
+                if (!this.currentUserId || this.currentUserId.startsWith('guest_')) {
+                    console.log('❌ [APP] No hay User ID válido para cargar datos');
+                    this.updateUserStatus();
                     return;
                 }
                 
                 try {
                     console.log('🔍 [APP] Cargando datos del usuario:', this.currentUserId);
                     const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
-                    console.log('🔍 [APP] URL de API:', apiUrl);
                     
                     const response = await fetch(apiUrl);
-                    console.log('🔍 [APP] Respuesta de API recibida, status:', response.status);
                     
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
                     const result = await response.json();
-                    console.log('🔍 [APP] Resultado de API:', result);
                     
                     if (result.success) {
                         this.userData = result.data;
@@ -1666,19 +1609,20 @@
                             admin: this.isAdmin,
                             vip: this.isVIP
                         });
-                        this.updateUI();
                     } else {
                         console.error('❌ [APP] Error en respuesta del servidor:', result);
                     }
                 } catch (error) {
                     console.error('❌ [APP] Error cargando datos del usuario:', error);
+                } finally {
+                    this.updateUI();
                 }
             }
             
             updateUI() {
                 console.log('🔄 [APP] Actualizando UI con UserID:', this.currentUserId);
                 
-                // Mostrar el ID del usuario
+                // Mostrar el ID del usuario inmediatamente
                 const userIdDisplay = document.getElementById('userIdDisplay');
                 if (userIdDisplay) {
                     userIdDisplay.textContent = `ID: ${this.currentUserId}`;
@@ -1771,7 +1715,6 @@
             }
             
             createDebugPanel() {
-                // Agregar un elemento de debug visible
                 let debugDiv = document.getElementById('debugInfo');
                 if (!debugDiv) {
                     debugDiv = document.createElement('div');
@@ -1787,25 +1730,23 @@
                 if (!this.debugDiv) return;
                 
                 const urlParams = new URLSearchParams(window.location.search);
-                const fragmentParams = new URLSearchParams(window.location.hash.substring(1));
-                const tgWebAppData = fragmentParams.get('tgWebAppData');
+                const tgid = urlParams.get('tgid');
                 
                 let telegramSDK = '❌';
+                let sdkUser = 'NO';
                 if (window.Telegram && window.Telegram.WebApp) {
                     telegramSDK = '✅';
+                    sdkUser = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'NO';
                 }
                 
                 this.debugDiv.innerHTML = `
-                    <strong>🔍 DEBUG INFO MEJORADO</strong><br>
-                    URL: ${window.location.href.substring(0, 60)}...<br>
-                    tgid: ${urlParams.get('tgid') || 'NO'}<br>
-                    UserID: ${this.currentUserId || 'NO'}<br>
-                    Telegram Data: ${this.telegramUserData ? '✅' : '❌'}<br>
-                    Telegram SDK: ${telegramSDK}<br>
-                    isAdmin: ${this.isAdmin}<br>
-                    isVIP: ${this.isVIP}<br>
-                    Fragment: ${window.location.hash ? '✅' : '❌'}<br>
-                    tgWebAppData: ${tgWebAppData ? '✅' : '❌'}
+                    <strong>🔍 DEBUG INFO ACTUALIZADO</strong><br>
+                    <strong>URL tgid:</strong> ${tgid || 'NO'}<br>
+                    <strong>UserID actual:</strong> ${this.currentUserId || 'NO'}<br>
+                    <strong>Telegram SDK:</strong> ${telegramSDK} (${sdkUser})<br>
+                    <strong>isAdmin:</strong> ${this.isAdmin}<br>
+                    <strong>isVIP:</strong> ${this.isVIP}<br>
+                    <strong>Estrategia:</strong> PRIORIDAD tgid → SDK → Parser
                 `;
             }
             
@@ -1916,6 +1857,7 @@
                 });
             }
 
+            // ... (el resto de los métodos se mantienen igual)
             // Métodos para gestión de usuarios
             async searchUser() {
                 const searchId = this.userSearchInput.value.trim();
@@ -2861,50 +2803,53 @@
                 }
             }
         }
+
+        // =============================================
+        // INICIALIZACIÓN DE LA APLICACIÓN
+        // =============================================
         
-        // Inicializar la aplicación cuando el DOM esté listo
-        let signalManager;
         document.addEventListener('DOMContentLoaded', () => {
             console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
             createParticles();
             
+            // Inicializar SignalManager con el User ID ya detectado
             signalManager = new SignalManager();
             
             setInterval(() => {
-                signalManager.renderSignals();
-                
-                const alert = document.getElementById('signalAlert');
-                if (alert.classList.contains('show')) {
-                    const activeSignal = signalManager.signals[0];
-                    if (activeSignal) {
-                        const expiresDate = new Date(activeSignal.expires);
-                        const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-                        const minutes = Math.floor(timeRemaining / 60);
-                        const seconds = timeRemaining % 60;
-                        document.getElementById('alertTime').textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                if (signalManager) {
+                    signalManager.renderSignals();
+                    
+                    const alert = document.getElementById('signalAlert');
+                    if (alert.classList.contains('show')) {
+                        const activeSignal = signalManager.signals[0];
+                        if (activeSignal) {
+                            const expiresDate = new Date(activeSignal.expires);
+                            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                            const minutes = Math.floor(timeRemaining / 60);
+                            const seconds = timeRemaining % 60;
+                            document.getElementById('alertTime').textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                        }
                     }
                 }
             }, 1000);
         });
-    </script>
 
-    <script>
-        // Script de debug directo
+        // =============================================
+        // SCRIPT DE DEBUG MEJORADO
+        // =============================================
+        
         console.log('=== 🐛 DEBUG SCRIPT INICIADO ===');
         console.log('URL completa:', window.location.href);
         console.log('Parámetros URL:', Object.fromEntries(new URLSearchParams(window.location.search)));
         console.log('Fragmento URL:', window.location.hash);
-        console.log('UserAgent:', navigator.userAgent);
-        console.log('Plataforma:', navigator.platform);
+        console.log('User ID detectado:', detectedUserId);
 
-        // Probar la API directamente
-        async function testAPI() {
-            const userId = getUserIdSuperRobust();
-            
-            if (userId) {
-                console.log('🔍 TEST: Probando API con userId:', userId);
+        // Probar la API después de 2 segundos
+        setTimeout(async () => {
+            if (detectedUserId) {
+                console.log('🔍 TEST: Probando API con userId:', detectedUserId);
                 try {
-                    const response = await fetch(`/api/user/${userId}`);
+                    const response = await fetch(`/api/user/${detectedUserId}`);
                     const result = await response.json();
                     console.log('🔍 TEST: Respuesta API:', result);
                 } catch (error) {
@@ -2913,10 +2858,7 @@
             } else {
                 console.log('❌ TEST: No se pudo obtener userId para testing');
             }
-        }
-
-        // Ejecutar test después de 2 segundos
-        setTimeout(testAPI, 2000);
+        }, 2000);
     </script>
 </body>
 </html>
