@@ -68,9 +68,9 @@ function createMainKeyboard() {
         reply_markup: {
             resize_keyboard: true,
             keyboard: [
-                [{ text: '📈 SEÑALES EN TIEMPO REAL' }, { text: '💎 PLAN PREMIUM VIP' }],
-                [{ text: '👤 MI CUENTA Y ESTADO' }, { text: '🌐 PLATAFORMA WEB' }],
-                [{ text: '❓ CENTRO DE AYUDA' }, { text: '📞 CONTACTO DIRECTIVO' }]
+                [{ text: '📈 VER SEÑALES' }, { text: '💎 PLAN VIP' }],
+                [{ text: '👤 MI CUENTA' }, { text: '🌐 PLATAFORMA WEB' }],
+                [{ text: '❓ AYUDA' }, { text: '📞 CONTACTO' }]
             ]
         }
     };
@@ -82,7 +82,7 @@ function createVIPInlineKeyboard() {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '💬 CONTACTAR ADMINISTRADOR', url: 'https://t.me/Asche90' }],
-                [{ text: '📋 VER BENEFICIOS COMPLETOS', callback_data: 'vip_benefits' }]
+                [{ text: '📋 VER BENEFICIOS', callback_data: 'vip_benefits' }]
             ]
         }
     };
@@ -181,25 +181,18 @@ bot.onText(/\/start/, async (msg) => {
         if (error) throw error;
 
         const welcomeMessage = `
-🌟 *BIENVENIDO A QUANTUM SIGNAL TRADER PRO* 🌟
+🤖 *Quantum Signal Trader*
 
-¡Hola *${userName}*! 👋
+¡Hola *${userName}*! 
 
-🚀 *Tu portal definitivo hacia el trading profesional*
+Este bot envía señales de trading para opciones binarias.
 
-🌌 *¿Qué ofrece Quantum Trader?*
-• 🔮 Señales de alta precisión en tiempo real
-• 📊 Análisis técnico avanzado
-• 💎 Estrategias probadas en mercado
-• ⚡ Ejecución ultrarrápida
+*Funcionalidades:*
+• Señales en tiempo real
+• Plataforma web integrada
+• Plan VIP disponible
 
-💫 *Características exclusivas:*
-✅ Señales verificadas y validadas
-✅ Soporte 24/7 profesional
-✅ Plataforma web de última generación
-✅ Comunidad de traders élite
-
-*Selecciona una opción del menú para comenzar tu journey financiero:* ⬇️
+*Usa los botones para navegar:* 👇
         `;
         
         await sendNotification(chatId, welcomeMessage, createMainKeyboard());
@@ -215,29 +208,19 @@ bot.onText(/\/estado/, async (msg) => {
     const chatId = msg.chat.id;
     
     const statusMessage = `
-🔍 *DIAGNÓSTICO DEL SISTEMA QUANTUM TRADER*
+🔍 *Estado del Sistema*
 
-🟢 *ESTADO: SISTEMA OPERATIVO*
+🟢 *Sistema Operativo*
 
-📊 *MÉTRICAS DEL SISTEMA:*
-• 🤖 Bot Telegram: ✅ CONECTADO
-• 🗄️ Base de datos: ✅ SINCRONIZADA  
-• 🌐 Servidor Web: ✅ RESPONDIENDO
-• 📡 API Señales: ✅ ACTIVA
+📊 *Métricas:*
+• Bot: Conectado
+• Base de datos: Sincronizada
+• Servidor Web: Respondiendo
 
-🛡️ *SEGURIDAD:*
-• Cifrado de extremo a extremo: ✅ ACTIVADO
-• Verificación de identidad: ✅ IMPLEMENTADA
-• Backup automático: ✅ CONFIGURADO
-
-⏰ *ÚLTIMA ACTUALIZACIÓN:*
+⏰ *Última actualización:*
 ${new Date().toLocaleString('es-ES', { 
-    timeZone: 'America/Havana',
-    dateStyle: 'full',
-    timeStyle: 'medium'
+    timeZone: 'America/Havana'
 })}
-
-🎯 *SISTEMA LISTO PARA OPERACIONES*
     `;
 
     await sendNotification(chatId, statusMessage);
@@ -256,15 +239,15 @@ bot.on('message', async (msg) => {
 
     try {
         switch (messageText) {
-            case '📈 SEÑALES EN TIEMPO REAL':
+            case '📈 VER SEÑALES':
                 await handleViewSignals(chatId, userId);
                 break;
                 
-            case '💎 PLAN PREMIUM VIP':
+            case '💎 PLAN VIP':
                 await handleVIPInfo(chatId);
                 break;
                 
-            case '👤 MI CUENTA Y ESTADO':
+            case '👤 MI CUENTA':
                 await handleUserStatus(chatId, userId);
                 break;
                 
@@ -272,22 +255,18 @@ bot.on('message', async (msg) => {
                 await handleWebApp(chatId);
                 break;
                 
-            case '❓ CENTRO DE AYUDA':
+            case '❓ AYUDA':
                 await handleHelp(chatId);
                 break;
                 
-            case '📞 CONTACTO DIRECTIVO':
+            case '📞 CONTACTO':
                 await handleContact(chatId);
                 break;
                 
             default:
                 if (!messageText.startsWith('/')) {
                     await sendNotification(chatId, 
-                        `🔍 *Menú de Navegación - Quantum Trader*
-
-Por favor, utiliza los botones inferiores para acceder a las diferentes secciones de nuestra plataforma.
-
-¿Necesitas asistencia? Selecciona "❓ CENTRO DE AYUDA" para recibir soporte inmediato.`,
+                        `Usa los botones para navegar por las opciones disponibles.`,
                         createMainKeyboard()
                     );
                 }
@@ -296,7 +275,7 @@ Por favor, utiliza los botones inferiores para acceder a las diferentes seccione
     } catch (error) {
         console.error('Error procesando mensaje:', error);
         await sendNotification(chatId, 
-            '⚠️ *Error del Sistema*\n\nNuestros técnicos han sido notificados. Por favor, intenta nuevamente en unos momentos.',
+            '⚠️ Error del sistema. Intenta nuevamente.',
             createMainKeyboard()
         );
     }
@@ -345,24 +324,15 @@ bot.on('callback_query', async (callbackQuery) => {
 // 🌐 PLATAFORMA WEB MEJORADA
 async function handleWebApp(chatId) {
     const webAppMessage = `
-🌐 *PLATAFORMA WEB QUANTUM TRADER PRO*
+🌐 *Plataforma Web Quantum Trader*
 
-¡Accede a nuestra plataforma web de última generación! 
+Accede a nuestra plataforma web para:
 
-🚀 *Características Exclusivas:*
-• 📊 Dashboard profesional en tiempo real
-• 📈 Gráficos avanzados interactivos
-• 🔔 Sistema de alertas personalizado
-• 📱 Interfaz responsive y moderna
-• 💾 Historial completo de operaciones
+• Ver señales en tiempo real
+• Historial completo de operaciones
+• Gestión de tu cuenta
 
-💫 *Beneficios de la Plataforma Web:*
-✅ Análisis técnico en profundidad
-✅ Gestión de portfolio avanzada
-✅ Backtesting de estrategias
-✅ Reportes automáticos detallados
-
-*Haz clic en el botón inferior para acceder inmediatamente:* 👇
+*Haz clic para acceder:* 👇
     `;
 
     await sendNotification(chatId, webAppMessage, createWebAppInlineKeyboard());
@@ -379,42 +349,41 @@ async function handleViewSignals(chatId, userId) {
 
         if (error) throw error;
 
-        let signalsMessage = `📊 *SEÑALES RECIENTES - MERCADOS ACTIVOS*\n\n`;
+        let signalsMessage = `📊 *Señales Recientes*\n\n`;
 
         if (signals && signals.length > 0) {
             signals.forEach((signal, index) => {
                 const directionEmoji = signal.direction === 'up' ? '🟢' : '🔴';
-                const directionText = signal.direction === 'up' ? 'TENDENCIA ALCISTA ↗️' : 'TENDENCIA BAJISTA ↘️';
+                const directionText = signal.direction === 'up' ? 'ALZA' : 'BAJA';
                 const statusEmoji = signal.status === 'profit' ? '💰' : 
                                   signal.status === 'loss' ? '📉' : '⏳';
-                const statusText = signal.status === 'profit' ? 'OPERACIÓN EXITOSA' : 
-                                 signal.status === 'loss' ? 'OPERACIÓN CERRADA' : 'EN EJECUCIÓN';
+                const statusText = signal.status === 'profit' ? 'GANADA' : 
+                                 signal.status === 'loss' ? 'PERDIDA' : 'PENDIENTE';
                 
                 const created = new Date(signal.created_at).toLocaleTimeString();
-                const expires = new Date(signal.expires_at).toLocaleTimeString();
 
                 signalsMessage += `${directionEmoji} *${signal.asset}* - ${directionText}\n`;
-                signalsMessage += `⏰ Duración: ${signal.timeframe} minutos | ${statusEmoji} ${statusText}\n`;
-                signalsMessage += `🕐 Emisión: ${created} | Expira: ${expires}\n`;
-                signalsMessage += `${signal.is_free ? '🎯 SEÑAL GRATUITA' : '💎 SEÑAL PREMIUM'}\n`;
+                signalsMessage += `⏱ ${signal.timeframe} min | ${statusEmoji} ${statusText}\n`;
+                signalsMessage += `🕐 ${created}\n`;
+                signalsMessage += `${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}\n`;
                 signalsMessage += `━━━━━━━━━━━━━━━━━━━━\n\n`;
             });
         } else {
             signalsMessage += '*No hay señales activas en este momento.*\n\n';
-            signalsMessage += '🔮 Nuestro equipo de análisis está monitoreando los mercados para generar nuevas oportunidades.\n\n';
+            signalsMessage += 'Nuestro equipo está monitoreando los mercados.\n\n';
         }
 
-        signalsMessage += `💎 *¿Quieres acceso a todas nuestras señales premium?*\nActiva tu membresía VIP para recibir alertas exclusivas.`;
+        signalsMessage += `💎 *¿Quieres acceso a todas las señales?*\nActiva tu membresía VIP.`;
 
         const inlineKeyboard = {
             reply_markup: {
                 inline_keyboard: [
                     [
-                        { text: '🔄 ACTUALIZAR SEÑALES', callback_data: 'refresh_signals' },
-                        { text: '💎 VER PLAN VIP', callback_data: 'vip_benefits' }
+                        { text: '🔄 ACTUALIZAR', callback_data: 'refresh_signals' },
+                        { text: '💎 VER VIP', callback_data: 'vip_benefits' }
                     ],
                     [
-                        { text: '🚀 ACCEDER A PLATAFORMA', web_app: { url: RENDER_URL } }
+                        { text: '🚀 PLATAFORMA WEB', web_app: { url: RENDER_URL } }
                     ]
                 ]
             }
@@ -425,7 +394,7 @@ async function handleViewSignals(chatId, userId) {
     } catch (error) {
         console.error('Error obteniendo señales:', error);
         await sendNotification(chatId, 
-            '⚠️ *Sistema de Señales Temporalmente No Disponible*\n\nNuestro equipo técnico está trabajando para restablecer el servicio. Agradecemos tu comprensión.',
+            '⚠️ Error al cargar señales. Intenta más tarde.',
             createMainKeyboard()
         );
     }
@@ -434,40 +403,17 @@ async function handleViewSignals(chatId, userId) {
 // 💎 PLAN VIP MEJORADO
 async function handleVIPInfo(chatId) {
     const vipMessage = `
-💎 *MEMBRESÍA PREMIUM QUANTUM TRADER*
+💎 *Plan VIP Quantum Trader*
 
-✨ *Transforma tu Experiencia de Trading* ✨
+*Beneficios:*
+• Todas las señales sin límites
+• Alertas en tiempo real
+• Soporte prioritario
 
-🚀 *BENEFICIOS EXCLUSIVOS VIP:*
+*Precio: 5,000 CUP/mes*
+*Duración: 30 días*
 
-🎯 *SEÑALES ILIMITADAS:*
-• ✅ Acceso completo a todas las señales premium
-• ✅ Alertas en tiempo real antes del mercado
-• ✅ Señales de alta probabilidad verificadas
-• ✅ Sin restricciones ni límites
-
-📊 *HERRAMIENTAS AVANZADAS:*
-• 📈 Análisis técnico profesional
-• 🔮 Proyecciones de mercado exclusivas
-• 💡 Estrategias avanzadas documentadas
-• 📋 Reportes de performance detallados
-
-🛡️ *SOPORTE PRIORITARIO:*
-• 👨‍💼 Asesoramiento personalizado 24/7
-• 📞 Atención directa con el equipo directivo
-• 🔄 Actualizaciones en tiempo real
-• 🎓 Sesiones formativas exclusivas
-
-💰 *INVERSIÓN:*
-*5,000 CUP / mes* - *Inversión inteligente para resultados extraordinarios*
-
-⏰ *DURACIÓN:*
-30 días de acceso completo ilimitado
-
-🎁 *GARANTÍA:*
-Si no estás satisfecho durante los primeros 7 días, reembolso completo.
-
-*¿Listo para elevar tu trading?* 👇
+*Contacta al administrador para activar:* 👇
     `;
 
     await sendNotification(chatId, vipMessage, createVIPInlineKeyboard());
@@ -476,50 +422,28 @@ Si no estás satisfecho durante los primeros 7 días, reembolso completo.
 // 💎 BENEFICIOS VIP DETALLADOS
 async function handleVIPBenefits(chatId) {
     const benefitsMessage = `
-🌟 *DETALLE COMPLETO DE BENEFICIOS VIP*
+💎 *Beneficios VIP*
 
-📊 *PAQUETE DE SEÑALES COMPLETO:*
-• Señales Forex mayores y menores
-• Análisis de índices bursátiles
-• Señales de commodities (Oro, Petróleo)
-• Criptomonedas principales
-• Acciones blue-chip
+*Señales Completas:*
+• Forex, índices, commodities
+• Criptomonedas
+• Acciones
 
-🔧 *HERRAMIENTAS PROFESIONALES:*
-• Dashboard personalizado avanzado
-• Calculadora de riesgo integrada
-• Gestor de posición automático
-• Alertas de noticias económicas
-• Calendario económico filtrado
+*Herramientas:*
+• Dashboard avanzado
+• Alertas personalizadas
+• Soporte 24/7
 
-🎓 *FORMACIÓN CONTINUA:*
-• Webinars mensuales exclusivos
-• E-books y guías avanzadas
-• Sesiones de Q&A con analistas
-• Estrategias paso a paso
-• Análisis de mercado semanal
+*Inversión: 5,000 CUP/mes*
 
-📈 *VENTAJAS COMPETITIVAS:*
-• Señales 15-30 minutos antes que usuarios free
-• Ratio de éxito documentado: 75-85%
-• Soporte multilingüe
-• Actualizaciones en tiempo real
-• Comunidad privada de traders
-
-💼 *INVERSIÓN INTELIGENTE:*
-*5,000 CUP/mes* = *~167 CUP/día* por acceso ilimitado a herramientas profesionales.
-
-*¡Tu éxito en el trading comienza aquí!* 🚀
+*Contacta al administrador para activar.*
     `;
 
     const inlineKeyboard = {
         reply_markup: {
             inline_keyboard: [
                 [
-                    { text: '💬 CONTACTAR PARA ACTIVAR VIP', url: 'https://t.me/Asche90' }
-                ],
-                [
-                    { text: '📞 HABLAR CON ASESOR', url: 'https://t.me/Asche90' }
+                    { text: '💬 CONTACTAR', url: 'https://t.me/Asche90' }
                 ]
             ]
         }
@@ -535,19 +459,18 @@ async function handleUserStatus(chatId, userId) {
         
         if (!user) {
             await sendNotification(chatId, 
-                '🔍 *Cuenta No Registrada*\n\nPor favor, utiliza el comando /start para registrar tu cuenta y acceder a todos los beneficios de Quantum Trader.',
+                '🔍 Cuenta no registrada. Usa /start para registrar.',
                 createMainKeyboard()
             );
             return;
         }
 
         let statusMessage = `
-👤 *INFORMACIÓN DE TU CUENTA QUANTUM TRADER*
+👤 *Información de Cuanta*
 
-🆔 *Identificador Único:* ${userId}
-👤 *Nombre Registrado:* ${user.first_name || 'Por completar'}
-📊 *Nivel de Membresía:* ${user.is_vip ? '🎖️ *PREMIUM VIP*' : '👤 USUARIO STANDARD'}
-🏆 *Estado de la Cuenta:* ACTIVA ✅
+🆔 *ID:* ${userId}
+👤 *Nombre:* ${user.first_name || 'No especificado'}
+📊 *Membresía:* ${user.is_vip ? '🎖️ VIP' : '👤 Standard'}
         `;
 
         if (user.is_vip && user.vip_expires_at) {
@@ -556,35 +479,23 @@ async function handleUserStatus(chatId, userId) {
             const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
             
             statusMessage += `\n⏰ *Vigencia VIP:* ${expiryDate.toLocaleDateString('es-ES')}`;
-            statusMessage += `\n📅 *Días Restantes:* ${daysLeft} días`;
-            
-            if (daysLeft <= 7) {
-                statusMessage += `\n\n⚠️ *ATENCIÓN: Tu membresía VIP está por expirar!*`;
-                statusMessage += `\n💎 Renueva ahora para mantener tus beneficios exclusivos.`;
-            } else if (daysLeft <= 3) {
-                statusMessage += `\n\n🚨 *URGENTE: Tu VIP expira en ${daysLeft} días!*`;
-                statusMessage += `\n🔔 Contacta inmediatamente para renovar.`;
-            }
+            statusMessage += `\n📅 *Días restantes:* ${daysLeft}`;
         } else if (!user.is_vip) {
-            statusMessage += `\n\n💎 *OPORTUNIDAD DE CRECIMIENTO*`;
-            statusMessage += `\n¡Eleva tu experiencia de trading con nuestra membresía Premium VIP!`;
-            statusMessage += `\nAccede a señales exclusivas, herramientas avanzadas y soporte prioritario.`;
+            statusMessage += `\n\n💎 *Mejora a VIP para acceso completo.*`;
         }
-
-        statusMessage += `\n\n📈 *Tu Journey en Quantum Trader acaba de comenzar.*`;
 
         const inlineKeyboard = {
             reply_markup: {
                 inline_keyboard: [
                     [
-                        { text: '🔄 ACTUALIZAR ESTADO', callback_data: 'refresh_status' }
+                        { text: '🔄 ACTUALIZAR', callback_data: 'refresh_status' }
                     ],
                     user.is_vip ? 
                     [
-                        { text: '💎 GESTIONAR VIP', url: 'https://t.me/Asche90' }
+                        { text: '💎 RENOVAR VIP', url: 'https://t.me/Asche90' }
                     ] :
                     [
-                        { text: '🚀 VER PLANES VIP', callback_data: 'vip_benefits' }
+                        { text: '🚀 ACTIVAR VIP', callback_data: 'vip_benefits' }
                     ]
                 ]
             }
@@ -595,58 +506,30 @@ async function handleUserStatus(chatId, userId) {
     } catch (error) {
         console.error('Error en estado de usuario:', error);
         await sendNotification(chatId, 
-            '⚠️ *Error al cargar información de cuenta*\n\nPor favor, intenta nuevamente en unos momentos.',
+            '⚠️ Error al cargar información.',
             createMainKeyboard()
         );
     }
 }
 
-// ❓ CENTRO DE AYUDA MEJORADO
+// ❓ AYUDA MEJORADA
 async function handleHelp(chatId) {
     const helpMessage = `
-❓ *CENTRO DE ASISTENCIA QUANTUM TRADER*
+❓ *Centro de Ayuda*
 
-🛡️ *Estamos aquí para ayudarte* 🛡️
-
-📋 *SECCIONES DE AYUDA:*
-
-🔧 *SOPORTE TÉCNICO:*
-• Configuración de la plataforma
+*Soporte Técnico:*
+• Configuración
 • Problemas de conexión
 • Errores del sistema
-• Consultas técnicas
 
-💼 *ASUNTOS COMERCIALES:*
-• Activación de membresías
-• Facturación y pagos
-• Renovaciones y cancelaciones
-• Consultas de precios
-
-📊 *USO DE PLATAFORMA:*
-• Interpretación de señales
-• Configuración de alertas
-• Uso de herramientas
-• Optimización de estrategias
-
-🔄 *PROCEDIMIENTOS:*
-1. Selecciona el tipo de consulta
-2. Describe detalladamente tu situación
-3. Proporciona tu ID de usuario
-4. Adjunta capturas si es necesario
-
-⏰ *TIEMPOS DE RESPUESTA:*
-• Usuarios VIP: < 15 minutos
-• Usuarios Standard: < 2 horas
-
-*¿En qué podemos asistirte hoy?* 👇
+*Contacta al administrador:* 👇
     `;
 
     const inlineKeyboard = {
         reply_markup: {
             inline_keyboard: [
                 [
-                    { text: '📞 CONTACTO INMEDIATO', url: 'https://t.me/Asche90' },
-                    { text: '💬 CHAT DE SOPORTE', url: 'https://t.me/Asche90' }
+                    { text: '📞 CONTACTAR', url: 'https://t.me/Asche90' }
                 ],
                 [
                     { text: '🌐 PLATAFORMA WEB', web_app: { url: RENDER_URL } }
@@ -661,60 +544,24 @@ async function handleHelp(chatId) {
 // 📞 CONTACTO MEJORADO
 async function handleContact(chatId) {
     const contactMessage = `
-📞 *CANALES DE CONTACTO DIRECTIVO*
+📞 *Contacto*
 
-👨‍💼 *EQUIPO DIRECTIVO QUANTUM TRADER*
+*Administrador:* @Asche90
 
-🌐 *CONTACTO PRINCIPAL:*
-@Asche90 - *Director General*
+*Para:*
+• Activación de VIP
+• Soporte técnico
+• Consultas generales
 
-💼 *ÁREAS DE ATENCIÓN:*
-
-🎯 *DIRECCIÓN ESTRATÉGICA:*
-• Planificación de inversiones
-• Estrategias corporativas
-• Alianzas institucionales
-• Desarrollo de negocio
-
-💎 *MEMBRESÍAS PREMIUM:*
-• Activación de cuentas VIP
-• Negociación corporativa
-• Planes personalizados
-• Consultoría exclusiva
-
-📊 *ANÁLISIS Y MERCADOS:*
-• Consultas técnicas avanzadas
-• Análisis de portfolio
-• Estrategias personalizadas
-• Mentoring profesional
-
-🛡️ *SEGURIDAD Y CUMPLIMIENTO:*
-• Verificación de cuentas
-• Protocolos de seguridad
-• Cumplimiento normativo
-• Protección de datos
-
-⏰ *HORARIOS DE ATENCIÓN:*
-• Lunes a Viernes: 8:00 AM - 10:00 PM
-• Sábados: 9:00 AM - 6:00 PM
-• Soporte urgente: 24/7 para VIP
-
-*Selecciona el canal apropiado para tu consulta:* 👇
+*Horarios:*
+Lunes a Domingo, 9:00 - 23:00
     `;
 
     const inlineKeyboard = {
         reply_markup: {
             inline_keyboard: [
                 [
-                    { text: '👨‍💼 DIRECCIÓN GENERAL', url: 'https://t.me/Asche90' },
-                    { text: '💎 ACTIVACIONES VIP', url: 'https://t.me/Asche90' }
-                ],
-                [
-                    { text: '📊 CONSULTORÍA AVANZADA', url: 'https://t.me/Asche90' },
-                    { text: '🛡️ SEGURIDAD', url: 'https://t.me/Asche90' }
-                ],
-                [
-                    { text: '🌐 ACCESO PLATAFORMA', web_app: { url: RENDER_URL } }
+                    { text: '💬 CONTACTAR', url: 'https://t.me/Asche90' }
                 ]
             ]
         }
@@ -743,15 +590,12 @@ supabase
             
             const signal = payload.new;
             const signalMessage = `
-🎯 *NUEVA SEÑAL GENERADA - SISTEMA QUANTUM*
+🎯 *Nueva Señal Generada*
 
-• 📊 Activo: ${signal.asset}
-• 🎯 Dirección: ${signal.direction === 'up' ? 'ALZA 🟢' : 'BAJA 🔴'}
-• ⏰ Timeframe: ${signal.timeframe} minutos
-• 🆔 Identificador: ${signal.id}
-• 💎 Tipo: ${signal.is_free ? 'SEÑAL GRATUITA 🎯' : 'SEÑAL PREMIUM 💎'}
-
-*La señal ha sido distribuida a todos los usuarios correspondientes.*
+• Activo: ${signal.asset}
+• Dirección: ${signal.direction === 'up' ? 'ALZA 🟢' : 'BAJA 🔴'}
+• Timeframe: ${signal.timeframe} minutos
+• Tipo: ${signal.is_free ? 'GRATUITA 🎯' : 'VIP 💎'}
             `;
             
             await sendNotification(ADMIN_ID, signalMessage);
@@ -775,14 +619,11 @@ supabase
                 console.log('💰 Resultado de operación registrado');
                 
                 const resultMessage = `
-📊 *RESULTADO DE OPERACIÓN CONFIRMADO*
+📊 *Resultado de Operación*
 
-• 🆔 ID: ${signal.id}
-• 📈 Activo: ${signal.asset}
-• 💰 Resultado: ${signal.status === 'profit' ? 'OPERACIÓN EXITOSA ✅' : 'OPERACIÓN CERRADA 📉'}
-• 🎯 Performance: ${signal.status === 'profit' ? 'GANANCIA REGISTRADA' : 'CIERRE EJECUTADO'}
-
-*El resultado ha sido actualizado en el sistema.*
+• ID: ${signal.id}
+• Activo: ${signal.asset}
+• Resultado: ${signal.status === 'profit' ? 'GANADA ✅' : 'PERDIDA 📉'}
                 `;
                 
                 await sendNotification(ADMIN_ID, resultMessage);
@@ -792,12 +633,12 @@ supabase
     .subscribe();
 
 console.log('✅ Sistema de notificaciones activado');
-console.log('🎉 === BOT QUANTUM TRADER COMPLETAMENTE OPERATIVO ===');
+console.log('🎉 === BOT QUANTUM TRADER OPERATIVO ===');
 console.log('📡 Esperando interacciones de usuarios...');
 
 // Log de actividad periódica
 setInterval(() => {
-    console.log('💓 Sistema Quantum Trader - Operativo y monitoreando...');
+    console.log('💓 Sistema Quantum Trader - Operativo...');
 }, 300000); // Log cada 5 minutos
 
 module.exports = bot;
