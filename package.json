@@ -4,8 +4,10 @@
   "description": "Sistema de Señales de Trading con Bot de Telegram",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
+    "start": "node server.js & node bot.js",
+    "server": "node server.js",
+    "bot": "node bot.js",
+    "dev": "concurrently \"node server.js\" \"node bot.js\"",
     "test": "node -e \"console.log('Testing environment...'); require('dotenv').config(); console.log('BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'OK' : 'MISSING')\""
   },
   "dependencies": {
@@ -13,7 +15,8 @@
     "node-telegram-bot-api": "^0.64.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "@supabase/supabase-js": "^2.38.0"
+    "@supabase/supabase-js": "^2.38.0",
+    "concurrently": "^7.6.0"
   },
   "engines": {
     "node": ">=18.0.0"
