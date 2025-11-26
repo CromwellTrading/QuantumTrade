@@ -20,7 +20,7 @@ console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ ERROR: Faltan variables de entorno críticas de Supabase');
+    console.error('❌ ERROR: Faltan variables de entorno de Supabase');
     process.exit(1);
 }
 
@@ -46,21 +46,16 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check mejorado con logging
+// Health check mejorado
 app.get('/health', (req, res) => {
     const healthData = {
         status: 'OK',
         message: 'Quantum Signal Trader is running',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        url: RENDER_URL
+        uptime: Math.round(process.uptime() / 60) + ' minutos'
     };
     
-    console.log('🏥 Health check ejecutado:', {
-        timestamp: healthData.timestamp,
-        uptime: Math.round(healthData.uptime / 60) + ' minutos'
-    });
+    console.log('🏥 Health check:', healthData.timestamp);
     
     res.status(200).json(healthData);
 });
@@ -69,6 +64,8 @@ app.get('/health', (req, res) => {
 app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+        
+        console.log('🔍 Solicitando datos para usuario:', userId);
         
         // Verificar si es admin
         const isAdmin = userId === ADMIN_ID;
@@ -81,6 +78,7 @@ app.get('/api/user/:userId', async (req, res) => {
             .single();
 
         if (error && error.code !== 'PGRST116') {
+            console.error('Error en consulta de usuario:', error);
             throw error;
         }
 
@@ -93,9 +91,11 @@ app.get('/api/user/:userId', async (req, res) => {
             first_name: user?.first_name || null
         };
 
+        console.log('✅ Datos de usuario enviados:', userId, 'Admin:', isAdmin, 'VIP:', userData.is_vip);
+        
         res.json({ success: true, data: userData });
     } catch (error) {
-        console.error('Error obteniendo usuario:', error);
+        console.error('❌ Error obteniendo usuario:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -266,6 +266,8 @@ app.post('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
+        console.log('✅ Señal enviada:', asset, direction, timeframe + 'min');
+        
         res.status(200).json({ 
             success: true, 
             data,
@@ -405,23 +407,22 @@ console.log('🔧 Configurando sistema keep-alive...');
 const keepAlive = async () => {
     try {
         const response = await fetch(`${RENDER_URL}/health`);
-        console.log(`🔄 Keep-alive ejecutado: ${response.status} - ${new Date().toLocaleTimeString()}`);
+        console.log(`🔄 Keep-alive: ${response.status} - ${new Date().toLocaleTimeString()}`);
     } catch (error) {
         console.error('❌ Error en keep-alive:', error.message);
     }
 };
 
-// Ejecutar keep-alive inmediatamente y luego cada 5 minutos
-keepAlive();
-setInterval(keepAlive, 5 * 60 * 1000); // 5 minutos
+// Ejecutar keep-alive cada 5 minutos
+setInterval(keepAlive, 5 * 60 * 1000);
 
-console.log('✅ Sistema keep-alive configurado cada 5 minutos');
+console.log('✅ Sistema keep-alive configurado');
 
-// Manejo de errores no capturados
+// Manejo de errores
 process.on('uncaughtException', (error) => {
     console.error('❌ Error no capturado:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Promise rechazada no manejada:', reason);
+    console.error('❌ Promise rechazada:', reason);
 });
