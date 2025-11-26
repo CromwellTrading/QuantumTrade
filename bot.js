@@ -10,9 +10,6 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('🔧 Iniciando configuración del bot...');
-console.log('Token:', TELEGRAM_BOT_TOKEN ? '✅ Presente' : '❌ Faltante');
-console.log('Supabase URL:', SUPABASE_URL ? '✅ Presente' : '❌ Faltante');
-console.log('Supabase Key:', SUPABASE_KEY ? '✅ Presente' : '❌ Faltante');
 
 // Verificar que tenemos todas las variables necesarias
 if (!TELEGRAM_BOT_TOKEN) {
@@ -91,10 +88,7 @@ try {
                     ],
                     [
                         { text: '👤 MI ESTADO' },
-                        { 
-                            text: '🌐 ABRIR WEBAPP',
-                            web_app: { url: RENDER_URL }
-                        }
+                        { text: '🌐 ABRIR WEBAPP' }
                     ],
                     [
                         { text: '🆘 AYUDA' },
@@ -181,13 +175,6 @@ try {
 
 *Sistema avanzado de señales de trading en tiempo real*
 
-👤 *Tu información:*
-• ID: ${userId}
-• Usuario: @${username || 'No especificado'}
-• Nombre: ${msg.from.first_name || 'No especificado'}
-
-*¿Qué deseas hacer?*
-
 Usa los botones de abajo para navegar por el sistema:
             `;
             
@@ -230,11 +217,7 @@ Usa los botones de abajo para navegar por el sistema:
                 break;
                 
             case '🌐 ABRIR WEBAPP':
-                // El web_app ya maneja la apertura automática
-                await bot.sendMessage(chatId, 
-                    '🌐 *Redirigiendo a la WebApp...*\n\nSerás redirigido automáticamente a nuestra plataforma web profesional.',
-                    { parse_mode: 'Markdown' }
-                );
+                await handleWebApp(chatId);
                 break;
                 
             case '🆘 AYUDA':
@@ -295,6 +278,41 @@ Usa los botones de abajo para navegar por el sistema:
     // =============================================
     // FUNCIONES DE MANEJO DE BOTONES
     // =============================================
+
+    // 🌐 ABRIR WEBAPP
+    async function handleWebApp(chatId) {
+        const webAppMessage = `
+🌐 *ACCESO A LA WEBAPP PROFESIONAL*
+
+Estás a punto de acceder a nuestra plataforma web profesional de trading.
+
+*Características:*
+• Señales en tiempo real
+• Panel de control avanzado
+• Estadísticas detalladas
+• Interfaz profesional
+
+Haz clic en el botón de abajo para abrir la WebApp:
+        `;
+
+        const inlineKeyboard = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { 
+                            text: '🚀 ABRIR WEBAPP', 
+                            web_app: { url: RENDER_URL } 
+                        }
+                    ]
+                ]
+            }
+        };
+
+        await bot.sendMessage(chatId, webAppMessage, {
+            parse_mode: 'Markdown',
+            ...inlineKeyboard
+        });
+    }
 
     // 📊 VER SEÑALES
     async function handleViewSignals(chatId, userId) {
