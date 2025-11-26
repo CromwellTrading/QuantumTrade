@@ -17,6 +17,11 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
+console.log('🔧 [SERVER] Configuración cargada:');
+console.log('🔧 [SERVER] SUPABASE_URL:', SUPABASE_URL ? '✅ Configurado' : '❌ Faltante');
+console.log('🔧 [SERVER] SUPABASE_KEY:', SUPABASE_KEY ? '✅ Configurado' : '❌ Faltante');
+console.log('🔧 [SERVER] ADMIN_ID:', ADMIN_ID);
+console.log('🔧 [SERVER] RENDER_URL:', RENDER_URL);
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -28,9 +33,9 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // INICIALIZACIÓN DE SUPABASE
 // =============================================
 
-console.log('🔄 Conectando con la base de datos...');
+console.log('🔄 [SERVER] Conectando con la base de datos...');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-console.log('✅ Conexión a Supabase establecida');
+console.log('✅ [SERVER] Conexión a Supabase establecida');
 
 // =============================================
 // CONFIGURACIÓN DEL SERVIDOR WEB
@@ -41,21 +46,38 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+// Middleware de logging para TODAS las requests
+app.use((req, res, next) => {
+    console.log(`🌐 [SERVER] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log(`🌐 [SERVER] Query parameters:`, req.query);
+    console.log(`🌐 [SERVER] Headers:`, {
+        'user-agent': req.headers['user-agent'],
+        'referer': req.headers['referer'],
+        'origin': req.headers['origin']
+    });
+    next();
+});
+
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
+    console.log(`📄 [SERVER] Sirviendo index.html`);
+    console.log(`📄 [SERVER] Parámetros recibidos en /:`, req.query);
+    console.log(`📄 [SERVER] tgid parameter:`, req.query.tgid);
+    
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Health check mejorado
 app.get('/health', (req, res) => {
+    console.log(`🏥 [SERVER] Health check - Query:`, req.query);
+    
     const healthData = {
         status: 'OK',
         message: 'Quantum Signal Trader is running',
         timestamp: new Date().toISOString(),
-        uptime: Math.round(process.uptime() / 60) + ' minutos'
+        uptime: Math.round(process.uptime() / 60) + ' minutos',
+        query_params: req.query
     };
-    
-    console.log('🏥 Health check:', healthData.timestamp);
     
     res.status(200).json(healthData);
 });
@@ -65,10 +87,14 @@ app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         
-        console.log('🔍 Solicitando datos para usuario:', userId);
+        console.log(`👤 [SERVER] GET /api/user/${userId}`);
+        console.log(`👤 [SERVER] Headers:`, req.headers);
+        console.log(`👤 [SERVER] Query:`, req.query);
         
         // Verificar si es admin
         const isAdmin = userId === ADMIN_ID;
+        
+        console.log(`🔍 [SERVER] Buscando usuario en BD: ${userId}`);
         
         // Obtener información del usuario de Supabase
         const { data: user, error } = await supabase
@@ -77,9 +103,13 @@ app.get('/api/user/:userId', async (req, res) => {
             .eq('telegram_id', userId)
             .single();
 
-        if (error && error.code !== 'PGRST116') {
-            console.error('Error en consulta de usuario:', error);
-            throw error;
+        if (error) {
+            console.error(`❌ [SERVER] Error en consulta de usuario:`, error);
+            if (error.code === 'PGRST116') {
+                console.log(`👤 [SERVER] Usuario ${userId} no encontrado en BD, creando nuevo...`);
+            } else {
+                throw error;
+            }
         }
 
         const userData = {
@@ -91,11 +121,11 @@ app.get('/api/user/:userId', async (req, res) => {
             first_name: user?.first_name || null
         };
 
-        console.log('✅ Datos de usuario enviados:', userId, 'Admin:', isAdmin, 'VIP:', userData.is_vip);
+        console.log(`✅ [SERVER] Datos de usuario enviados:`, userData);
         
         res.json({ success: true, data: userData });
     } catch (error) {
-        console.error('❌ Error obteniendo usuario:', error);
+        console.error('❌ [SERVER] Error obteniendo usuario:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -103,6 +133,8 @@ app.get('/api/user/:userId', async (req, res) => {
 // Endpoint para obtener todos los usuarios
 app.get('/api/users', async (req, res) => {
     try {
+        console.log(`👥 [SERVER] GET /api/users - Obteniendo todos los usuarios`);
+        
         const { data: users, error } = await supabase
             .from('users')
             .select('*')
@@ -110,9 +142,10 @@ app.get('/api/users', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ [SERVER] ${users?.length || 0} usuarios obtenidos`);
         res.status(200).json({ success: true, data: users });
     } catch (error) {
-        console.error('Error obteniendo usuarios:', error);
+        console.error('❌ [SERVER] Error obteniendo usuarios:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -121,6 +154,8 @@ app.get('/api/users', async (req, res) => {
 app.get('/api/users/search/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
+        
+        console.log(`🔍 [SERVER] Buscando usuario: ${telegramId}`);
         
         const { data: user, error } = await supabase
             .from('users')
@@ -132,13 +167,15 @@ app.get('/api/users/search/:telegramId', async (req, res) => {
             throw error;
         }
 
+        console.log(`✅ [SERVER] Búsqueda completada - Usuario encontrado: ${!!user}`);
+        
         res.status(200).json({ 
             success: true, 
             data: user,
             found: !!user
         });
     } catch (error) {
-        console.error('Error buscando usuario:', error);
+        console.error('❌ [SERVER] Error buscando usuario:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -148,8 +185,11 @@ app.post('/api/users/vip', async (req, res) => {
     try {
         const { telegramId, userId, days = 30 } = req.body;
 
+        console.log(`👑 [SERVER] Haciendo VIP usuario: ${telegramId} por ${days} días`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de hacer VIP por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -166,6 +206,7 @@ app.post('/api/users/vip', async (req, res) => {
         let result;
         if (findError && findError.code === 'PGRST116') {
             // Usuario no existe, crear uno nuevo
+            console.log(`👤 [SERVER] Creando nuevo usuario VIP: ${telegramId}`);
             result = await supabase
                 .from('users')
                 .insert({
@@ -177,6 +218,7 @@ app.post('/api/users/vip', async (req, res) => {
                 .select();
         } else {
             // Usuario existe, actualizar
+            console.log(`👤 [SERVER] Actualizando usuario existente a VIP: ${telegramId}`);
             result = await supabase
                 .from('users')
                 .update({ 
@@ -189,13 +231,15 @@ app.post('/api/users/vip', async (req, res) => {
 
         if (result.error) throw result.error;
 
+        console.log(`✅ [SERVER] Usuario ${telegramId} ahora es VIP por ${days} días`);
+        
         res.status(200).json({ 
             success: true, 
             data: result.data,
             message: `Usuario ${telegramId} ahora es VIP por ${days} días`
         });
     } catch (error) {
-        console.error('Error haciendo usuario VIP:', error);
+        console.error('❌ [SERVER] Error haciendo usuario VIP:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -205,8 +249,11 @@ app.post('/api/users/remove-vip', async (req, res) => {
     try {
         const { telegramId, userId } = req.body;
 
+        console.log(`👑 [SERVER] Quitando VIP a usuario: ${telegramId}`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de quitar VIP por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -221,13 +268,15 @@ app.post('/api/users/remove-vip', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ [SERVER] VIP removido del usuario: ${telegramId}`);
+        
         res.status(200).json({ 
             success: true, 
             data,
             message: `Usuario ${telegramId} ya no es VIP`
         });
     } catch (error) {
-        console.error('Error quitando VIP:', error);
+        console.error('❌ [SERVER] Error quitando VIP:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -237,12 +286,16 @@ app.post('/api/signals', async (req, res) => {
     try {
         const { asset, timeframe, direction, userId } = req.body;
 
+        console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de enviar señal por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
         if (!asset || !timeframe || !direction) {
+            console.log(`❌ [SERVER] Faltan campos requeridos para señal`);
             return res.status(400).json({ error: 'Faltan campos requeridos' });
         }
 
@@ -266,7 +319,7 @@ app.post('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
-        console.log('✅ Señal enviada:', asset, direction, timeframe + 'min');
+        console.log('✅ [SERVER] Señal enviada correctamente:', asset, direction, timeframe + 'min');
         
         res.status(200).json({ 
             success: true, 
@@ -274,7 +327,7 @@ app.post('/api/signals', async (req, res) => {
             message: 'Señal enviada correctamente'
         });
     } catch (error) {
-        console.error('Error enviando señal:', error);
+        console.error('❌ [SERVER] Error enviando señal:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -285,8 +338,11 @@ app.put('/api/signals/:id', async (req, res) => {
         const { id } = req.params;
         const { status, userId } = req.body;
 
+        console.log(`🔄 [SERVER] Actualizando señal ${id} a estado: ${status}`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de actualizar señal por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -299,13 +355,15 @@ app.put('/api/signals/:id', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ [SERVER] Señal ${id} actualizada a: ${status}`);
+        
         res.status(200).json({ 
             success: true, 
             data,
             message: `Estado actualizado a: ${status}`
         });
     } catch (error) {
-        console.error('Error actualizando señal:', error);
+        console.error('❌ [SERVER] Error actualizando señal:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -313,6 +371,8 @@ app.put('/api/signals/:id', async (req, res) => {
 // Endpoint para obtener señales
 app.get('/api/signals', async (req, res) => {
     try {
+        console.log(`📡 [SERVER] Obteniendo señales`);
+        
         const { data, error } = await supabase
             .from('signals')
             .select('*')
@@ -321,9 +381,11 @@ app.get('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ [SERVER] ${data?.length || 0} señales obtenidas`);
+        
         res.status(200).json({ success: true, data });
     } catch (error) {
-        console.error('Error obteniendo señales:', error);
+        console.error('❌ [SERVER] Error obteniendo señales:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -333,17 +395,22 @@ app.post('/api/notify', async (req, res) => {
     try {
         const { userId } = req.body;
 
+        console.log(`🔔 [SERVER] Notificación de 10 minutos solicitada por: ${userId}`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de notificar por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
+        console.log(`✅ [SERVER] Notificación de 10 minutos procesada`);
+        
         res.status(200).json({ 
             success: true, 
             message: 'Notificación de 10 minutos enviada' 
         });
     } catch (error) {
-        console.error('Error enviando notificación:', error);
+        console.error('❌ [SERVER] Error enviando notificación:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -353,17 +420,22 @@ app.post('/api/sessions/start', async (req, res) => {
     try {
         const { userId } = req.body;
 
+        console.log(`▶️ [SERVER] Iniciando sesión para usuario: ${userId}`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de iniciar sesión por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
+        console.log(`✅ [SERVER] Sesión iniciada para admin: ${userId}`);
+        
         res.status(200).json({ 
             success: true,
             message: 'Sesión iniciada correctamente'
         });
     } catch (error) {
-        console.error('Error iniciando sesión:', error);
+        console.error('❌ [SERVER] Error iniciando sesión:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -373,19 +445,53 @@ app.post('/api/sessions/end', async (req, res) => {
     try {
         const { userId } = req.body;
 
+        console.log(`⏹️ [SERVER] Finalizando sesión para usuario: ${userId}`);
+
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log(`❌ [SERVER] Intento no autorizado de finalizar sesión por usuario: ${userId}`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
+        console.log(`✅ [SERVER] Sesión finalizada para admin: ${userId}`);
+        
         res.status(200).json({ 
             success: true,
             message: 'Sesión finalizada correctamente'
         });
     } catch (error) {
-        console.error('Error finalizando sesión:', error);
+        console.error('❌ [SERVER] Error finalizando sesión:', error);
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// =============================================
+// NUEVO ENDPOINT PARA DEBUG
+// =============================================
+
+app.get('/api/debug/request', (req, res) => {
+    const debugInfo = {
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        url: req.url,
+        query: req.query,
+        params: req.params,
+        headers: {
+            'user-agent': req.headers['user-agent'],
+            'referer': req.headers['referer'],
+            'origin': req.headers['origin'],
+            'host': req.headers['host']
+        },
+        body: req.body
+    };
+    
+    console.log(`🐛 [DEBUG] Información completa de request:`, debugInfo);
+    
+    res.json({ 
+        success: true, 
+        message: 'Debug information',
+        data: debugInfo 
+    });
 });
 
 // =============================================
@@ -393,36 +499,37 @@ app.post('/api/sessions/end', async (req, res) => {
 // =============================================
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Servidor web ejecutándose en puerto ${PORT}`);
-    console.log('🚀 Servidor completamente operativo');
+    console.log(`✅ [SERVER] Servidor web ejecutándose en puerto ${PORT}`);
+    console.log('🚀 [SERVER] Servidor completamente operativo');
+    console.log(`🌐 [SERVER] URL: ${RENDER_URL}`);
 });
 
 // =============================================
 // KEEP-ALIVE PARA PREVENIR SUSPENSIÓN
 // =============================================
 
-console.log('🔧 Configurando sistema keep-alive...');
+console.log('🔧 [SERVER] Configurando sistema keep-alive...');
 
 // Función para mantener el servidor activo
 const keepAlive = async () => {
     try {
         const response = await fetch(`${RENDER_URL}/health`);
-        console.log(`🔄 Keep-alive: ${response.status} - ${new Date().toLocaleTimeString()}`);
+        console.log(`🔄 [KEEP-ALIVE] ${response.status} - ${new Date().toLocaleTimeString()}`);
     } catch (error) {
-        console.error('❌ Error en keep-alive:', error.message);
+        console.error('❌ [KEEP-ALIVE] Error:', error.message);
     }
 };
 
 // Ejecutar keep-alive cada 5 minutos
 setInterval(keepAlive, 5 * 60 * 1000);
 
-console.log('✅ Sistema keep-alive configurado');
+console.log('✅ [SERVER] Sistema keep-alive configurado');
 
 // Manejo de errores
 process.on('uncaughtException', (error) => {
-    console.error('❌ Error no capturado:', error);
+    console.error('❌ [SERVER] Error no capturado:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Promise rechazada:', reason);
+    console.error('❌ [SERVER] Promise rechazada:', reason);
 });
