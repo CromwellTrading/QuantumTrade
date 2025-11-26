@@ -1135,6 +1135,21 @@
                 text-align: center;
             }
         }
+
+        /* Debug panel */
+        #debugInfo {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            z-index: 10000;
+            font-size: 12px;
+            border-radius: 5px;
+            max-width: 300px;
+            word-break: break-all;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1442,31 +1457,38 @@
             
             // Detectar usuario desde parámetro URL
             detectUserFromURL() {
+                console.log('🔍 [CLIENTE] Iniciando detección de usuario desde URL');
+                
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
                     const tgId = urlParams.get('tgid');
                     
+                    console.log('🔍 [CLIENTE] URL completa:', window.location.href);
+                    console.log('🔍 [CLIENTE] Parámetros de URL:', Object.fromEntries(urlParams));
+                    console.log('🔍 [CLIENTE] tgid encontrado:', tgId);
+
                     if (tgId) {
-                        console.log('✅ ID detectado desde URL:', tgId);
+                        console.log('✅ [CLIENTE] ID detectado desde URL:', tgId);
                         this.currentUserId = tgId;
                         localStorage.setItem('tg_user_id', this.currentUserId);
                         
                         // Detección inmediata de admin
                         if (this.currentUserId === ADMIN_ID) {
                             this.isAdmin = true;
-                            console.log('🎯 Usuario identificado como ADMIN');
+                            console.log('🎯 [CLIENTE] Usuario identificado como ADMIN');
                         }
                         
                         this.loadUserData();
                     } else {
                         // Si no hay ID en URL, intentar desde localStorage
                         const storedId = localStorage.getItem('tg_user_id');
+                        console.log('📁 [CLIENTE] ID cargado desde localStorage:', storedId);
                         if (storedId) {
                             this.currentUserId = storedId;
-                            console.log('📁 ID cargado desde localStorage:', storedId);
+                            console.log('📁 [CLIENTE] ID cargado desde localStorage:', storedId);
                             this.loadUserData();
                         } else {
-                            console.log('❌ No se pudo detectar ID de usuario');
+                            console.log('❌ [CLIENTE] No se pudo detectar ID de usuario');
                             this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
                             this.updateUserStatus();
                         }
@@ -1474,23 +1496,31 @@
                     
                     this.updateUI();
                 } catch (error) {
-                    console.error('Error detectando usuario desde URL:', error);
+                    console.error('❌ [CLIENTE] Error detectando usuario desde URL:', error);
                     this.currentUserId = 'error_' + Math.random().toString(36).substr(2, 9);
                 }
             }
             
             async loadUserData() {
-                if (!this.currentUserId) return;
+                if (!this.currentUserId) {
+                    console.log('❌ [CLIENTE] No hay currentUserId para cargar datos');
+                    return;
+                }
                 
                 try {
-                    console.log('🔍 Cargando datos del usuario:', this.currentUserId);
-                    const response = await fetch(`${SERVER_URL}/api/user/${this.currentUserId}`);
+                    console.log('🔍 [CLIENTE] Cargando datos del usuario:', this.currentUserId);
+                    const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
+                    console.log('🔍 [CLIENTE] URL de API:', apiUrl);
+                    
+                    const response = await fetch(apiUrl);
+                    console.log('🔍 [CLIENTE] Respuesta de API recibida, status:', response.status);
                     
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
                     const result = await response.json();
+                    console.log('🔍 [CLIENTE] Resultado de API:', result);
                     
                     if (result.success) {
                         this.userData = result.data;
@@ -1502,20 +1532,21 @@
                             const expiryDate = new Date(this.userData.vip_expires_at);
                             if (expiryDate < new Date()) {
                                 this.isVIP = false;
+                                console.log('⚠️ [CLIENTE] VIP expirado');
                             }
                         }
                         
-                        console.log('✅ Datos de usuario cargados:', {
+                        console.log('✅ [CLIENTE] Datos de usuario cargados:', {
                             id: this.currentUserId,
                             admin: this.isAdmin,
                             vip: this.isVIP
                         });
                         this.updateUI();
                     } else {
-                        console.error('Error en respuesta del servidor:', result);
+                        console.error('❌ [CLIENTE] Error en respuesta del servidor:', result);
                     }
                 } catch (error) {
-                    console.error('❌ Error cargando datos del usuario:', error);
+                    console.error('❌ [CLIENTE] Error cargando datos del usuario:', error);
                 }
             }
             
@@ -1559,6 +1590,8 @@
             }
 
             initializeDOMElements() {
+                console.log('🏗️ [CLIENTE] Inicializando elementos DOM');
+                
                 this.sendSignalBtn = document.getElementById('sendSignal');
                 this.signalsContainer = document.getElementById('signalsContainer');
                 this.notification = document.getElementById('notification');
@@ -1602,6 +1635,22 @@
                 this.totalCount = document.getElementById('totalCount');
                 this.operationsTable = document.getElementById('operationsTable');
                 this.performanceChart = null;
+                
+                // Agregar un elemento de debug visible
+                const debugDiv = document.createElement('div');
+                debugDiv.id = 'debugInfo';
+                debugDiv.style.cssText = 'position:fixed; top:10px; right:10px; background:red; color:white; padding:10px; z-index:10000; font-size:12px;';
+                document.body.appendChild(debugDiv);
+                
+                // Actualizar debug info
+                setTimeout(() => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    debugDiv.innerHTML = `
+                        URL: ${window.location.href}<br>
+                        tgid: ${urlParams.get('tgid') || 'NO'}<br>
+                        UserID: ${this.currentUserId || 'NO'}
+                    `;
+                }, 1000);
             }
             
             async checkServerConnection() {
@@ -2680,6 +2729,35 @@
                 }
             }, 1000);
         });
+    </script>
+
+    <script>
+        // Script de debug directo
+        console.log('=== 🐛 DEBUG SCRIPT INICIADO ===');
+        console.log('URL completa:', window.location.href);
+        console.log('Parámetros URL:', Object.fromEntries(new URLSearchParams(window.location.search)));
+        console.log('UserAgent:', navigator.userAgent);
+        console.log('Plataforma:', navigator.platform);
+
+        // Probar la API directamente
+        async function testAPI() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgid = urlParams.get('tgid');
+            
+            if (tgid) {
+                console.log('🔍 TEST: Probando API con tgid:', tgid);
+                try {
+                    const response = await fetch(`/api/user/${tgid}`);
+                    const result = await response.json();
+                    console.log('🔍 TEST: Respuesta API:', result);
+                } catch (error) {
+                    console.error('🔍 TEST: Error API:', error);
+                }
+            }
+        }
+
+        // Ejecutar test después de 2 segundos
+        setTimeout(testAPI, 2000);
     </script>
 </body>
 </html>
