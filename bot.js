@@ -13,6 +13,12 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('=== 🤖 INICIANDO BOT DE TELEGRAM ===');
+console.log('🔧 [BOT] Configuración cargada:');
+console.log('🔧 [BOT] TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? '✅ Configurado' : '❌ Faltante');
+console.log('🔧 [BOT] SUPABASE_URL:', SUPABASE_URL ? '✅ Configurado' : '❌ Faltante');
+console.log('🔧 [BOT] SUPABASE_KEY:', SUPABASE_KEY ? '✅ Configurado' : '❌ Faltante');
+console.log('🔧 [BOT] ADMIN_ID:', ADMIN_ID);
+console.log('🔧 [BOT] RENDER_URL:', RENDER_URL);
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN) {
@@ -29,15 +35,15 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // INICIALIZACIÓN DE SUPABASE
 // =============================================
 
-console.log('🔄 Conectando con la base de datos...');
+console.log('🔄 [BOT] Conectando con la base de datos...');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-console.log('✅ Conexión a Supabase establecida');
+console.log('✅ [BOT] Conexión a Supabase establecida');
 
 // =============================================
 // INICIALIZACIÓN DEL BOT
 // =============================================
 
-console.log('🚀 Inicializando bot de Telegram...');
+console.log('🚀 [BOT] Inicializando bot de Telegram...');
 
 let bot;
 try {
@@ -52,9 +58,9 @@ try {
             }
         }
     });
-    console.log('✅ Cliente de Telegram inicializado');
+    console.log('✅ [BOT] Cliente de Telegram inicializado');
 } catch (error) {
-    console.error('❌ Error crítico al crear el bot:', error);
+    console.error('❌ [BOT] Error crítico al crear el bot:', error);
     process.exit(1);
 }
 
@@ -89,11 +95,20 @@ function createVIPInlineKeyboard() {
 
 // Función para crear teclado inline para WebApp con ID de usuario
 function createWebAppInlineKeyboard(userId) {
+    console.log(`⌨️ [BOT] Creando teclado inline para userId: ${userId}`);
+    
     const webAppUrl = `${RENDER_URL}?tgid=${userId}`;
+    console.log(`⌨️ [BOT] URL final para WebApp: ${webAppUrl}`);
+    
     return {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🚀 ACCEDER A LA PLATAFORMA', web_app: { url: webAppUrl } }]
+                [{ 
+                    text: '🚀 ACCEDER A LA PLATAFORMA', 
+                    web_app: { 
+                        url: webAppUrl 
+                    } 
+                }]
             ]
         }
     };
@@ -102,6 +117,8 @@ function createWebAppInlineKeyboard(userId) {
 // Función para obtener estado del usuario
 async function getUserStatus(userId) {
     try {
+        console.log(`🔍 [BOT] Obteniendo estado del usuario: ${userId}`);
+        
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -109,13 +126,14 @@ async function getUserStatus(userId) {
             .single();
 
         if (error && error.code !== 'PGRST116') {
-            console.error('Error en getUserStatus:', error);
+            console.error('❌ [BOT] Error en getUserStatus:', error);
             return null;
         }
         
+        console.log(`✅ [BOT] Estado obtenido para usuario: ${userId} - VIP: ${user?.is_vip || false}`);
         return user;
     } catch (error) {
-        console.error('Error obteniendo usuario:', error);
+        console.error('❌ [BOT] Error obteniendo usuario:', error);
         return null;
     }
 }
@@ -123,13 +141,15 @@ async function getUserStatus(userId) {
 // Función para enviar notificaciones
 async function sendNotification(chatId, message, options = {}) {
     try {
+        console.log(`📨 [BOT] Enviando mensaje a chatId: ${chatId}`);
         await bot.sendMessage(chatId, message, { 
             parse_mode: 'Markdown', 
             ...options 
         });
+        console.log(`✅ [BOT] Mensaje enviado exitosamente a chatId: ${chatId}`);
         return true;
     } catch (error) {
-        console.error('Error enviando notificación:', error.message);
+        console.error('❌ [BOT] Error enviando notificación:', error.message);
         return false;
     }
 }
@@ -138,16 +158,16 @@ async function sendNotification(chatId, message, options = {}) {
 // VERIFICACIÓN DE CONEXIÓN
 // =============================================
 
-console.log('🔍 Estableciendo conexión con Telegram...');
+console.log('🔍 [BOT] Estableciendo conexión con Telegram...');
 
 bot.getMe().then((me) => {
     console.log('🎉 === SISTEMA OPERATIVO ===');
-    console.log(`🤖 Bot identificado: @${me.username}`);
-    console.log(`🆔 ID del bot: ${me.id}`);
-    console.log('✅ Todas las conexiones establecidas correctamente');
-    console.log('📡 Sistema listo para recibir solicitudes...');
+    console.log(`🤖 [BOT] Bot identificado: @${me.username}`);
+    console.log(`🆔 [BOT] ID del bot: ${me.id}`);
+    console.log('✅ [BOT] Todas las conexiones establecidas correctamente');
+    console.log('📡 [BOT] Sistema listo para recibir solicitudes...');
 }).catch((error) => {
-    console.error('❌ Error de conexión:', error);
+    console.error('❌ [BOT] Error de conexión:', error);
     process.exit(1);
 });
 
@@ -158,9 +178,9 @@ bot.getMe().then((me) => {
 // Manejar errores de polling
 bot.on('polling_error', (error) => {
     if (error.code === 409) {
-        console.log('⚠️ Conflicto de polling. Continuando...');
+        console.log('⚠️ [BOT] Conflicto de polling. Continuando...');
     } else {
-        console.error('❌ Error de polling:', error.message);
+        console.error('❌ [BOT] Error de polling:', error.message);
     }
 });
 
@@ -170,10 +190,11 @@ bot.onText(/\/start/, async (msg) => {
     const userId = msg.from.id.toString();
     const userName = msg.from.first_name || 'Usuario';
     
-    console.log(`👋 Nuevo usuario: ${userName} (${userId})`);
+    console.log(`👋 [BOT] Nuevo usuario: ${userName} (${userId}) en chat: ${chatId}`);
 
     try {
         // Guardar usuario en la base de datos
+        console.log(`💾 [BOT] Guardando usuario en BD: ${userId}`);
         const { data, error } = await supabase
             .from('users')
             .upsert({
@@ -188,7 +209,9 @@ bot.onText(/\/start/, async (msg) => {
             });
 
         if (error) {
-            console.error('Error guardando usuario:', error);
+            console.error('❌ [BOT] Error guardando usuario:', error);
+        } else {
+            console.log(`✅ [BOT] Usuario guardado en BD: ${userId}`);
         }
 
         const welcomeMessage = `
@@ -204,7 +227,7 @@ Este bot envía señales de trading para opciones binarias.
         await sendNotification(chatId, welcomeMessage, createMainKeyboard());
         
     } catch (error) {
-        console.error('Error en /start:', error);
+        console.error('❌ [BOT] Error en /start:', error);
         await sendNotification(chatId, '❌ Error en el sistema. Por favor, intenta nuevamente.');
     }
 });
@@ -212,6 +235,8 @@ Este bot envía señales de trading para opciones binarias.
 // COMANDO /estado - VERIFICACIÓN DEL SISTEMA
 bot.onText(/\/estado/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    console.log(`🔍 [BOT] Comando /estado desde chatId: ${chatId}`);
     
     const statusMessage = `
 🔍 *Estado del Sistema*
@@ -234,36 +259,43 @@ bot.on('message', async (msg) => {
     const userId = msg.from.id.toString();
     const userName = msg.from.first_name || 'Usuario';
 
-    console.log(`📨 Mensaje de ${userName} (${userId}): ${messageText}`);
+    console.log(`📨 [BOT] Mensaje de ${userName} (${userId}): ${messageText}`);
 
     try {
         switch (messageText) {
             case '📈 VER SEÑALES':
+                console.log(`📈 [BOT] Botón "VER SEÑALES" presionado por ${userId}`);
                 await handleViewSignals(chatId, userId);
                 break;
                 
             case '💎 PLAN VIP':
+                console.log(`💎 [BOT] Botón "PLAN VIP" presionado por ${userId}`);
                 await handleVIPInfo(chatId);
                 break;
                 
             case '👤 MI CUENTA':
+                console.log(`👤 [BOT] Botón "MI CUENTA" presionado por ${userId}`);
                 await handleUserStatus(chatId, userId);
                 break;
                 
             case '🌐 PLATAFORMA WEB':
+                console.log(`🌐 [BOT] Botón "PLATAFORMA WEB" presionado por ${userId}`);
                 await handleWebApp(chatId, userId);
                 break;
                 
             case '❓ AYUDA':
+                console.log(`❓ [BOT] Botón "AYUDA" presionado por ${userId}`);
                 await handleHelp(chatId);
                 break;
                 
             case '📞 CONTACTO':
+                console.log(`📞 [BOT] Botón "CONTACTO" presionado por ${userId}`);
                 await handleContact(chatId);
                 break;
                 
             default:
                 if (!messageText.startsWith('/')) {
+                    console.log(`🔘 [BOT] Mensaje no reconocido: ${messageText}`);
                     await sendNotification(chatId, 
                         `Usa los botones para navegar por las opciones disponibles.`,
                         createMainKeyboard()
@@ -272,7 +304,7 @@ bot.on('message', async (msg) => {
                 break;
         }
     } catch (error) {
-        console.error('Error procesando mensaje:', error);
+        console.error('❌ [BOT] Error procesando mensaje:', error);
         await sendNotification(chatId, 
             '⚠️ Error del sistema. Intenta nuevamente.',
             createMainKeyboard()
@@ -287,29 +319,32 @@ bot.on('callback_query', async (callbackQuery) => {
     const data = callbackQuery.data;
     const userId = callbackQuery.from.id.toString();
 
-    console.log(`🔘 Callback de ${userId}: ${data}`);
+    console.log(`🔘 [BOT] Callback de ${userId}: ${data}`);
 
     try {
         switch (data) {
             case 'refresh_signals':
+                console.log(`🔄 [BOT] Refrescando señales para ${userId}`);
                 await handleViewSignals(chatId, userId);
                 break;
                 
             case 'refresh_status':
+                console.log(`🔄 [BOT] Refrescando estado para ${userId}`);
                 await handleUserStatus(chatId, userId);
                 break;
                 
             case 'vip_benefits':
+                console.log(`💎 [BOT] Mostrando beneficios VIP para ${userId}`);
                 await handleVIPBenefits(chatId);
                 break;
                 
             default:
-                console.log('Callback no manejado:', data);
+                console.log('🔘 [BOT] Callback no manejado:', data);
         }
 
         await bot.answerCallbackQuery(callbackQuery.id);
     } catch (error) {
-        console.error('Error en callback:', error);
+        console.error('❌ [BOT] Error en callback:', error);
         await bot.answerCallbackQuery(callbackQuery.id, { 
             text: '❌ Error al procesar la solicitud' 
         });
@@ -322,6 +357,11 @@ bot.on('callback_query', async (callbackQuery) => {
 
 // 🌐 PLATAFORMA WEB - AHORA CON ID EN URL
 async function handleWebApp(chatId, userId) {
+    console.log(`🔗 [BOT] Iniciando handleWebApp para chatId: ${chatId}, userId: ${userId}`);
+    
+    const webAppUrl = `${RENDER_URL}?tgid=${userId}`;
+    console.log(`🔗 [BOT] URL generada: ${webAppUrl}`);
+    
     const webAppMessage = `
 🌐 *Plataforma Web Quantum Trader*
 
@@ -334,12 +374,22 @@ Accede a nuestra plataforma web para:
 *Haz clic para acceder:* 👇
     `;
 
-    await sendNotification(chatId, webAppMessage, createWebAppInlineKeyboard(userId));
+    const keyboard = createWebAppInlineKeyboard(userId);
+    console.log(`🔗 [BOT] Teclado inline creado:`, JSON.stringify(keyboard));
+
+    try {
+        await sendNotification(chatId, webAppMessage, keyboard);
+        console.log(`✅ [BOT] Mensaje de WebApp enviado exitosamente a ${userId}`);
+    } catch (error) {
+        console.error(`❌ [BOT] Error enviando mensaje WebApp:`, error);
+    }
 }
 
 // 📈 SEÑALES
 async function handleViewSignals(chatId, userId) {
     try {
+        console.log(`📡 [BOT] Obteniendo señales para usuario: ${userId}`);
+        
         const { data: signals, error } = await supabase
             .from('signals')
             .select('*')
@@ -351,6 +401,8 @@ async function handleViewSignals(chatId, userId) {
         let signalsMessage = `📊 *Señales Recientes*\n\n`;
 
         if (signals && signals.length > 0) {
+            console.log(`✅ [BOT] ${signals.length} señales encontradas`);
+            
             signals.forEach((signal) => {
                 const directionEmoji = signal.direction === 'up' ? '🟢' : '🔴';
                 const directionText = signal.direction === 'up' ? 'ALZA' : 'BAJA';
@@ -368,6 +420,7 @@ async function handleViewSignals(chatId, userId) {
                 signalsMessage += `━━━━━━━━━━━━━━━━━━━━\n\n`;
             });
         } else {
+            console.log(`ℹ️ [BOT] No hay señales activas`);
             signalsMessage += '*No hay señales activas.*\n';
         }
 
@@ -390,7 +443,7 @@ async function handleViewSignals(chatId, userId) {
         await sendNotification(chatId, signalsMessage, inlineKeyboard);
 
     } catch (error) {
-        console.error('Error obteniendo señales:', error);
+        console.error('❌ [BOT] Error obteniendo señales:', error);
         await sendNotification(chatId, 
             '⚠️ Error al cargar señales.',
             createMainKeyboard()
@@ -400,6 +453,8 @@ async function handleViewSignals(chatId, userId) {
 
 // 💎 PLAN VIP
 async function handleVIPInfo(chatId) {
+    console.log(`💎 [BOT] Mostrando información VIP en chat: ${chatId}`);
+    
     const vipMessage = `
 💎 *Plan VIP Quantum Trader*
 
@@ -419,6 +474,8 @@ async function handleVIPInfo(chatId) {
 
 // 💎 BENEFICIOS VIP
 async function handleVIPBenefits(chatId) {
+    console.log(`💎 [BOT] Mostrando beneficios VIP en chat: ${chatId}`);
+    
     const benefitsMessage = `
 💎 *Beneficios VIP*
 
@@ -448,6 +505,8 @@ async function handleVIPBenefits(chatId) {
 // 👤 ESTADO DE USUARIO
 async function handleUserStatus(chatId, userId) {
     try {
+        console.log(`👤 [BOT] Obteniendo estado para usuario: ${userId}`);
+        
         const user = await getUserStatus(userId);
         
         let statusMessage = `
@@ -497,7 +556,7 @@ async function handleUserStatus(chatId, userId) {
         await sendNotification(chatId, statusMessage, inlineKeyboard);
 
     } catch (error) {
-        console.error('Error en estado de usuario:', error);
+        console.error('❌ [BOT] Error en estado de usuario:', error);
         await sendNotification(chatId, 
             '⚠️ Error al cargar información.',
             createMainKeyboard()
@@ -507,6 +566,8 @@ async function handleUserStatus(chatId, userId) {
 
 // ❓ AYUDA
 async function handleHelp(chatId) {
+    console.log(`❓ [BOT] Mostrando ayuda en chat: ${chatId}`);
+    
     const helpMessage = `
 ❓ *Centro de Ayuda*
 
@@ -528,6 +589,8 @@ async function handleHelp(chatId) {
 
 // 📞 CONTACTO
 async function handleContact(chatId) {
+    console.log(`📞 [BOT] Mostrando contacto en chat: ${chatId}`);
+    
     const contactMessage = `
 📞 *Contacto*
 
@@ -556,7 +619,7 @@ async function handleContact(chatId) {
 // SUSCRIPCIÓN A CAMBIOS EN SUPABASE
 // =============================================
 
-console.log('🔄 Activando sistema de notificaciones...');
+console.log('🔄 [BOT] Activando sistema de notificaciones...');
 
 // Suscribirse a nuevas señales
 const signalsChannel = supabase
@@ -568,7 +631,7 @@ const signalsChannel = supabase
             table: 'signals' 
         }, 
         async (payload) => {
-            console.log('🔔 Nueva señal detectada');
+            console.log('🔔 [BOT] Nueva señal detectada:', payload.new);
             
             const signal = payload.new;
             const signalMessage = `
@@ -585,16 +648,16 @@ const signalsChannel = supabase
     )
     .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-            console.log('✅ Suscrito a señales');
+            console.log('✅ [BOT] Suscrito a señales');
         }
     });
 
-console.log('✅ Sistema de notificaciones activado');
+console.log('✅ [BOT] Sistema de notificaciones activado');
 console.log('🎉 === BOT QUANTUM TRADER OPERATIVO ===');
 
 // Log de estado cada 10 minutos
 setInterval(() => {
-    console.log('💓 Bot activo -', new Date().toLocaleTimeString());
+    console.log('💓 [BOT] Bot activo -', new Date().toLocaleTimeString());
 }, 600000);
 
 module.exports = bot;
