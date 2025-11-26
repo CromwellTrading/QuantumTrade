@@ -14,13 +14,17 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
-const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('🚀 Iniciando Quantum Signal Trader Pro...');
+console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
+console.log('📋 Variables de entorno:');
+console.log('- SUPABASE_URL:', SUPABASE_URL ? '✅ PRESENTE' : '❌ FALTANTE');
+console.log('- SUPABASE_KEY:', SUPABASE_KEY ? '✅ PRESENTE' : '❌ FALTANTE');
+console.log('- ADMIN_ID:', ADMIN_ID);
+console.log('- PORT:', PORT);
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ ERROR: Faltan variables de entorno críticas');
+    console.error('❌ ERROR: Faltan variables de entorno críticas de Supabase');
     process.exit(1);
 }
 
@@ -28,8 +32,14 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // INICIALIZACIÓN DE SUPABASE
 // =============================================
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-console.log('✅ Supabase inicializado');
+console.log('🔄 Inicializando Supabase...');
+try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    console.log('✅ Supabase inicializado correctamente');
+} catch (error) {
+    console.error('❌ Error inicializando Supabase:', error);
+    process.exit(1);
+}
 
 // =============================================
 // CONFIGURACIÓN DEL SERVIDOR WEB
@@ -42,11 +52,13 @@ app.use(express.static(path.join(__dirname)));
 
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
+    console.log('📄 Petición recibida para servir index.html');
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check mejorado
+// Health check
 app.get('/health', (req, res) => {
+    console.log('🔍 Health check recibido');
     res.status(200).json({ 
         status: 'OK', 
         message: 'Quantum Signal Trader is running',
@@ -55,35 +67,41 @@ app.get('/health', (req, res) => {
     });
 });
 
-// =============================================
-// ENDPOINTS DE LA API
-// =============================================
-
 // Endpoint para verificar usuario admin
 app.get('/api/check-admin/:userId', async (req, res) => {
+    console.log('🔍 Verificando admin para usuario:', req.params.userId);
     try {
         const { userId } = req.params;
         const isAdmin = userId === ADMIN_ID;
         
+        console.log(`✅ Resultado verificación admin: ${isAdmin}`);
         res.json({ isAdmin });
     } catch (error) {
+        console.error('❌ Error verificando admin:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // Endpoint para enviar señales (solo admin)
 app.post('/api/signals', async (req, res) => {
+    console.log('📨 Recibida solicitud para enviar señal:', req.body);
+    
     try {
         const { asset, timeframe, direction, userId } = req.body;
 
+        console.log(`🔍 Verificando permisos de admin para: ${userId}`);
         // Verificar que el usuario es admin
         if (userId !== ADMIN_ID) {
+            console.log('❌ Usuario no es admin:', userId);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
         if (!asset || !timeframe || !direction) {
+            console.log('❌ Faltan campos requeridos');
             return res.status(400).json({ error: 'Faltan campos requeridos' });
         }
+
+        console.log('✅ Datos válidos, insertando señal en Supabase...');
 
         // Calcular fecha de expiración
         const expiresAt = new Date();
@@ -103,21 +121,27 @@ app.post('/api/signals', async (req, res) => {
             ])
             .select();
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error insertando señal en Supabase:', error);
+            throw error;
+        }
 
+        console.log('✅ Señal insertada correctamente en Supabase, ID:', data[0].id);
         res.status(200).json({ 
             success: true, 
             data,
             message: 'Señal enviada correctamente'
         });
     } catch (error) {
-        console.error('Error enviando señal:', error);
+        console.error('❌ Error enviando señal:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // Endpoint para actualizar estado de una señal (solo admin)
 app.put('/api/signals/:id', async (req, res) => {
+    console.log('📨 Recibida solicitud para actualizar señal:', req.params.id, req.body);
+    
     try {
         const { id } = req.params;
         const { status, userId } = req.body;
@@ -149,6 +173,7 @@ app.put('/api/signals/:id', async (req, res) => {
 
 // Endpoint para obtener señales
 app.get('/api/signals', async (req, res) => {
+    console.log('📨 Solicitando lista de señales');
     try {
         const { data, error } = await supabase
             .from('signals')
@@ -158,6 +183,7 @@ app.get('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ Señales obtenidas: ${data?.length || 0}`);
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Error obteniendo señales:', error);
@@ -167,6 +193,7 @@ app.get('/api/signals', async (req, res) => {
 
 // Endpoint para obtener usuarios
 app.get('/api/users', async (req, res) => {
+    console.log('📨 Solicitando lista de usuarios');
     try {
         const { data, error } = await supabase
             .from('users')
@@ -175,6 +202,7 @@ app.get('/api/users', async (req, res) => {
 
         if (error) throw error;
 
+        console.log(`✅ Usuarios obtenidos: ${data?.length || 0}`);
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Error obteniendo usuarios:', error);
@@ -184,6 +212,7 @@ app.get('/api/users', async (req, res) => {
 
 // Endpoint para hacer usuario VIP
 app.post('/api/users/vip', async (req, res) => {
+    console.log('📨 Solicitando hacer usuario VIP:', req.body);
     try {
         const { telegramId, userId } = req.body;
 
@@ -219,6 +248,7 @@ app.post('/api/users/vip', async (req, res) => {
 
 // Endpoint para quitar VIP
 app.post('/api/users/remove-vip', async (req, res) => {
+    console.log('📨 Solicitando quitar VIP:', req.body);
     try {
         const { telegramId, userId } = req.body;
 
@@ -251,6 +281,7 @@ app.post('/api/users/remove-vip', async (req, res) => {
 
 // Endpoint para notificar a los clientes (10 minutos)
 app.post('/api/notify', async (req, res) => {
+    console.log('📨 Solicitando notificación de 10 minutos:', req.body);
     try {
         const { userId } = req.body;
 
@@ -271,6 +302,7 @@ app.post('/api/notify', async (req, res) => {
 
 // Endpoint para iniciar sesión
 app.post('/api/sessions/start', async (req, res) => {
+    console.log('📨 Solicitando inicio de sesión:', req.body);
     try {
         const { userId } = req.body;
 
@@ -291,6 +323,7 @@ app.post('/api/sessions/start', async (req, res) => {
 
 // Endpoint para finalizar sesión
 app.post('/api/sessions/end', async (req, res) => {
+    console.log('📨 Solicitando fin de sesión:', req.body);
     try {
         const { userId } = req.body;
 
@@ -315,9 +348,9 @@ app.post('/api/sessions/end', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Servidor web ejecutándose en puerto ${PORT}`);
-    console.log(`📱 Health check: ${RENDER_URL}/health`);
-    console.log(`🌐 App principal: ${RENDER_URL}`);
-    console.log('🚀 Sistema completamente operativo');
+    console.log(`🌐 Health check disponible en: http://localhost:${PORT}/health`);
+    console.log(`📊 API disponible en: http://localhost:${PORT}/api`);
+    console.log('🚀 Servidor completamente operativo');
 });
 
 // Manejo de errores no capturados
