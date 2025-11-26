@@ -13,9 +13,8 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('=== 🤖 INICIANDO BOT DE TELEGRAM ===');
-console.log('📋 Verificando configuración del sistema...');
 
-// Verificar que tenemos todas las variables necesarias
+// Verificar configuración
 if (!TELEGRAM_BOT_TOKEN) {
     console.error('❌ ERROR: TELEGRAM_BOT_TOKEN no está definido');
     process.exit(1);
@@ -42,10 +41,9 @@ console.log('🚀 Inicializando bot de Telegram...');
 
 let bot;
 try {
-    // Configuración mejorada para evitar conflictos
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
         polling: {
-            interval: 3000, // Aumentado a 3 segundos
+            interval: 3000,
             timeout: 30,
             autoStart: true,
             params: {
@@ -89,12 +87,13 @@ function createVIPInlineKeyboard() {
     };
 }
 
-// Función para crear teclado inline para WebApp (SOLO UN BOTÓN)
-function createWebAppInlineKeyboard() {
+// Función para crear teclado inline para WebApp con ID de usuario
+function createWebAppInlineKeyboard(userId) {
+    const webAppUrl = `${RENDER_URL}?tgid=${userId}`;
     return {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🚀 ACCEDER A LA PLATAFORMA', web_app: { url: RENDER_URL } }]
+                [{ text: '🚀 ACCEDER A LA PLATAFORMA', web_app: { url: webAppUrl } }]
             ]
         }
     };
@@ -156,11 +155,10 @@ bot.getMe().then((me) => {
 // MANEJADORES DE EVENTOS
 // =============================================
 
-// Manejar errores de polling de manera más específica
+// Manejar errores de polling
 bot.on('polling_error', (error) => {
     if (error.code === 409) {
-        console.log('⚠️  Conflicto de polling detectado. Verificando instancias...');
-        // No salir del proceso, solo loguear el error
+        console.log('⚠️ Conflicto de polling. Continuando...');
     } else {
         console.error('❌ Error de polling:', error.message);
     }
@@ -253,7 +251,7 @@ bot.on('message', async (msg) => {
                 break;
                 
             case '🌐 PLATAFORMA WEB':
-                await handleWebApp(chatId);
+                await handleWebApp(chatId, userId);
                 break;
                 
             case '❓ AYUDA':
@@ -322,8 +320,8 @@ bot.on('callback_query', async (callbackQuery) => {
 // FUNCIONES DE MANEJO
 // =============================================
 
-// 🌐 PLATAFORMA WEB
-async function handleWebApp(chatId) {
+// 🌐 PLATAFORMA WEB - AHORA CON ID EN URL
+async function handleWebApp(chatId, userId) {
     const webAppMessage = `
 🌐 *Plataforma Web Quantum Trader*
 
@@ -336,7 +334,7 @@ Accede a nuestra plataforma web para:
 *Haz clic para acceder:* 👇
     `;
 
-    await sendNotification(chatId, webAppMessage, createWebAppInlineKeyboard());
+    await sendNotification(chatId, webAppMessage, createWebAppInlineKeyboard(userId));
 }
 
 // 📈 SEÑALES
@@ -383,7 +381,7 @@ async function handleViewSignals(chatId, userId) {
                         { text: '💎 VER VIP', callback_data: 'vip_benefits' }
                     ],
                     [
-                        { text: '🚀 PLATAFORMA WEB', web_app: { url: RENDER_URL } }
+                        { text: '🚀 PLATAFORMA WEB', web_app: { url: `${RENDER_URL}?tgid=${userId}` } }
                     ]
                 ]
             }
@@ -520,9 +518,6 @@ async function handleHelp(chatId) {
             inline_keyboard: [
                 [
                     { text: '📞 CONTACTAR', url: 'https://t.me/Asche90' }
-                ],
-                [
-                    { text: '🌐 PLATAFORMA WEB', web_app: { url: RENDER_URL } }
                 ]
             ]
         }
