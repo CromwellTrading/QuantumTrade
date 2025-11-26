@@ -1139,7 +1139,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Supabase Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
 <body>
@@ -1393,7 +1392,6 @@
                 const particle = document.createElement('div');
                 particle.className = 'particle';
                 
-                // Posición aleatoria
                 const left = Math.random() * 100;
                 const delay = Math.random() * 15;
                 const duration = 15 + Math.random() * 10;
@@ -1402,7 +1400,6 @@
                 particle.style.animationDelay = `${delay}s`;
                 particle.style.animationDuration = `${duration}s`;
                 
-                // Tamaño y color aleatorio
                 const size = 2 + Math.random() * 3;
                 particle.style.width = `${size}px`;
                 particle.style.height = `${size}px`;
@@ -1436,62 +1433,68 @@
                 this.loadFromLocalStorage();
                 this.updateStats();
                 this.initChart();
-                this.detectUserAndInitialize();
+                this.detectUserFromURL();
                 this.setupRealtimeSubscription();
                 this.checkServerConnection();
                 
-                // Verificar conexión periódicamente
                 setInterval(() => this.checkServerConnection(), 30000);
             }
             
-            async detectUserAndInitialize() {
-                // Obtener el ID de usuario de la URL o localStorage
+            // Detectar usuario desde parámetro URL
+            detectUserFromURL() {
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
-                    let tgId = urlParams.get('tgid') || localStorage.getItem('tg_user_id');
-                    
-                    // Si no hay ID en la URL, intentar obtenerlo de Telegram WebApp
-                    if (!tgId && window.Telegram && Telegram.WebApp) {
-                        tgId = Telegram.WebApp.initDataUnsafe?.user?.id;
-                    }
+                    const tgId = urlParams.get('tgid');
                     
                     if (tgId) {
-                        this.currentUserId = tgId.toString();
+                        console.log('✅ ID detectado desde URL:', tgId);
+                        this.currentUserId = tgId;
                         localStorage.setItem('tg_user_id', this.currentUserId);
                         
-                        // Detección inmediata de admin basada en ID
+                        // Detección inmediata de admin
                         if (this.currentUserId === ADMIN_ID) {
                             this.isAdmin = true;
-                            console.log('Admin detectado por ID');
+                            console.log('🎯 Usuario identificado como ADMIN');
                         }
                         
-                        await this.loadUserData();
+                        this.loadUserData();
                     } else {
-                        console.log('No se pudo detectar el ID de usuario');
-                        // Generar un ID temporal para usuarios no autenticados
-                        this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
-                        this.updateUserStatus();
+                        // Si no hay ID en URL, intentar desde localStorage
+                        const storedId = localStorage.getItem('tg_user_id');
+                        if (storedId) {
+                            this.currentUserId = storedId;
+                            console.log('📁 ID cargado desde localStorage:', storedId);
+                            this.loadUserData();
+                        } else {
+                            console.log('❌ No se pudo detectar ID de usuario');
+                            this.currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                            this.updateUserStatus();
+                        }
                     }
+                    
+                    this.updateUI();
                 } catch (error) {
-                    console.error('Error detectando usuario:', error);
-                    // Generar ID temporal en caso de error
+                    console.error('Error detectando usuario desde URL:', error);
                     this.currentUserId = 'error_' + Math.random().toString(36).substr(2, 9);
                 }
-                
-                // Actualizar la UI inmediatamente después de detectar el usuario
-                this.updateUI();
             }
             
             async loadUserData() {
                 if (!this.currentUserId) return;
                 
                 try {
+                    console.log('🔍 Cargando datos del usuario:', this.currentUserId);
                     const response = await fetch(`${SERVER_URL}/api/user/${this.currentUserId}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const result = await response.json();
                     
                     if (result.success) {
                         this.userData = result.data;
-                        this.isAdmin = result.data.is_admin || this.isAdmin; // Mantener detección por ID
+                        this.isAdmin = result.data.is_admin || this.isAdmin;
                         this.isVIP = result.data.is_vip;
                         
                         // Verificar si el VIP ha expirado
@@ -1502,16 +1505,22 @@
                             }
                         }
                         
-                        console.log('Datos del usuario cargados:', this.userData);
+                        console.log('✅ Datos de usuario cargados:', {
+                            id: this.currentUserId,
+                            admin: this.isAdmin,
+                            vip: this.isVIP
+                        });
                         this.updateUI();
+                    } else {
+                        console.error('Error en respuesta del servidor:', result);
                     }
                 } catch (error) {
-                    console.error('Error cargando datos del usuario:', error);
+                    console.error('❌ Error cargando datos del usuario:', error);
                 }
             }
             
             updateUI() {
-                // Mostrar el ID del usuario en la esquina superior izquierda
+                // Mostrar el ID del usuario
                 const userIdDisplay = document.getElementById('userIdDisplay');
                 if (userIdDisplay) {
                     userIdDisplay.textContent = `ID: ${this.currentUserId}`;
@@ -1525,7 +1534,7 @@
                 // Actualizar estado del usuario
                 this.updateUserStatus();
                 
-                // Ocultar/mostrar botón de admin automáticamente
+                // Mostrar/ocultar panel de admin
                 if (this.isAdmin) {
                     this.adminBtn.style.display = 'block';
                     this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Panel Admin';
@@ -1577,7 +1586,7 @@
                 this.statusDot = document.getElementById('statusDot');
                 this.statusText = document.getElementById('statusText');
                 
-                // Nuevos elementos para gestión de usuarios
+                // Elementos para gestión de usuarios
                 this.userSearchInput = document.getElementById('userSearchInput');
                 this.searchUserBtn = document.getElementById('searchUserBtn');
                 this.userSearchResult = document.getElementById('userSearchResult');
@@ -1679,7 +1688,7 @@
                     this.loadUsersFromSupabase();
                 });
 
-                // Nuevos event listeners para gestión de usuarios
+                // Event listeners para gestión de usuarios
                 this.searchUserBtn.addEventListener('click', () => {
                     this.searchUser();
                 });
@@ -1702,7 +1711,7 @@
                 });
             }
 
-            // Nuevos métodos para gestión de usuarios
+            // Métodos para gestión de usuarios
             async searchUser() {
                 const searchId = this.userSearchInput.value.trim();
                 if (!searchId) {
