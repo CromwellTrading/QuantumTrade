@@ -964,6 +964,31 @@
             color: var(--loss);
         }
 
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0, 240, 255, 0.1);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-connected {
+            background: var(--profit);
+        }
+
+        .status-disconnected {
+            background: var(--loss);
+        }
+
         @media (max-width: 1024px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -1026,6 +1051,11 @@
                 <button class="header-btn" id="adminLogin"><i class="fas fa-user-shield"></i> Admin</button>
             </div>
         </header>
+        
+        <div class="connection-status" id="connectionStatus">
+            <div class="status-dot status-connected" id="statusDot"></div>
+            <span id="statusText">Conectado al servidor</span>
+        </div>
         
         <div class="session-info" id="sessionInfo">
             <i class="fas fa-clock"></i> Sesión inactiva - Inicia una sesión para comenzar
@@ -1151,6 +1181,7 @@
                         <thead>
                             <tr>
                                 <th>ID de Telegram</th>
+                                <th>Usuario</th>
                                 <th>Estado VIP</th>
                                 <th>Expiración VIP</th>
                                 <th>Acciones</th>
@@ -1219,11 +1250,14 @@
 
     <script>
         // Configuración de Supabase - REEMPLAZA CON TUS PROPIAS CREDENCIALES
-        const SUPABASE_URL = 'TU_URL_DE_SUPABASE'; // Reemplaza con tu URL de Supabase
-        const SUPABASE_ANON_KEY = 'TU_CLAVE_ANONIMA_DE_SUPABASE'; // Reemplaza con tu clave anónima de Supabase
+        const SUPABASE_URL = https://flodrkrvaqsmelbkfknv.supabase.co; // Reemplaza con tu URL de Supabase
+        const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2Rya3J2YXFzbWVsYmtma252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODY0NjgsImV4cCI6MjA3OTY2MjQ2OH0.zVTaUbkiLCJ0dUFs808TZErgnIXCYsYQ2lw-CEmVCFI; // Reemplaza con tu clave anónima de Supabase
         
         // Inicializar cliente de Supabase
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // URL del servidor (mismo dominio)
+        const SERVER_URL = window.location.origin;
         
         // Sistema de partículas
         function createParticles() {
@@ -1256,7 +1290,7 @@
             }
         }
         
-        // Simulación de WebSocket para comunicación en tiempo real
+        // Clase principal del sistema
         class SignalManager {
             constructor() {
                 this.signals = [];
@@ -1264,11 +1298,27 @@
                 this.sessions = [];
                 this.currentSession = null;
                 this.isAdmin = false;
-                this.isVIP = false; // Por defecto no es VIP
-                this.hasReceivedFreeSignal = false; // Control para la primera señal gratuita
-                this.adminId = "5376388604"; // ID de Telegram del admin
+                this.isVIP = false;
+                this.hasReceivedFreeSignal = false;
+                this.adminId = "5376388604";
+                this.serverConnected = false;
                 
                 // Elementos del DOM
+                this.initializeDOMElements();
+                this.initEventListeners();
+                this.loadFromLocalStorage();
+                this.updateStats();
+                this.initChart();
+                this.updateUserStatus();
+                this.loadSignalsFromSupabase();
+                this.setupRealtimeSubscription();
+                this.checkServerConnection();
+                
+                // Verificar conexión periódicamente
+                setInterval(() => this.checkServerConnection(), 30000);
+            }
+            
+            initializeDOMElements() {
                 this.sendSignalBtn = document.getElementById('sendSignal');
                 this.signalsContainer = document.getElementById('signalsContainer');
                 this.notification = document.getElementById('notification');
@@ -1295,6 +1345,9 @@
                 this.adminPanel = document.getElementById('adminPanel');
                 this.usersTableBody = document.getElementById('usersTableBody');
                 this.refreshUsers = document.getElementById('refreshUsers');
+                this.connectionStatus = document.getElementById('connectionStatus');
+                this.statusDot = document.getElementById('statusDot');
+                this.statusText = document.getElementById('statusText');
                 this.isReady = false;
                 
                 // Estadísticas
@@ -1305,14 +1358,35 @@
                 this.lossPercentage = document.getElementById('lossPercentage');
                 this.operationsTable = document.getElementById('operationsTable');
                 this.performanceChart = null;
-                
-                this.initEventListeners();
-                this.loadFromLocalStorage();
-                this.updateStats();
-                this.initChart();
-                this.updateUserStatus();
-                this.loadSignalsFromSupabase();
-                this.setupRealtimeSubscription();
+            }
+            
+            async checkServerConnection() {
+                try {
+                    const response = await fetch(`${SERVER_URL}/health`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.serverConnected = true;
+                        this.updateConnectionStatus(true, 'Conectado al servidor');
+                    } else {
+                        throw new Error('Server not responding');
+                    }
+                } catch (error) {
+                    this.serverConnected = false;
+                    this.updateConnectionStatus(false, 'Error de conexión con el servidor');
+                    console.error('Error checking server connection:', error);
+                }
+            }
+            
+            updateConnectionStatus(connected, message) {
+                if (connected) {
+                    this.statusDot.className = 'status-dot status-connected';
+                    this.statusText.textContent = message;
+                    this.connectionStatus.style.background = 'rgba(0, 255, 157, 0.1)';
+                } else {
+                    this.statusDot.className = 'status-dot status-disconnected';
+                    this.statusText.textContent = message;
+                    this.connectionStatus.style.background = 'rgba(255, 0, 51, 0.1)';
+                }
             }
             
             initEventListeners() {
@@ -1408,7 +1482,7 @@
                             timeframe: signal.timeframe,
                             direction: signal.direction,
                             timestamp: new Date(signal.created_at),
-                            expires: new Date(new Date(signal.created_at).getTime() + (signal.timeframe * 60000)),
+                            expires: new Date(signal.expires_at),
                             status: signal.status || 'pending',
                             isFree: signal.is_free || false
                         }));
@@ -1458,6 +1532,7 @@
                     return `
                         <tr>
                             <td>${user.telegram_id}</td>
+                            <td>${user.username || user.first_name || 'N/A'}</td>
                             <td>${vipStatus}</td>
                             <td>${vipExpires ? vipExpires.toLocaleDateString() : 'N/A'}</td>
                             <td class="user-actions">
@@ -1477,7 +1552,7 @@
             
             async makeVip(telegramId) {
                 const vipExpiresAt = new Date();
-                vipExpiresAt.setDate(vipExpiresAt.getDate() + 30); // 30 días desde ahora
+                vipExpiresAt.setDate(vipExpiresAt.getDate() + 30);
                 
                 try {
                     const { data, error } = await supabase
@@ -1491,7 +1566,7 @@
                     if (error) throw error;
                     
                     this.showNotification(`Usuario ${telegramId} ahora es VIP por 30 días.`, 'success');
-                    this.loadUsersFromSupabase(); // Recargar la lista
+                    this.loadUsersFromSupabase();
                 } catch (error) {
                     console.error('Error making user VIP:', error);
                     this.showNotification('Error al hacer VIP al usuario.', 'error');
@@ -1511,7 +1586,7 @@
                     if (error) throw error;
                     
                     this.showNotification(`Usuario ${telegramId} ya no es VIP.`, 'success');
-                    this.loadUsersFromSupabase(); // Recargar la lista
+                    this.loadUsersFromSupabase();
                 } catch (error) {
                     console.error('Error removing VIP from user:', error);
                     this.showNotification('Error al quitar VIP al usuario.', 'error');
@@ -1519,13 +1594,10 @@
             }
             
             async notifyVipExpiring(telegramId) {
-                // Aquí podrías integrar con un servicio para enviar notificaciones a Telegram
-                // Por ahora, solo mostramos una notificación en la interfaz
                 this.showNotification(`Notificación enviada al usuario ${telegramId} sobre su VIP próximo a expirar.`, 'success');
             }
             
             setupRealtimeSubscription() {
-                // Suscribirse a cambios en la tabla de señales
                 supabase
                     .channel('signals-channel')
                     .on('postgres_changes', 
@@ -1560,12 +1632,11 @@
                     timeframe: signalData.timeframe,
                     direction: signalData.direction,
                     timestamp: new Date(signalData.created_at),
-                    expires: new Date(new Date(signalData.created_at).getTime() + (signalData.timeframe * 60000)),
+                    expires: new Date(signalData.expires_at),
                     status: signalData.status || 'pending',
                     isFree: signalData.is_free || false
                 };
                 
-                // Verificar si el usuario puede recibir esta señal
                 const canReceiveSignal = this.isVIP || signal.isFree;
                 
                 if (canReceiveSignal) {
@@ -1574,7 +1645,6 @@
                     this.renderSignals();
                     this.showNotification('Nueva señal recibida!', 'success');
                     
-                    // Mostrar alerta grande si el cliente está preparado
                     if (this.isReady) {
                         this.showAlert(signal);
                     }
@@ -1586,7 +1656,6 @@
             }
             
             handleUpdatedSignal(signalData) {
-                // Actualizar señal existente
                 const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
                 const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
                 
@@ -1629,7 +1698,6 @@
                     this.showUsers.style.display = 'block';
                     this.hideLoginModal();
                     this.showNotification('Sesión de administrador iniciada', 'success');
-                    // Cargar usuarios cuando el admin inicia sesión
                     this.loadUsersFromSupabase();
                 } else {
                     alert('ID de Telegram incorrecto');
@@ -1662,7 +1730,6 @@
             }
             
             startTradingSession() {
-                // Reiniciar el estado de señal gratuita para todos los usuarios
                 this.hasReceivedFreeSignal = false;
                 
                 this.currentSession = {
@@ -1714,10 +1781,8 @@
             }
             
             sendClientNotification() {
-                // Simular envío de notificación a todos los clientes
                 this.showNotification('Notificación enviada a los clientes', 'success');
                 
-                // Mostrar alerta especial para clientes preparados
                 if (this.isReady) {
                     this.showClientAlert();
                 }
@@ -1791,10 +1856,7 @@
                     
                     if (error) throw error;
                     
-                    // Marcar que ya se envió la primera señal gratuita
                     this.hasReceivedFreeSignal = true;
-                    
-                    // Limpiar formulario
                     document.getElementById('asset').value = '';
                     
                     this.showNotification('Señal enviada correctamente', 'success');
@@ -1835,7 +1897,6 @@
                 }
                 
                 this.signalsContainer.innerHTML = this.signals.map(signal => {
-                    // Asegurar que signal.expires es un objeto Date válido
                     const expiresDate = new Date(signal.expires);
                     const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
                     const minutes = Math.floor(timeRemaining / 60);
@@ -1880,7 +1941,6 @@
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">Expira</span>
-                                    <!-- Usar expiresDate en lugar de signal.expires directamente -->
                                     <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
                                 </div>
                             </div>
@@ -1908,7 +1968,6 @@
                     `;
                 }).join('');
                 
-                // Remover la clase "new" después de la animación
                 setTimeout(() => {
                     const newCards = document.querySelectorAll('.signal-card.new');
                     newCards.forEach(card => {
@@ -1920,7 +1979,6 @@
             showNotification(message, type = 'info') {
                 this.notification.textContent = message;
                 
-                // Cambiar color según el tipo
                 if (type === 'success') {
                     this.notification.style.background = 'var(--profit)';
                 } else if (type === 'error') {
@@ -1947,7 +2005,6 @@
                     <span>${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}</span>
                 `;
                 
-                // Asegurar que signal.expires es un objeto Date válido
                 const expiresDate = new Date(signal.expires);
                 const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
                 const minutes = Math.floor(timeRemaining / 60);
@@ -1990,10 +2047,8 @@
                 const now = new Date();
                 let filteredOperations = [];
                 
-                // Filtrar operaciones por período
                 if (period === 'day') {
                     filteredOperations = this.operations.filter(op => {
-                        // Asegurar que op.timestamp es un objeto Date válido
                         const opDate = new Date(op.timestamp);
                         return opDate.toDateString() === now.toDateString();
                     });
@@ -2003,7 +2058,6 @@
                     startOfWeek.setHours(0, 0, 0, 0);
                     
                     filteredOperations = this.operations.filter(op => {
-                        // Asegurar que op.timestamp es un objeto Date válido
                         const opDate = new Date(op.timestamp);
                         return opDate >= startOfWeek;
                     });
@@ -2011,13 +2065,11 @@
                     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                     
                     filteredOperations = this.operations.filter(op => {
-                        // Asegurar que op.timestamp es un objeto Date válido
                         const opDate = new Date(op.timestamp);
                         return opDate >= startOfMonth;
                     });
                 }
                 
-                // Calcular estadísticas
                 const winOperations = filteredOperations.filter(op => op.status === 'profit');
                 const lossOperations = filteredOperations.filter(op => op.status === 'loss');
                 const totalOperations = filteredOperations.length;
@@ -2027,14 +2079,12 @@
                 const winPercentage = totalOperations > 0 ? ((winCount / totalOperations) * 100).toFixed(1) : 0;
                 const lossPercentage = totalOperations > 0 ? ((lossCount / totalOperations) * 100).toFixed(1) : 0;
                 
-                // Actualizar UI
                 this.winCount.textContent = winCount;
                 this.lossCount.textContent = lossCount;
                 this.totalCount.textContent = totalOperations;
                 this.winPercentage.textContent = `${winPercentage}%`;
                 this.lossPercentage.textContent = `${lossPercentage}%`;
                 
-                // Actualizar tabla de operaciones
                 this.operationsTable.innerHTML = filteredOperations.map(op => {
                     let statusClass = 'status-pending';
                     let statusText = 'PENDIENTE';
@@ -2060,13 +2110,11 @@
                             </td>
                             <td>${op.timeframe} min</td>
                             <td><span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span></td>
-                            <!-- Usar new Date(op.timestamp) para asegurar que es un objeto Date válido -->
                             <td>${new Date(op.timestamp).toLocaleString()}</td>
                         </tr>
                     `;
                 }).join('');
                 
-                // Actualizar gráfico
                 this.updateChart(winCount, lossCount, totalOperations);
             }
             
@@ -2142,7 +2190,6 @@
                     this.isVIP = data.isVIP !== undefined ? data.isVIP : false;
                     this.hasReceivedFreeSignal = data.hasReceivedFreeSignal || false;
                     
-                    // Convertir fechas de la sesión actual si existe
                     if (this.currentSession) {
                         this.currentSession.startTime = new Date(this.currentSession.startTime);
                         if (this.currentSession.endTime) {
@@ -2150,7 +2197,6 @@
                         }
                     }
                     
-                    // Actualizar UI según la sesión actual
                     if (this.currentSession) {
                         this.startSession.disabled = true;
                         this.endSession.disabled = false;
@@ -2160,7 +2206,6 @@
                         this.sessionInfo.classList.add('session-active');
                     }
                     
-                    // Actualizar estado VIP
                     if (this.isVIP) {
                         this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP ACTIVO';
                         this.vipAccess.classList.add('active');
@@ -2174,21 +2219,17 @@
         // Inicializar la aplicación cuando el DOM esté listo
         let signalManager;
         document.addEventListener('DOMContentLoaded', () => {
-            // Crear partículas de fondo
             createParticles();
             
             signalManager = new SignalManager();
             
-            // Actualizar contadores de tiempo cada segundo
             setInterval(() => {
                 signalManager.renderSignals();
                 
-                // Actualizar alerta si está visible
                 const alert = document.getElementById('signalAlert');
                 if (alert.classList.contains('show')) {
                     const activeSignal = signalManager.signals[0];
                     if (activeSignal) {
-                        // Asegurar que activeSignal.expires es un objeto Date válido
                         const expiresDate = new Date(activeSignal.expires);
                         const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
                         const minutes = Math.floor(timeRemaining / 60);
