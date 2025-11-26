@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
+const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
 console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
 
@@ -45,13 +46,23 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check
+// Health check mejorado con logging
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'OK', 
+    const healthData = {
+        status: 'OK',
         message: 'Quantum Signal Trader is running',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        url: RENDER_URL
+    };
+    
+    console.log('🏥 Health check ejecutado:', {
+        timestamp: healthData.timestamp,
+        uptime: Math.round(healthData.uptime / 60) + ' minutos'
     });
+    
+    res.status(200).json(healthData);
 });
 
 // Endpoint para obtener información del usuario
@@ -383,6 +394,28 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Servidor web ejecutándose en puerto ${PORT}`);
     console.log('🚀 Servidor completamente operativo');
 });
+
+// =============================================
+// KEEP-ALIVE PARA PREVENIR SUSPENSIÓN
+// =============================================
+
+console.log('🔧 Configurando sistema keep-alive...');
+
+// Función para mantener el servidor activo
+const keepAlive = async () => {
+    try {
+        const response = await fetch(`${RENDER_URL}/health`);
+        console.log(`🔄 Keep-alive ejecutado: ${response.status} - ${new Date().toLocaleTimeString()}`);
+    } catch (error) {
+        console.error('❌ Error en keep-alive:', error.message);
+    }
+};
+
+// Ejecutar keep-alive inmediatamente y luego cada 5 minutos
+keepAlive();
+setInterval(keepAlive, 5 * 60 * 1000); // 5 minutos
+
+console.log('✅ Sistema keep-alive configurado cada 5 minutos');
 
 // Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
