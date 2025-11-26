@@ -1048,7 +1048,7 @@
                 <button class="header-btn" id="showStats"><i class="fas fa-chart-bar"></i> Estadísticas</button>
                 <button class="header-btn" id="showUsers" style="display: none;"><i class="fas fa-users"></i> Usuarios</button>
                 <button class="header-btn vip" id="vipAccess"><i class="fas fa-crown"></i> VIP</button>
-                <button class="header-btn" id="adminLogin"><i class="fas fa-user-shield"></i> Admin</button>
+                <button class="header-btn" id="adminBtn"><i class="fas fa-user-shield"></i> Admin</button>
             </div>
         </header>
         
@@ -1130,17 +1130,14 @@
                     <div class="stat-card">
                         <div class="stat-label">Operaciones Ganadas</div>
                         <div class="stat-value stat-profit" id="winCount">0</div>
-                        <div class="stat-label" id="winPercentage">0%</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Operaciones Perdidas</div>
                         <div class="stat-value stat-loss" id="lossCount">0</div>
-                        <div class="stat-label" id="lossPercentage">0%</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Total Operaciones</div>
                         <div class="stat-value stat-total" id="totalCount">0</div>
-                        <div class="stat-label">Tasa de Éxito</div>
                     </div>
                 </div>
                 
@@ -1210,36 +1207,28 @@
         <button id="closeAlert" style="margin-top: 20px;">ENTENDIDO</button>
     </div>
 
-    <div class="modal" id="loginModal">
-        <div class="modal-content">
-            <h3 style="color: var(--primary); margin-bottom: 20px; text-align: center;">
-                <i class="fas fa-lock"></i> Acceso de Administrador
-            </h3>
-            <div class="form-group">
-                <label for="adminId">ID de Telegram</label>
-                <input type="text" id="adminId" placeholder="Ingresa tu ID de Telegram">
-            </div>
-            <button id="loginBtn">INICIAR SESIÓN</button>
-            <button id="closeModal" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); margin-top: 10px;">
-                CERRAR
-            </button>
-        </div>
-    </div>
-
     <div class="modal" id="vipModal">
         <div class="modal-content">
             <h3 style="color: var(--vip); margin-bottom: 20px; text-align: center;">
-                <i class="fas fa-crown"></i> Acceso VIP
+                <i class="fas fa-crown"></i> Acceso VIP - 5000 CUP/mes
             </h3>
-            <p style="text-align: center; margin: 15px 0; color: var(--text);">
-                Para convertirte en usuario VIP, contacta al administrador:
+            <div style="text-align: left; margin: 20px 0; color: var(--text);">
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Acceso a TODAS las señales sin límites</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales en tiempo real VIP</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Soporte prioritario 24/7</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Estadísticas avanzadas personalizadas</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Alertas instantáneas exclusivas</p>
+                <p style="margin-bottom: 20px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales antes que los usuarios free</p>
+            </div>
+            <p style="text-align: center; margin: 20px 0; color: var(--text-secondary);">
+                Duración: 30 días completos
             </p>
-            <div style="text-align: center; margin: 20px 0;">
-                <a href="https://t.me/Asche90" target="_blank" style="display: inline-block; background: var(--vip); color: var(--dark); padding: 12px 25px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all 0.3s ease;">
+            <div style="text-align: center; margin: 25px 0;">
+                <a href="https://t.me/Asche90" target="_blank" style="display: inline-block; background: linear-gradient(90deg, var(--vip), #ff9900); color: var(--dark); padding: 14px 30px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all 0.3s ease; font-size: 1.1rem;">
                     <i class="fab fa-telegram"></i> Contactar a @Asche90
                 </a>
             </div>
-            <p style="text-align: center; margin: 15px 0; color: var(--text-secondary);">
+            <p style="text-align: center; margin: 15px 0; color: var(--text-secondary); font-size: 0.9rem;">
                 Envíale un mensaje solicitando el plan VIP
             </p>
             <button id="closeVipModal" style="background: transparent; border: 1px solid var(--vip); color: var(--vip); margin-top: 10px;">
@@ -1249,15 +1238,18 @@
     </div>
 
     <script>
-        // Configuración de Supabase - REEMPLAZA CON TUS PROPIAS CREDENCIALES
-        const SUPABASE_URL = https://flodrkrvaqsmelbkfknv.supabase.co; // Reemplaza con tu URL de Supabase
-        const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2Rya3J2YXFzbWVsYmtma252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODY0NjgsImV4cCI6MjA3OTY2MjQ2OH0.zVTaUbkiLCJ0dUFs808TZErgnIXCYsYQ2lw-CEmVCFI; // Reemplaza con tu clave anónima de Supabase
+        // Configuración de Supabase
+        const SUPABASE_URL = 'https://flodrkrvaqsmelbkfknv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2Rya3J2YXFzbWVsYmtma252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODY0NjgsImV4cCI6MjA3OTY2MjQ2OH0.zVTaUbkiLCJ0dUFs808TZErgnIXCYsYQ2lw-CEmVCFI';
         
         // Inicializar cliente de Supabase
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         // URL del servidor (mismo dominio)
         const SERVER_URL = window.location.origin;
+        
+        // ID del administrador
+        const ADMIN_ID = "5376388604";
         
         // Sistema de partículas
         function createParticles() {
@@ -1300,8 +1292,8 @@
                 this.isAdmin = false;
                 this.isVIP = false;
                 this.hasReceivedFreeSignal = false;
-                this.adminId = "5376388604";
                 this.serverConnected = false;
+                this.currentUserId = null;
                 
                 // Elementos del DOM
                 this.initializeDOMElements();
@@ -1313,9 +1305,67 @@
                 this.loadSignalsFromSupabase();
                 this.setupRealtimeSubscription();
                 this.checkServerConnection();
+                this.detectUser();
                 
                 // Verificar conexión periódicamente
                 setInterval(() => this.checkServerConnection(), 30000);
+            }
+            
+            async detectUser() {
+                // En un entorno real, aquí obtendrías el ID del usuario de Telegram
+                // Por ahora, simulamos la detección
+                try {
+                    // Intentar obtener el usuario de la URL o localStorage
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const tgId = urlParams.get('tgid') || localStorage.getItem('tg_user_id');
+                    
+                    if (tgId) {
+                        this.currentUserId = tgId;
+                        this.checkAdminStatus();
+                        this.checkVIPStatus();
+                    }
+                } catch (error) {
+                    console.error('Error detectando usuario:', error);
+                }
+            }
+            
+            async checkAdminStatus() {
+                if (!this.currentUserId) return;
+                
+                this.isAdmin = this.currentUserId === ADMIN_ID;
+                
+                if (this.isAdmin) {
+                    this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Admin Activo';
+                    this.adminBtn.classList.add('active');
+                    this.adminPanel.style.display = 'block';
+                    this.showUsers.style.display = 'block';
+                    this.loadUsersFromSupabase();
+                }
+            }
+            
+            async checkVIPStatus() {
+                if (!this.currentUserId) return;
+                
+                try {
+                    const { data: user, error } = await supabase
+                        .from('users')
+                        .select('is_vip, vip_expires_at')
+                        .eq('telegram_id', this.currentUserId)
+                        .single();
+                    
+                    if (!error && user) {
+                        this.isVIP = user.is_vip;
+                        if (user.vip_expires_at) {
+                            const expiry = new Date(user.vip_expires_at);
+                            if (expiry < new Date()) {
+                                this.isVIP = false;
+                            }
+                        }
+                        this.updateUserStatus();
+                    }
+                } catch (error) {
+                    console.error('Error verificando estado VIP:', error);
+                }
             }
             
             initializeDOMElements() {
@@ -1329,7 +1379,7 @@
                 this.showStats = document.getElementById('showStats');
                 this.showUsers = document.getElementById('showUsers');
                 this.vipAccess = document.getElementById('vipAccess');
-                this.adminLogin = document.getElementById('adminLogin');
+                this.adminBtn = document.getElementById('adminBtn');
                 this.statsContainer = document.getElementById('statsContainer');
                 this.usersContainer = document.getElementById('usersContainer');
                 this.sessionInfo = document.getElementById('sessionInfo');
@@ -1337,9 +1387,6 @@
                 this.startSession = document.getElementById('startSession');
                 this.endSession = document.getElementById('endSession');
                 this.notifyClients = document.getElementById('notifyClients');
-                this.loginModal = document.getElementById('loginModal');
-                this.loginBtn = document.getElementById('loginBtn');
-                this.closeModal = document.getElementById('closeModal');
                 this.vipModal = document.getElementById('vipModal');
                 this.closeVipModal = document.getElementById('closeVipModal');
                 this.adminPanel = document.getElementById('adminPanel');
@@ -1354,8 +1401,6 @@
                 this.winCount = document.getElementById('winCount');
                 this.lossCount = document.getElementById('lossCount');
                 this.totalCount = document.getElementById('totalCount');
-                this.winPercentage = document.getElementById('winPercentage');
-                this.lossPercentage = document.getElementById('lossPercentage');
                 this.operationsTable = document.getElementById('operationsTable');
                 this.performanceChart = null;
             }
@@ -1364,7 +1409,6 @@
                 try {
                     const response = await fetch(`${SERVER_URL}/health`);
                     if (response.ok) {
-                        const data = await response.json();
                         this.serverConnected = true;
                         this.updateConnectionStatus(true, 'Conectado al servidor');
                     } else {
@@ -1419,11 +1463,11 @@
                     this.showVipModal();
                 });
                 
-                this.adminLogin.addEventListener('click', () => {
+                this.adminBtn.addEventListener('click', () => {
                     if (this.isAdmin) {
-                        this.logout();
+                        this.showAdminPanel();
                     } else {
-                        this.showLoginModal();
+                        this.showNotification('No tienes permisos de administrador', 'error');
                     }
                 });
                 
@@ -1437,14 +1481,6 @@
                 
                 this.notifyClients.addEventListener('click', () => {
                     this.sendClientNotification();
-                });
-                
-                this.loginBtn.addEventListener('click', () => {
-                    this.login();
-                });
-                
-                this.closeModal.addEventListener('click', () => {
-                    this.hideLoginModal();
                 });
                 
                 this.closeVipModal.addEventListener('click', () => {
@@ -1671,14 +1707,6 @@
                 this.updateStats();
             }
             
-            showLoginModal() {
-                this.loginModal.classList.add('active');
-            }
-            
-            hideLoginModal() {
-                this.loginModal.classList.remove('active');
-            }
-            
             showVipModal() {
                 this.vipModal.classList.add('active');
             }
@@ -1687,30 +1715,8 @@
                 this.vipModal.classList.remove('active');
             }
             
-            login() {
-                const adminId = document.getElementById('adminId').value;
-                
-                if (adminId === this.adminId) {
-                    this.isAdmin = true;
-                    this.adminLogin.textContent = 'Cerrar Sesión';
-                    this.adminLogin.classList.add('active');
-                    this.adminPanel.style.display = 'block';
-                    this.showUsers.style.display = 'block';
-                    this.hideLoginModal();
-                    this.showNotification('Sesión de administrador iniciada', 'success');
-                    this.loadUsersFromSupabase();
-                } else {
-                    alert('ID de Telegram incorrecto');
-                }
-            }
-            
-            logout() {
-                this.isAdmin = false;
-                this.adminLogin.textContent = 'Admin';
-                this.adminLogin.classList.remove('active');
-                this.adminPanel.style.display = 'none';
-                this.showUsers.style.display = 'none';
-                this.showNotification('Sesión de administrador cerrada', 'info');
+            showAdminPanel() {
+                this.adminPanel.style.display = this.adminPanel.style.display === 'none' ? 'block' : 'none';
             }
             
             updateUserStatus() {
@@ -1729,47 +1735,85 @@
                 }
             }
             
-            startTradingSession() {
-                this.hasReceivedFreeSignal = false;
-                
-                this.currentSession = {
-                    id: Date.now(),
-                    startTime: new Date(),
-                    endTime: null,
-                    signals: []
-                };
-                
-                this.startSession.disabled = true;
-                this.endSession.disabled = false;
-                
-                this.sessionInfo.innerHTML = `
-                    <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
-                `;
-                this.sessionInfo.classList.add('session-active');
-                
-                this.showNotification('Sesión de trading iniciada', 'success');
+            async startTradingSession() {
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/sessions/start`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: this.currentUserId
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.hasReceivedFreeSignal = false;
+                        
+                        this.currentSession = {
+                            id: Date.now(),
+                            startTime: new Date(),
+                            endTime: null,
+                            signals: []
+                        };
+                        
+                        this.startSession.disabled = true;
+                        this.endSession.disabled = false;
+                        
+                        this.sessionInfo.innerHTML = `
+                            <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
+                        `;
+                        this.sessionInfo.classList.add('session-active');
+                        
+                        this.showNotification('Sesión de trading iniciada', 'success');
+                    } else {
+                        throw new Error('Error iniciando sesión');
+                    }
+                } catch (error) {
+                    console.error('Error iniciando sesión:', error);
+                    this.showNotification('Error al iniciar sesión', 'error');
+                }
             }
             
-            endTradingSession() {
+            async endTradingSession() {
                 if (!this.currentSession) return;
                 
-                this.currentSession.endTime = new Date();
-                this.sessions.push(this.currentSession);
-                
-                this.startSession.disabled = false;
-                this.endSession.disabled = true;
-                
-                this.sessionInfo.innerHTML = `
-                    <i class="fas fa-stop-circle"></i> Sesión finalizada - Duración: ${this.getSessionDuration(this.currentSession)}
-                `;
-                this.sessionInfo.classList.remove('session-active');
-                
-                this.currentSession = null;
-                
-                this.saveToLocalStorage();
-                this.updateStats();
-                
-                this.showNotification('Sesión de trading finalizada', 'info');
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/sessions/end`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: this.currentUserId
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.currentSession.endTime = new Date();
+                        this.sessions.push(this.currentSession);
+                        
+                        this.startSession.disabled = false;
+                        this.endSession.disabled = true;
+                        
+                        this.sessionInfo.innerHTML = `
+                            <i class="fas fa-stop-circle"></i> Sesión finalizada - Duración: ${this.getSessionDuration(this.currentSession)}
+                        `;
+                        this.sessionInfo.classList.remove('session-active');
+                        
+                        this.currentSession = null;
+                        
+                        this.saveToLocalStorage();
+                        this.updateStats();
+                        
+                        this.showNotification('Sesión de trading finalizada', 'info');
+                    } else {
+                        throw new Error('Error finalizando sesión');
+                    }
+                } catch (error) {
+                    console.error('Error finalizando sesión:', error);
+                    this.showNotification('Error al finalizar sesión', 'error');
+                }
             }
             
             getSessionDuration(session) {
@@ -1780,11 +1824,30 @@
                 return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
             }
             
-            sendClientNotification() {
-                this.showNotification('Notificación enviada a los clientes', 'success');
-                
-                if (this.isReady) {
-                    this.showClientAlert();
+            async sendClientNotification() {
+                try {
+                    const response = await fetch(`${SERVER_URL}/api/notify`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: this.currentUserId
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.showNotification('Notificación enviada a los clientes', 'success');
+                        
+                        if (this.isReady) {
+                            this.showClientAlert();
+                        }
+                    } else {
+                        throw new Error('Error enviando notificación');
+                    }
+                } catch (error) {
+                    console.error('Error enviando notificación:', error);
+                    this.showNotification('Error al enviar notificación', 'error');
                 }
             }
             
@@ -1842,44 +1905,56 @@
                 }
                 
                 try {
-                    const { data, error } = await supabase
-                        .from('signals')
-                        .insert([
-                            {
-                                asset: asset.toUpperCase(),
-                                timeframe: parseInt(timeframe),
-                                direction: direction,
-                                is_free: !this.hasReceivedFreeSignal
-                            }
-                        ])
-                        .select();
+                    const response = await fetch(`${SERVER_URL}/api/signals`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            asset: asset.toUpperCase(),
+                            timeframe: parseInt(timeframe),
+                            direction: direction,
+                            userId: this.currentUserId
+                        })
+                    });
                     
-                    if (error) throw error;
-                    
-                    this.hasReceivedFreeSignal = true;
-                    document.getElementById('asset').value = '';
-                    
-                    this.showNotification('Señal enviada correctamente', 'success');
-                    
-                    console.log('Señal enviada a Supabase:', data);
+                    if (response.ok) {
+                        const result = await response.json();
+                        this.hasReceivedFreeSignal = true;
+                        document.getElementById('asset').value = '';
+                        
+                        this.showNotification('Señal enviada correctamente', 'success');
+                        
+                        console.log('Señal enviada:', result);
+                    } else {
+                        throw new Error('Error enviando señal');
+                    }
                 } catch (error) {
-                    console.error('Error enviando señal a Supabase:', error);
+                    console.error('Error enviando señal:', error);
                     alert('Error al enviar la señal. Por favor, inténtalo de nuevo.');
                 }
             }
             
             async updateOperationStatus(operationId, status) {
                 try {
-                    const { data, error } = await supabase
-                        .from('signals')
-                        .update({ status: status })
-                        .eq('id', operationId);
+                    const response = await fetch(`${SERVER_URL}/api/signals/${operationId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            status: status,
+                            userId: this.currentUserId
+                        })
+                    });
                     
-                    if (error) throw error;
-                    
-                    this.showNotification(`Estado cambiado a: ${status}`, 'info');
+                    if (response.ok) {
+                        this.showNotification(`Estado cambiado a: ${status}`, 'info');
+                    } else {
+                        throw new Error('Error actualizando estado');
+                    }
                 } catch (error) {
-                    console.error('Error actualizando estado en Supabase:', error);
+                    console.error('Error actualizando estado:', error);
                     alert('Error al actualizar el estado. Por favor, inténtalo de nuevo.');
                 }
             }
@@ -2076,14 +2151,10 @@
                 
                 const winCount = winOperations.length;
                 const lossCount = lossOperations.length;
-                const winPercentage = totalOperations > 0 ? ((winCount / totalOperations) * 100).toFixed(1) : 0;
-                const lossPercentage = totalOperations > 0 ? ((lossCount / totalOperations) * 100).toFixed(1) : 0;
                 
                 this.winCount.textContent = winCount;
                 this.lossCount.textContent = lossCount;
                 this.totalCount.textContent = totalOperations;
-                this.winPercentage.textContent = `${winPercentage}%`;
-                this.lossPercentage.textContent = `${lossPercentage}%`;
                 
                 this.operationsTable.innerHTML = filteredOperations.map(op => {
                     let statusClass = 'status-pending';
