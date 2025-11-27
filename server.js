@@ -155,17 +155,21 @@ app.get('/health', (req, res) => {
     res.status(200).json(healthData);
 });
 
-// Endpoint para obtener información del usuario - CORREGIDO
+// =============================================
+// ENDPOINT MEJORADO PARA INFORMACIÓN DE USUARIO
+// =============================================
+
 app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         
         console.log(`👤 [SERVER] GET /api/user/${userId}`);
-        console.log(`👤 [SERVER] Headers:`, req.headers);
-        console.log(`👤 [SERVER] Query:`, req.query);
+        console.log(`👤 [SERVER] ¿Es ADMIN_ID? ${userId === ADMIN_ID}`);
+        console.log(`👤 [SERVER] ADMIN_ID configurado: ${ADMIN_ID}`);
+        console.log(`👤 [SERVER] userId recibido: ${userId} (tipo: ${typeof userId})`);
         
-        // Verificar si es admin por ID
-        const isAdmin = userId === ADMIN_ID;
+        // VERIFICACIÓN ROBUSTA DE ADMIN
+        const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
         
         console.log(`🔍 [SERVER] Buscando usuario en BD: ${userId}`);
         
@@ -181,14 +185,15 @@ app.get('/api/user/:userId', async (req, res) => {
             if (error.code === 'PGRST116') {
                 console.log(`👤 [SERVER] Usuario ${userId} no encontrado en BD, creando nuevo...`);
                 
-                // Si no existe, crear usuario básico (no admin a menos que sea el ADMIN_ID)
+                // Si no existe, crear usuario con privilegios de admin si corresponde
                 const userData = {
                     telegram_id: userId,
-                    is_admin: isAdmin,
-                    is_vip: isAdmin, // Admin es VIP por defecto
-                    vip_expires_at: isAdmin ? new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString() : null,
+                    is_admin: isAdminByID,
+                    is_vip: isAdminByID,
+                    vip_expires_at: isAdminByID ? new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString() : null,
                     username: null,
-                    first_name: null
+                    first_name: null,
+                    created_at: new Date().toISOString()
                 };
                 
                 console.log(`✅ [SERVER] Datos de usuario (nuevo):`, userData);
@@ -198,17 +203,24 @@ app.get('/api/user/:userId', async (req, res) => {
             }
         }
 
-        // Si el usuario existe en la BD, usar esos datos
+        // Si el usuario existe en la BD, USAR LOS DATOS DEL SERVIDOR COMO ÚNICA FUENTE DE VERDAD
+        const finalIsAdmin = user.is_admin || isAdminByID;
+        const finalIsVip = user.is_vip || isAdminByID;
+
+        console.log(`🔍 [SERVER] Usuario BD - is_admin: ${user.is_admin}, is_vip: ${user.is_vip}`);
+        console.log(`🔍 [SERVER] Por ID - isAdminByID: ${isAdminByID}`);
+        console.log(`🔍 [SERVER] Resultado final - Admin: ${finalIsAdmin}, VIP: ${finalIsVip}`);
+
         const userData = {
             telegram_id: user.telegram_id,
-            is_admin: user.is_admin || isAdmin, // Si en la BD es admin o por ID
-            is_vip: user.is_vip || isAdmin,     // Si en la BD es VIP o es admin
+            is_admin: finalIsAdmin,
+            is_vip: finalIsVip,
             vip_expires_at: user.vip_expires_at,
             username: user.username,
             first_name: user.first_name
         };
 
-        console.log(`✅ [SERVER] Datos de usuario (existente):`, userData);
+        console.log(`✅ [SERVER] Datos de usuario finales:`, userData);
         
         res.json({ success: true, data: userData });
     } catch (error) {
@@ -217,11 +229,59 @@ app.get('/api/user/:userId', async (req, res) => {
     }
 });
 
+// =============================================
+// ENDPOINTS DE ADMINISTRACIÓN (SOLO ADMIN)
+// =============================================
+
+// Middleware para verificar admin
+async function verifyAdmin(userId) {
+    console.log(`🔐 [SERVER] Verificando permisos de admin para: ${userId}`);
+    
+    // Verificación directa por ID
+    const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
+    
+    if (isAdminByID) {
+        console.log(`✅ [SERVER] Usuario ${userId} es admin por ID`);
+        return true;
+    }
+    
+    // Verificar en base de datos por si acaso
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('is_admin')
+            .eq('telegram_id', userId)
+            .single();
+
+        if (error || !user) {
+            console.log(`❌ [SERVER] Usuario no encontrado o error:`, error);
+            return false;
+        }
+
+        const isAdmin = user.is_admin;
+        console.log(`🔍 [SERVER] Usuario ${userId} - is_admin en BD: ${isAdmin}`);
+        
+        return isAdmin;
+    } catch (error) {
+        console.error('❌ [SERVER] Error verificando admin:', error);
+        return false;
+    }
+}
+
 // Endpoint para obtener todos los usuarios
 app.get('/api/users', async (req, res) => {
     try {
-        console.log(`👥 [SERVER] GET /api/users - Obteniendo todos los usuarios`);
+        const { userId } = req.query;
         
+        console.log(`👥 [SERVER] GET /api/users - Solicitado por: ${userId}`);
+        
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
         const { data: users, error } = await supabase
             .from('users')
             .select('*')
@@ -241,9 +301,17 @@ app.get('/api/users', async (req, res) => {
 app.get('/api/users/search/:telegramId', async (req, res) => {
     try {
         const { telegramId } = req.params;
+        const { userId } = req.query;
         
-        console.log(`🔍 [SERVER] Buscando usuario: ${telegramId}`);
+        console.log(`🔍 [SERVER] Buscando usuario: ${telegramId} - Solicitado por: ${userId}`);
         
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -272,19 +340,12 @@ app.post('/api/users/vip', async (req, res) => {
     try {
         const { telegramId, userId, days = 30 } = req.body;
 
-        console.log(`👑 [SERVER] Haciendo VIP usuario: ${telegramId} por ${days} días`);
+        console.log(`👑 [SERVER] Haciendo VIP usuario: ${telegramId} por ${days} días - Solicitado por: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de hacer VIP por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -344,19 +405,12 @@ app.post('/api/users/remove-vip', async (req, res) => {
     try {
         const { telegramId, userId } = req.body;
 
-        console.log(`👑 [SERVER] Quitando VIP a usuario: ${telegramId}`);
+        console.log(`👑 [SERVER] Quitando VIP a usuario: ${telegramId} - Solicitado por: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de quitar VIP por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -384,24 +438,21 @@ app.post('/api/users/remove-vip', async (req, res) => {
     }
 });
 
+// =============================================
+// ENDPOINTS DE SEÑALES
+// =============================================
+
 // Endpoint para enviar señales (solo admin)
 app.post('/api/signals', async (req, res) => {
     try {
         const { asset, timeframe, direction, userId } = req.body;
 
-        console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min`);
+        console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min - Solicitado por: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de enviar señal por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -450,19 +501,12 @@ app.put('/api/signals/:id', async (req, res) => {
         const { id } = req.params;
         const { status, userId } = req.body;
 
-        console.log(`🔄 [SERVER] Actualizando señal ${id} a estado: ${status}`);
+        console.log(`🔄 [SERVER] Actualizando señal ${id} a estado: ${status} - Solicitado por: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de actualizar señal por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -510,6 +554,10 @@ app.get('/api/signals', async (req, res) => {
     }
 });
 
+// =============================================
+// ENDPOINTS DE SESIONES Y NOTIFICACIONES
+// =============================================
+
 // Endpoint para notificar a los clientes (10 minutos)
 app.post('/api/notify', async (req, res) => {
     try {
@@ -517,17 +565,10 @@ app.post('/api/notify', async (req, res) => {
 
         console.log(`🔔 [SERVER] Notificación de 10 minutos solicitada por: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de notificar por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -550,17 +591,10 @@ app.post('/api/sessions/start', async (req, res) => {
 
         console.log(`▶️ [SERVER] Iniciando sesión para usuario: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de iniciar sesión por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -583,17 +617,10 @@ app.post('/api/sessions/end', async (req, res) => {
 
         console.log(`⏹️ [SERVER] Finalizando sesión para usuario: ${userId}`);
 
-        // Verificar que el usuario es admin (ya sea por ID o por BD)
-        const { data: adminUser, error: adminError } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        const isAdmin = userId === ADMIN_ID || (adminUser && adminUser.is_admin);
-
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Intento no autorizado de finalizar sesión por usuario: ${userId}`);
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -610,7 +637,7 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
-// NUEVO ENDPOINT PARA DEBUG
+// ENDPOINT PARA DEBUG
 // =============================================
 
 app.get('/api/debug/request', (req, res) => {
