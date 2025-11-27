@@ -160,9 +160,6 @@ class SignalManager {
         this.updateStats();
         this.initChart();
         
-        // DETECCIÓN INMEDIATA DE ADMIN - MÁS ROBUSTA
-        this.detectAdminStatusImmediately();
-        
         // Cargar datos del usuario
         this.loadUserData();
         this.setupRealtimeSubscription();
@@ -172,31 +169,6 @@ class SignalManager {
         
         // Actualizar UI inmediatamente
         this.updateUI();
-    }
-    
-    // DETECCIÓN INMEDIATA DE ADMIN - MÁS ROBUSTA
-    detectAdminStatusImmediately() {
-        console.log('🎯 [ADMIN] Iniciando verificación de admin...');
-        console.log('🎯 [ADMIN] User ID actual:', this.currentUserId);
-        console.log('🎯 [ADMIN] ADMIN_ID configurado:', ADMIN_ID);
-        
-        // Comparación robusta (string vs string)
-        const userIdStr = String(this.currentUserId).trim();
-        const adminIdStr = String(ADMIN_ID).trim();
-        
-        console.log('🎯 [ADMIN] User ID (string):', userIdStr);
-        console.log('🎯 [ADMIN] ADMIN_ID (string):', adminIdStr);
-        console.log('🎯 [ADMIN] ¿Coinciden?:', userIdStr === adminIdStr);
-        
-        if (userIdStr === adminIdStr) {
-            this.isAdmin = true;
-            console.log('✅ [ADMIN] Usuario identificado como ADMIN (detección inmediata)');
-        } else {
-            console.log('❌ [ADMIN] No coincide - User ID:', userIdStr, 'vs ADMIN_ID:', adminIdStr);
-            this.isAdmin = false;
-        }
-        
-        console.log('🎯 [ADMIN] Estado final isAdmin:', this.isAdmin);
     }
     
     async loadUserData() {
@@ -210,7 +182,6 @@ class SignalManager {
             console.log('🔍 [APP] Cargando datos del usuario desde servidor:', this.currentUserId);
             const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
             
-            // Ahora cargar datos del usuario
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
@@ -222,28 +193,62 @@ class SignalManager {
             if (result.success) {
                 this.userData = result.data;
                 
-                console.log('🔍 [APP] Datos recibidos del servidor:', result.data);
+                console.log('🔍 [APP] Datos completos del servidor:', result.data);
                 
-                // ACTUALIZAR ESTADOS CON LOS DATOS DEL SERVIDOR
-                // El servidor tiene la verdad absoluta sobre admin y VIP
-                this.isAdmin = result.data.is_admin || false;
+                // DETECCIÓN ROBUSTA DE ADMIN - CON LOGS DETALLADOS
+                const userIdStr = String(this.currentUserId).trim();
+                const adminIdStr = String(ADMIN_ID).trim();
+                
+                console.log('🎯 [ADMIN] Comparando:');
+                console.log('🎯 [ADMIN] User ID:', userIdStr);
+                console.log('🎯 [ADMIN] ADMIN_ID:', adminIdStr);
+                console.log('🎯 [ADMIN] ¿Coinciden?:', userIdStr === adminIdStr);
+                console.log('🎯 [ADMIN] is_admin desde servidor:', result.data.is_admin);
+                
+                // PRIORIDAD: Datos del servidor, luego detección local
+                this.isAdmin = result.data.is_admin || (userIdStr === adminIdStr);
                 this.isVIP = result.data.is_vip || false;
                 
-                console.log('✅ [APP] Estados actualizados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+                console.log('✅ [APP] Estados finales - Admin:', this.isAdmin, 'VIP:', this.isVIP);
                 
                 // Verificar si el VIP ha expirado
                 if (this.isVIP && this.userData.vip_expires_at) {
                     const expiryDate = new Date(this.userData.vip_expires_at);
-                    if (expiryDate < new Date()) {
+                    const now = new Date();
+                    console.log('📅 [VIP] Fecha de expiración:', expiryDate);
+                    console.log('📅 [VIP] Fecha actual:', now);
+                    console.log('📅 [VIP] ¿Ha expirado?:', expiryDate < now);
+                    
+                    if (expiryDate < now) {
                         this.isVIP = false;
                         console.log('⚠️ [APP] VIP expirado');
                     }
                 }
+                
+                // Si es admin, asegurarse de que también sea VIP
+                if (this.isAdmin && !this.isVIP) {
+                    console.log('🔄 [APP] Admin detectado - Activando VIP automáticamente');
+                    this.isVIP = true;
+                }
             } else {
                 console.error('❌ [APP] Error en respuesta del servidor:', result);
+                
+                // Fallback: detección local si el servidor falla
+                const userIdStr = String(this.currentUserId).trim();
+                const adminIdStr = String(ADMIN_ID).trim();
+                this.isAdmin = (userIdStr === adminIdStr);
+                this.isVIP = this.isAdmin; // Admin siempre es VIP
+                console.log('🔄 [APP] Usando detección local - Admin:', this.isAdmin, 'VIP:', this.isVIP);
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando datos del usuario:', error);
+            
+            // Fallback en caso de error
+            const userIdStr = String(this.currentUserId).trim();
+            const adminIdStr = String(ADMIN_ID).trim();
+            this.isAdmin = (userIdStr === adminIdStr);
+            this.isVIP = this.isAdmin;
+            console.log('🔄 [APP] Fallback por error - Admin:', this.isAdmin, 'VIP:', this.isVIP);
         } finally {
             this.updateUI();
         }
@@ -370,13 +375,14 @@ class SignalManager {
         }
         
         this.debugDiv.innerHTML = `
-            <strong>🔍 DEBUG INFO CORREGIDO</strong><br>
+            <strong>🔍 DEBUG INFO MEJORADO</strong><br>
             <strong>URL tgid:</strong> ${tgid || 'NO'}<br>
             <strong>UserID actual:</strong> ${this.currentUserId || 'NO'}<br>
             <strong>Telegram SDK:</strong> ${telegramSDK} (${sdkUser})<br>
             <strong>isAdmin:</strong> ${this.isAdmin}<br>
             <strong>isVIP:</strong> ${this.isVIP}<br>
-            <strong>Estrategia:</strong> Servidor como fuente de verdad
+            <strong>Estrategia:</strong> Servidor como fuente de verdad<br>
+            <strong>Admin ID:</strong> ${ADMIN_ID}
         `;
     }
     
@@ -487,8 +493,6 @@ class SignalManager {
         });
     }
 
-    // ... (el resto de los métodos se mantienen igual)
-    // Métodos para gestión de usuarios
     async searchUser() {
         const searchId = this.userSearchInput.value.trim();
         if (!searchId) {
@@ -1465,27 +1469,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =============================================
-// SCRIPT DE DEBUG MEJORADO
+// VERIFICACIÓN INMEDIATA DE ADMIN
 // =============================================
 
-console.log('=== 🐛 DEBUG SCRIPT INICIADO ===');
-console.log('URL completa:', window.location.href);
-console.log('Parámetros URL:', Object.fromEntries(new URLSearchParams(window.location.search)));
-console.log('Fragmento URL:', window.location.hash);
+console.log('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===');
 console.log('User ID detectado:', detectedUserId);
+console.log('ADMIN_ID configurado:', ADMIN_ID);
+console.log('¿Coinciden?:', String(detectedUserId).trim() === String(ADMIN_ID).trim());
 
-// Probar la API después de 2 segundos
+// Verificación adicional después de 3 segundos
 setTimeout(async () => {
-    if (detectedUserId) {
-        console.log('🔍 TEST: Probando API con userId:', detectedUserId);
-        try {
-            const response = await fetch(`/api/user/${detectedUserId}`);
-            const result = await response.json();
-            console.log('🔍 TEST: Respuesta API:', result);
-        } catch (error) {
-            console.error('🔍 TEST: Error API:', error);
-        }
-    } else {
-        console.log('❌ TEST: No se pudo obtener userId para testing');
+    console.log('=== 🔍 VERIFICACIÓN TARDÍA DE ADMIN ===');
+    if (signalManager) {
+        console.log('Estado actual en SignalManager:');
+        console.log('- isAdmin:', signalManager.isAdmin);
+        console.log('- isVIP:', signalManager.isVIP);
+        console.log('- User ID:', signalManager.currentUserId);
+        
+        // Forzar recarga de datos
+        await signalManager.loadUserData();
     }
-}, 2000);
+}, 3000);
