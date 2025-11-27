@@ -3,242 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Signal Trader Pro</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Prueba de Detección de ID</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            margin-top: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #00ff9d;
+        }
+        .debug-info {
+            background: rgba(255, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid red;
+        }
+        .success {
+            background: rgba(0, 255, 157, 0.2);
+            border-left: 4px solid #00ff9d;
+        }
+        .warning {
+            background: rgba(255, 204, 0, 0.2);
+            border-left: 4px solid #ffcc00;
+        }
+        .error {
+            background: rgba(255, 0, 51, 0.2);
+            border-left: 4px solid #ff0033;
+        }
+        .method {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        .method-name {
+            font-weight: bold;
+        }
+        .method-result {
+            color: #00ff9d;
+        }
+        .method-fail {
+            color: #ff0033;
+        }
+    </style>
 </head>
 <body>
-    <div class="particles" id="particles"></div>
+    <h1>🔍 PRUEBA DE DETECCIÓN DE ID DE TELEGRAM</h1>
     
     <div class="container">
-        <header>
-            <div>
-                <!-- Display del ID del usuario -->
-                <div id="userIdDisplay" class="user-id-display">ID: Cargando...</div>
-                <h1>QUANTUM SIGNAL TRADER PRO</h1>
-                <p class="header-subtitle">Sistema de Señales para Opciones Binarias</p>
+        <div class="info-box success">
+            <h2>🎯 RESULTADO FINAL</h2>
+            <div id="finalResult" style="font-size: 24px; font-weight: bold; text-align: center;">
+                Cargando...
             </div>
-            <div class="header-controls">
-                <button class="header-btn active" id="showSignals"><i class="fas fa-broadcast-tower"></i> Señales</button>
-                <button class="header-btn" id="showStats"><i class="fas fa-chart-bar"></i> Estadísticas</button>
-                <button class="header-btn" id="showUsers" style="display: none;"><i class="fas fa-users"></i> Usuarios</button>
-                <button class="header-btn vip" id="vipAccess"><i class="fas fa-crown"></i> VIP</button>
-                <button class="header-btn" id="adminBtn" style="display: none;"><i class="fas fa-user-shield"></i> Admin</button>
-            </div>
-        </header>
-        
-        <div class="connection-status" id="connectionStatus">
-            <div class="status-dot status-connected" id="statusDot"></div>
-            <span id="statusText">Conectado al servidor</span>
         </div>
-        
-        <div class="session-info" id="sessionInfo">
-            <i class="fas fa-clock"></i> Sesión inactiva - Inicia una sesión para comenzar
-        </div>
-        
-        <div class="grid">
-            <div class="panel admin-panel" id="adminPanel" style="display: none;">
-                <h3><i class="fas fa-user-shield"></i> Panel de Control Administrativo</h3>
-                
-                <!-- Gestión de Usuarios VIP -->
-                <div class="user-management-section">
-                    <h4><i class="fas fa-users-cog"></i> Gestión de Usuarios VIP</h4>
-                    
-                    <div class="form-group">
-                        <label for="userSearchInput"><i class="fas fa-search"></i> Buscar Usuario por ID de Telegram</label>
-                        <div class="search-container">
-                            <input type="text" id="userSearchInput" placeholder="Ej: 123456789">
-                            <button id="searchUserBtn" class="search-btn"><i class="fas fa-search"></i> Buscar</button>
-                        </div>
-                    </div>
-                    
-                    <div id="userSearchResult" class="user-search-result" style="display: none;">
-                        <!-- Los resultados de búsqueda aparecerán aquí -->
-                    </div>
-                    
-                    <div class="user-actions" id="userActions" style="display: none;">
-                        <button id="makeVipBtn" class="admin-btn btn-vip"><i class="fas fa-crown"></i> Hacer VIP</button>
-                        <button id="removeVipBtn" class="admin-btn btn-loss"><i class="fas fa-times"></i> Quitar VIP</button>
-                    </div>
-                </div>
 
-                <div class="form-group">
-                    <label for="asset"><i class="fas fa-chart-line"></i> Activo</label>
-                    <input type="text" id="asset" placeholder="Ej: EUR/USD, BTC/USD, etc.">
-                </div>
-                <div class="form-group">
-                    <label for="timeframe"><i class="fas fa-clock"></i> Tiempo</label>
-                    <select id="timeframe">
-                        <option value="1">1 minuto</option>
-                        <option value="2">2 minutos</option>
-                        <option value="5">5 minutos</option>
-                        <option value="15">15 minutos</option>
-                        <option value="30">30 minutos</option>
-                        <option value="60">1 hora</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="direction"><i class="fas fa-arrows-alt-v"></i> Dirección</label>
-                    <select id="direction">
-                        <option value="up">ALZA (CALL)</option>
-                        <option value="down">BAJA (PUT)</option>
-                    </select>
-                </div>
-                <button id="sendSignal"><i class="fas fa-paper-plane"></i> ENVIAR SEÑAL</button>
-                <div class="admin-controls" style="margin-top: 20px;">
-                    <button id="startSession" class="admin-btn btn-profit"><i class="fas fa-play"></i> Iniciar Sesión</button>
-                    <button id="endSession" class="admin-btn btn-loss" disabled><i class="fas fa-stop"></i> Finalizar Sesión</button>
-                </div>
-                <div class="admin-controls" style="margin-top: 10px;">
-                    <button id="notifyClients" class="admin-btn btn-notify"><i class="fas fa-bell"></i> Avisar al Cliente (10 min)</button>
-                </div>
+        <div class="info-box">
+            <h2>📊 MÉTODOS DE DETECCIÓN</h2>
+            <div id="methodsResults">
+                <!-- Los métodos se mostrarán aquí -->
             </div>
+        </div>
+
+        <div class="info-box">
+            <h2>🔧 INFORMACIÓN TÉCNICA</h2>
+            <div class="debug-info">
+                <div><strong>URL Completa:</strong> <span id="fullUrl"></span></div>
+                <div><strong>User Agent:</strong> <span id="userAgent"></span></div>
+                <div><strong>Plataforma:</strong> <span id="platform"></span></div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h2>📝 DATOS DE TELEGRAM WEB APP</h2>
+            <div class="debug-info" id="telegramData">
+                Cargando datos de Telegram...
+            </div>
+        </div>
+
+        <div class="info-box warning">
+            <h2>⚠️ SOLUCIÓN DE PROBLEMAS</h2>
+            <p>Si no se detecta tu ID correctamente:</p>
+            <ul>
+                <li>Asegúrate de acceder desde la app de Telegram</li>
+                <li>Verifica que el bot esté configurado correctamente</li>
+                <li>Comprueba que la URL incluya los parámetros correctos</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar información técnica inmediatamente
+        document.getElementById('fullUrl').textContent = window.location.href;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('platform').textContent = navigator.platform;
+
+        // Función mejorada de detección de ID
+        function testAllMethods() {
+            const methods = [];
+            let finalUserId = null;
+
+            // MÉTODO 1: Parámetro tgid en URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgId = urlParams.get('tgid');
+            methods.push({
+                name: '1. Parámetro tgid en URL',
+                result: tgId,
+                success: !!tgId
+            });
+            if (tgId) finalUserId = tgId;
+
+            // MÉTODO 2: Telegram WebApp SDK
+            let sdkResult = 'NO';
+            let sdkSuccess = false;
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.expand(); // Expandir la WebApp
+                
+                const user = tg.initDataUnsafe?.user;
+                if (user && user.id) {
+                    sdkResult = user.id.toString();
+                    sdkSuccess = true;
+                    if (!finalUserId) finalUserId = sdkResult;
+                } else {
+                    sdkResult = 'SDK disponible pero sin user.id';
+                }
+                
+                // Mostrar datos completos del SDK
+                document.getElementById('telegramData').innerHTML = `
+                    <strong>initDataUnsafe:</strong><br>
+                    <pre>${JSON.stringify(tg.initDataUnsafe, null, 2)}</pre><br>
+                    <strong>User:</strong><br>
+                    <pre>${JSON.stringify(user, null, 2)}</pre>
+                `;
+            } else {
+                sdkResult = 'SDK de Telegram no disponible';
+            }
+            methods.push({
+                name: '2. Telegram WebApp SDK',
+                result: sdkResult,
+                success: sdkSuccess
+            });
+
+            // MÉTODO 3: Fragmento URL (tgWebAppData)
+            try {
+                const fragment = window.location.hash.substring(1);
+                let fragmentResult = 'NO';
+                let fragmentSuccess = false;
+                
+                if (fragment) {
+                    const fragmentParams = new URLSearchParams(fragment);
+                    const tgWebAppData = fragmentParams.get('tgWebAppData');
+                    
+                    if (tgWebAppData) {
+                        const decodedWebAppData = decodeURIComponent(tgWebAppData);
+                        const webAppParams = new URLSearchParams(decodedWebAppData);
+                        const userString = webAppParams.get('user');
+                        
+                        if (userString) {
+                            const userData = JSON.parse(decodeURIComponent(userString));
+                            if (userData && userData.id) {
+                                fragmentResult = userData.id.toString();
+                                fragmentSuccess = true;
+                                if (!finalUserId) finalUserId = fragmentResult;
+                            }
+                        } else {
+                            fragmentResult = 'Fragmento sin user data';
+                        }
+                    } else {
+                        fragmentResult = 'Fragmento sin tgWebAppData';
+                    }
+                } else {
+                    fragmentResult = 'Sin fragmento en URL';
+                }
+                
+                methods.push({
+                    name: '3. Fragmento de URL',
+                    result: fragmentResult,
+                    success: fragmentSuccess
+                });
+            } catch (error) {
+                methods.push({
+                    name: '3. Fragmento de URL',
+                    result: 'Error: ' + error.message,
+                    success: false
+                });
+            }
+
+            // MÉTODO 4: localStorage
+            const storedId = localStorage.getItem('tg_user_id');
+            methods.push({
+                name: '4. localStorage',
+                result: storedId || 'NO',
+                success: !!storedId
+            });
+            if (storedId && !finalUserId) finalUserId = storedId;
+
+            // MÉTODO 5: Guest ID (fallback)
+            if (!finalUserId) {
+                const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                finalUserId = guestId;
+                methods.push({
+                    name: '5. Guest ID (fallback)',
+                    result: guestId,
+                    success: false
+                });
+            } else {
+                methods.push({
+                    name: '5. Guest ID (fallback)',
+                    result: 'No necesario - ID ya detectado',
+                    success: true
+                });
+            }
+
+            // Guardar en localStorage si es un ID real
+            if (finalUserId && !finalUserId.startsWith('guest_')) {
+                localStorage.setItem('tg_user_id', finalUserId);
+            }
+
+            return { methods, finalUserId };
+        }
+
+        // Ejecutar la prueba y mostrar resultados
+        function runTest() {
+            const { methods, finalUserId } = testAllMethods();
             
-            <div class="panel signals-panel">
-                <h3><i class="fas fa-broadcast-tower"></i> Señales Activas</h3>
-                <button id="readyBtn" class="ready-btn">
-                    <i class="fas fa-bell"></i> PREPARADOS
-                </button>
-                <div class="user-status" id="userStatus">
-                    <div class="session-info">
-                        <i class="fas fa-user"></i> Estado: Cargando información del usuario...
-                    </div>
+            // Mostrar métodos
+            const methodsContainer = document.getElementById('methodsResults');
+            methodsContainer.innerHTML = methods.map(method => `
+                <div class="method">
+                    <span class="method-name">${method.name}</span>
+                    <span class="${method.success ? 'method-result' : 'method-fail'}">
+                        ${method.result}
+                    </span>
                 </div>
-                <div id="signalsContainer">
-                    <div class="empty-state">
-                        <i class="fas fa-satellite-dish"></i>
-                        <p>Esperando señales de trading...</p>
-                        <p>Las señales aparecerán aquí automáticamente</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="stats-container" id="statsContainer">
-            <div class="panel stats-panel">
-                <h3><i class="fas fa-chart-bar"></i> Estadísticas de Trading</h3>
-                
-                <div class="time-filters">
-                    <button class="time-filter active" data-period="day">Hoy</button>
-                    <button class="time-filter" data-period="week">Esta Semana</button>
-                    <button class="time-filter" data-period="month">Este Mes</button>
-                </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">Operaciones Ganadas</div>
-                        <div class="stat-value stat-profit" id="winCount">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Operaciones Perdidas</div>
-                        <div class="stat-value stat-loss" id="lossCount">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Operaciones</div>
-                        <div class="stat-value stat-total" id="totalCount">0</div>
-                    </div>
-                </div>
-                
-                <div class="chart-container">
-                    <canvas id="performanceChart"></canvas>
-                </div>
-                
-                <h3 style="margin-top: 30px;"><i class="fas fa-history"></i> Historial de Operaciones</h3>
-                <div style="overflow-x: auto;">
-                    <table class="operations-table">
-                        <thead>
-                            <tr>
-                                <th>Activo</th>
-                                <th>Dirección</th>
-                                <th>Tiempo</th>
-                                <th>Estado</th>
-                                <th>Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody id="operationsTable">
-                            <!-- Las operaciones se insertarán aquí -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <div class="users-container" id="usersContainer">
-            <div class="panel users-panel">
-                <h3><i class="fas fa-users"></i> Gestión de Usuarios</h3>
-                
-                <div class="admin-controls" style="margin-bottom: 20px;">
-                    <button id="refreshUsers" class="admin-btn btn-profit"><i class="fas fa-sync-alt"></i> Actualizar Lista</button>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th>ID de Telegram</th>
-                                <th>Usuario</th>
-                                <th>Estado VIP</th>
-                                <th>Expiración VIP</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                            <!-- Los usuarios se cargarán aquí -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="notification" id="notification">
-        <i class="fas fa-bell"></i> Nueva señal recibida!
-    </div>
-    
-    <div class="signal-alert" id="signalAlert">
-        <div class="asset" id="alertAsset">EUR/USD</div>
-        <div class="direction up" id="alertDirection">
-            <span class="arrow up">↑</span>
-            <span>ALZA (CALL)</span>
-        </div>
-        <div class="time-remaining" id="alertTime">Expira en: 1:00</div>
-        <button id="closeAlert" style="margin-top: 20px;">ENTENDIDO</button>
-    </div>
+            `).join('');
 
-    <div class="modal" id="vipModal">
-        <div class="modal-content">
-            <h3 style="color: var(--vip); margin-bottom: 20px; text-align: center;">
-                <i class="fas fa-crown"></i> Acceso VIP - 5000 CUP/mes
-            </h3>
-            <div style="text-align: left; margin: 20px 0; color: var(--text);">
-                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Acceso a TODAS las señales sin límites</p>
-                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales en tiempo real VIP</p>
-                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Soporte prioritario 24/7</p>
-                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Estadísticas avanzadas personalizadas</p>
-                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Alertas instantáneas exclusivas</p>
-                <p style="margin-bottom: 20px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales antes que los usuarios free</p>
-            </div>
-            <p style="text-align: center; margin: 20px 0; color: var(--text-secondary);">
-                Duración: 30 días completos
-            </p>
-            <div style="text-align: center; margin: 25px 0;">
-                <a href="https://t.me/Asche90" target="_blank" style="display: inline-block; background: linear-gradient(90deg, var(--vip), #ff9900); color: var(--dark); padding: 14px 30px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all 0.3s ease; font-size: 1.1rem;">
-                    <i class="fab fa-telegram"></i> Contactar al administrador
-                </a>
-            </div>
-            <p style="text-align: center; margin: 15px 0; color: var(--text-secondary); font-size: 0.9rem;">
-                Envíale un mensaje solicitando el plan VIP
-            </p>
-            <button id="closeVipModal" style="background: transparent; border: 1px solid var(--vip); color: var(--vip); margin-top: 10px;">
-                CERRAR
-            </button>
-        </div>
-    </div>
+            // Mostrar resultado final
+            const finalResult = document.getElementById('finalResult');
+            finalResult.textContent = `ID Detectado: ${finalUserId}`;
+            
+            if (finalUserId.startsWith('guest_')) {
+                finalResult.style.color = '#ff0033';
+                finalResult.innerHTML += '<br><span style="font-size: 16px; color: #ffcc00;">⚠️ Solo ID de guest - No se detectó ID real de Telegram</span>';
+            } else {
+                finalResult.style.color = '#00ff9d';
+                finalResult.innerHTML += '<br><span style="font-size: 16px; color: #00ff9d;">✅ ID real detectado correctamente</span>';
+            }
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="script.js"></script>
+            // Mostrar en consola también
+            console.log('=== 🔍 PRUEBA DE DETECCIÓN DE ID ===');
+            console.log('ID Final:', finalUserId);
+            console.log('Métodos:', methods);
+            console.log('URL Completa:', window.location.href);
+            console.log('User Agent:', navigator.userAgent);
+        }
+
+        // Ejecutar cuando se cargue la página
+        document.addEventListener('DOMContentLoaded', runTest);
+
+        // También ejecutar después de un tiempo por si el SDK se carga después
+        setTimeout(runTest, 1000);
+        setTimeout(runTest, 3000);
+    </script>
 </body>
 </html>
