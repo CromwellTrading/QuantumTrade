@@ -693,6 +693,129 @@ const keepAlive = async () => {
         console.error('❌ [KEEP-ALIVE] Error:', error.message);
     }
 };
+// Añadir al servidor existente (en el archivo server.js)
+
+// =============================================
+// ENDPOINT PARA OBTENER SEÑALES EN TIEMPO REAL
+// =============================================
+
+app.get('/api/realtime/signals', async (req, res) => {
+    try {
+        const { userId, lastUpdate } = req.query;
+        
+        console.log(`📡 [SERVER] GET /api/realtime/signals - Usuario: ${userId}, Última actualización: ${lastUpdate}`);
+        
+        // Obtener señales desde la última actualización
+        let query = supabase
+            .from('signals')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+        if (lastUpdate) {
+            query = query.gt('created_at', lastUpdate);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        console.log(`✅ [SERVER] ${data?.length || 0} señales nuevas obtenidas`);
+        
+        res.status(200).json({ 
+            success: true, 
+            data,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo señales en tiempo real:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINT PARA GUARDAR SESIONES EN BD
+// =============================================
+
+app.post('/api/sessions/save', async (req, res) => {
+    try {
+        const { userId, sessionData } = req.body;
+
+        console.log(`💾 [SERVER] Guardando sesión para usuario: ${userId}`);
+
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        // Guardar sesión en la base de datos
+        const { data, error } = await supabase
+            .from('sessions')
+            .insert({
+                user_id: userId,
+                session_data: sessionData,
+                created_at: new Date().toISOString()
+            })
+            .select();
+
+        if (error) throw error;
+
+        console.log(`✅ [SERVER] Sesión guardada para admin: ${userId}`);
+        
+        res.status(200).json({ 
+            success: true,
+            data,
+            message: 'Sesión guardada correctamente'
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error guardando sesión:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINT PARA CARGAR SESIONES DESDE BD
+// =============================================
+
+app.get('/api/sessions/load', async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        console.log(`📥 [SERVER] Cargando sesión para usuario: ${userId}`);
+
+        // Verificar permisos de admin
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        // Cargar última sesión del usuario
+        const { data, error } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        console.log(`✅ [SERVER] Sesión cargada para admin: ${userId}`);
+        
+        res.status(200).json({ 
+            success: true,
+            data: data || null,
+            message: data ? 'Sesión cargada correctamente' : 'No hay sesiones guardadas'
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error cargando sesión:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // Ejecutar keep-alive cada 5 minutos
 setInterval(keepAlive, 5 * 60 * 1000);
