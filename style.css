@@ -220,6 +220,15 @@ h2 {
     transform: translateY(-5px);
 }
 
+.admin-panel {
+    background: linear-gradient(145deg, var(--panel) 0%, var(--panel-light) 100%);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 1px solid var(--primary);
+    box-shadow: var(--primary-glow);
+}
+
 .admin-panel h3, .signals-panel h3, .stats-panel h3, .referrals-panel h3 {
     color: var(--primary);
     margin-bottom: 20px;
@@ -570,12 +579,12 @@ button:hover {
     box-shadow: 0 0 15px rgba(0, 255, 157, 0.3);
 }
 
-.stats-container, .users-container {
+.stats-container, .users-container, .user-management-container {
     display: none;
     margin-top: 30px;
 }
 
-.stats-container.active, .users-container.active {
+.stats-container.active, .users-container.active, .user-management-container.active {
     display: block;
 }
 
@@ -1078,6 +1087,37 @@ button:hover {
     justify-content: center;
 }
 
+.user-badge {
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.user-badge.admin {
+    background: rgba(0, 240, 255, 0.2);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.user-badge.vip {
+    background: rgba(255, 204, 0, 0.2);
+    color: var(--vip);
+    border: 1px solid var(--vip);
+}
+
+.user-badge.regular {
+    background: rgba(160, 164, 216, 0.2);
+    color: var(--text-secondary);
+    border: 1px solid var(--text-secondary);
+}
+
 @media (max-width: 1024px) {
     .grid {
         grid-template-columns: 1fr;
@@ -1127,20 +1167,4 @@ button:hover {
         margin-bottom: 10px;
         text-align: center;
     }
-}
-
-/* Debug panel */
-#debugInfo {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 0, 0, 0.9);
-    color: white;
-    padding: 10px;
-    z-index: 10000;
-    font-size: 12px;
-    border-radius: 5px;
-    max-width: 300px;
-    word-break: break-all;
-    border: 2px solid white;
 }
