@@ -3,244 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Signal Trader</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Quantum Signal Trader Pro</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="particles"></div>
-
-    <!-- Panel de Debug -->
-    <div class="debug-panel">
-        <div class="debug-header">🔍 DEBUG PANEL - DETECCIÓN DE ID</div>
-        <div id="debugInfo" class="debug-info">Iniciando detección...</div>
-    </div>
-
-    <!-- Notificación -->
-    <div id="notification" class="notification"></div>
-
-    <!-- Alerta de Señal -->
-    <div id="signalAlert" class="signal-alert">
-        <div class="asset" id="alertAsset">EUR/USD</div>
-        <div class="direction" id="alertDirection">
-            <span class="arrow">↑</span>
-            <span>ALZA</span>
-        </div>
-        <div class="time-remaining" id="alertTime">Expira en: 05:00</div>
-        <button id="closeAlert" class="btn btn-primary" style="margin-top: 20px;">
-            <i class="fas fa-check"></i> ENTENDIDO
-        </button>
-    </div>
-
+    <div class="particles" id="particles"></div>
+    
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">
-                <i class="fas fa-satellite-dish"></i> QUANTUM TRADER
+        <header>
+            <div>
+                <!-- Display del ID del usuario -->
+                <div id="userIdDisplay" class="user-id-display">ID: Cargando...</div>
+                <h1>QUANTUM SIGNAL TRADER PRO</h1>
+                <p class="header-subtitle">Sistema de Señales para Opciones Binarias</p>
             </div>
-            <div class="subtitle">Sistema de Señales de Trading en Tiempo Real</div>
-            
-            <div class="user-info">
-                <div id="userIdDisplay" class="user-badge regular">
-                    <i class="fas fa-user"></i> ID: Cargando...
-                </div>
-                <div id="userStatus" class="session-info">
-                    <i class="fas fa-user"></i> Estado: Cargando...
-                </div>
+            <div class="header-controls">
+                <button class="header-btn active" id="showSignals"><i class="fas fa-broadcast-tower"></i> Señales</button>
+                <button class="header-btn" id="showStats"><i class="fas fa-chart-bar"></i> Estadísticas</button>
+                <button class="header-btn" id="showUsers" style="display: none;"><i class="fas fa-users"></i> Usuarios</button>
+                <button class="header-btn vip" id="vipAccess"><i class="fas fa-crown"></i> VIP</button>
+                <button class="header-btn" id="adminBtn" style="display: none;"><i class="fas fa-user-shield"></i> Admin</button>
             </div>
+        </header>
+        
+        <div class="connection-status" id="connectionStatus">
+            <div class="status-dot status-connected" id="statusDot"></div>
+            <span id="statusText">Conectado al servidor</span>
         </div>
-
-        <!-- Navegación -->
-        <div class="nav-tabs">
-            <button id="showSignals" class="nav-btn active">
-                <i class="fas fa-chart-line"></i> Señales
-            </button>
-            <button id="showStats" class="nav-btn">
-                <i class="fas fa-chart-bar"></i> Estadísticas
-            </button>
-            <button id="showUsers" class="nav-btn" style="display: none;">
-                <i class="fas fa-users"></i> Usuarios
-            </button>
-            <button id="vipAccess" class="nav-btn">
-                <i class="fas fa-crown"></i> VIP
-            </button>
-            <button id="adminBtn" class="nav-btn" style="display: none;">
-                <i class="fas fa-user-shield"></i> Panel Admin
-            </button>
-            <button id="readyBtn" class="nav-btn">
-                <i class="fas fa-bell"></i> PREPARADOS
-            </button>
+        
+        <div class="session-info" id="sessionInfo">
+            <i class="fas fa-clock"></i> Sesión inactiva - Inicia una sesión para comenzar
         </div>
+        
+        <div class="grid">
+            <div class="panel admin-panel" id="adminPanel" style="display: none;">
+                <h3><i class="fas fa-user-shield"></i> Panel de Control Administrativo</h3>
+                
+                <!-- Gestión de Usuarios VIP -->
+                <div class="user-management-section">
+                    <h4><i class="fas fa-users-cog"></i> Gestión de Usuarios VIP</h4>
+                    
+                    <div class="form-group">
+                        <label for="userSearchInput"><i class="fas fa-search"></i> Buscar Usuario por ID de Telegram</label>
+                        <div class="search-container">
+                            <input type="text" id="userSearchInput" placeholder="Ej: 123456789">
+                            <button id="searchUserBtn" class="search-btn"><i class="fas fa-search"></i> Buscar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="userSearchResult" class="user-search-result" style="display: none;">
+                        <!-- Los resultados de búsqueda aparecerán aquí -->
+                    </div>
+                    
+                    <div class="user-actions" id="userActions" style="display: none;">
+                        <button id="makeVipBtn" class="admin-btn btn-vip"><i class="fas fa-crown"></i> Hacer VIP</button>
+                        <button id="removeVipBtn" class="admin-btn btn-loss"><i class="fas fa-times"></i> Quitar VIP</button>
+                    </div>
+                </div>
 
-        <!-- Panel de Señales -->
-        <div id="signalsPanel" class="panel active">
-            <div class="signal-form">
                 <div class="form-group">
-                    <label for="asset"><i class="fas fa-coins"></i> Activo</label>
-                    <input type="text" id="asset" class="form-control" placeholder="Ej: EURUSD, BTCUSD">
+                    <label for="asset"><i class="fas fa-chart-line"></i> Activo</label>
+                    <input type="text" id="asset" placeholder="Ej: EUR/USD, BTC/USD, etc.">
                 </div>
                 <div class="form-group">
-                    <label for="timeframe"><i class="fas fa-clock"></i> Timeframe (min)</label>
-                    <select id="timeframe" class="form-control">
+                    <label for="timeframe"><i class="fas fa-clock"></i> Tiempo</label>
+                    <select id="timeframe">
                         <option value="1">1 minuto</option>
-                        <option value="3">3 minutos</option>
-                        <option value="5" selected>5 minutos</option>
+                        <option value="2">2 minutos</option>
+                        <option value="5">5 minutos</option>
                         <option value="15">15 minutos</option>
+                        <option value="30">30 minutos</option>
+                        <option value="60">1 hora</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="direction"><i class="fas fa-arrows-alt-v"></i> Dirección</label>
-                    <select id="direction" class="form-control">
+                    <select id="direction">
                         <option value="up">ALZA (CALL)</option>
                         <option value="down">BAJA (PUT)</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>&nbsp;</label>
-                    <button id="sendSignal" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> ENVIAR SEÑAL
-                    </button>
+                <button id="sendSignal"><i class="fas fa-paper-plane"></i> ENVIAR SEÑAL</button>
+                <div class="admin-controls" style="margin-top: 20px;">
+                    <button id="startSession" class="admin-btn btn-profit"><i class="fas fa-play"></i> Iniciar Sesión</button>
+                    <button id="endSession" class="admin-btn btn-loss" disabled><i class="fas fa-stop"></i> Finalizar Sesión</button>
+                </div>
+                <div class="admin-controls" style="margin-top: 10px;">
+                    <button id="notifyClients" class="admin-btn btn-notify"><i class="fas fa-bell"></i> Avisar al Cliente (10 min)</button>
                 </div>
             </div>
-
-            <div id="signalsContainer">
-                <div class="empty-state">
-                    <i class="fas fa-satellite-dish"></i>
-                    <p>Esperando señales de trading...</p>
-                    <p>Las señales aparecerán aquí automáticamente</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Panel de Estadísticas -->
-        <div id="statsContainer" class="panel">
-            <div class="stats-cards">
-                <div class="stat-card stat-profit">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="stat-label">Operaciones Ganadas</div>
-                    <div class="stat-value" id="winCount">0</div>
-                </div>
-                <div class="stat-card stat-loss">
-                    <i class="fas fa-times-circle"></i>
-                    <div class="stat-label">Operaciones Perdidas</div>
-                    <div class="stat-value" id="lossCount">0</div>
-                </div>
-                <div class="stat-card stat-total">
-                    <i class="fas fa-chart-line"></i>
-                    <div class="stat-label">Total Operaciones</div>
-                    <div class="stat-value" id="totalCount">0</div>
-                </div>
-            </div>
-
-            <div class="time-filters">
-                <button class="time-filter active" data-period="day">Hoy</button>
-                <button class="time-filter" data-period="week">Esta Semana</button>
-                <button class="time-filter" data-period="month">Este Mes</button>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="performanceChart"></canvas>
-            </div>
-
-            <table class="operations-table">
-                <thead>
-                    <tr>
-                        <th>Activo</th>
-                        <th>Dirección</th>
-                        <th>Duración</th>
-                        <th>Estado</th>
-                        <th>Fecha/Hora</th>
-                    </tr>
-                </thead>
-                <tbody id="operationsTable">
-                    <!-- Las operaciones se cargarán aquí -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Panel de Usuarios (Admin) -->
-        <div id="usersContainer" class="panel">
-            <div class="admin-card">
-                <h3><i class="fas fa-search"></i> Buscar Usuario</h3>
-                <div class="user-search">
-                    <input type="text" id="userSearchInput" class="form-control" placeholder="ID de Telegram">
-                    <button id="searchUserBtn" class="btn btn-primary">Buscar</button>
-                </div>
-                <div id="userSearchResult" style="display: none; margin-top: 15px;"></div>
-                <div id="userActions" style="display: none; gap: 10px; margin-top: 15px; justify-content: center;">
-                    <button id="makeVipBtn" class="btn btn-vip">Hacer VIP</button>
-                    <button id="removeVipBtn" class="btn btn-loss">Quitar VIP</button>
-                </div>
-            </div>
-
-            <div class="admin-card">
-                <h3><i class="fas fa-users"></i> Todos los Usuarios</h3>
-                <button id="refreshUsers" class="btn btn-primary" style="margin-bottom: 15px;">
-                    <i class="fas fa-sync"></i> Actualizar Lista
+            
+            <div class="panel signals-panel">
+                <h3><i class="fas fa-broadcast-tower"></i> Señales Activas</h3>
+                <button id="readyBtn" class="ready-btn">
+                    <i class="fas fa-bell"></i> PREPARADOS
                 </button>
-                <table class="users-table">
-                    <thead>
-                        <tr>
-                            <th>ID Telegram</th>
-                            <th>Usuario</th>
-                            <th>Estado VIP</th>
-                            <th>Expiración</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody">
-                        <!-- Los usuarios se cargarán aquí -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Panel de Control de Sesión -->
-        <div class="panel">
-            <div class="admin-controls">
-                <div class="admin-card">
-                    <h3><i class="fas fa-play-circle"></i> Control de Sesión</h3>
-                    <div id="sessionInfo" class="session-info">
-                        <i class="fas fa-stop-circle"></i> Sesión no iniciada
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: center;">
-                        <button id="startSession" class="btn btn-primary">Iniciar Sesión</button>
-                        <button id="endSession" class="btn btn-loss" disabled>Finalizar Sesión</button>
+                <div class="user-status" id="userStatus">
+                    <div class="session-info">
+                        <i class="fas fa-user"></i> Estado: Cargando información del usuario...
                     </div>
                 </div>
-
-                <div class="admin-card">
-                    <h3><i class="fas fa-bell"></i> Notificaciones</h3>
-                    <p style="margin-bottom: 15px; color: #ccc;">Notificar a todos los usuarios</p>
-                    <button id="notifyClients" class="btn btn-vip">
-                        <i class="fas fa-broadcast-tower"></i> Notificar en 10 min
-                    </button>
+                <div id="signalsContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-satellite-dish"></i>
+                        <p>Esperando señales de trading...</p>
+                        <p>Las señales aparecerán aquí automáticamente</p>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- Modal VIP -->
-        <div id="vipModal" class="panel" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; max-width: 500px; width: 90%;">
-            <div class="admin-card">
-                <h3><i class="fas fa-crown"></i> Acceso VIP</h3>
-                <p style="margin-bottom: 20px; color: #ccc;">
-                    El acceso VIP te permite recibir todas las señales de trading en tiempo real.
-                    Contacta con el administrador para obtener acceso VIP.
-                </p>
-                <button id="closeVipModal" class="btn btn-primary">Cerrar</button>
+        
+        <div class="stats-container" id="statsContainer">
+            <div class="panel stats-panel">
+                <h3><i class="fas fa-chart-bar"></i> Estadísticas de Trading</h3>
+                
+                <div class="time-filters">
+                    <button class="time-filter active" data-period="day">Hoy</button>
+                    <button class="time-filter" data-period="week">Esta Semana</button>
+                    <button class="time-filter" data-period="month">Este Mes</button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Operaciones Ganadas</div>
+                        <div class="stat-value stat-profit" id="winCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Operaciones Perdidas</div>
+                        <div class="stat-value stat-loss" id="lossCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Operaciones</div>
+                        <div class="stat-value stat-total" id="totalCount">0</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+                
+                <h3 style="margin-top: 30px;"><i class="fas fa-history"></i> Historial de Operaciones</h3>
+                <div style="overflow-x: auto;">
+                    <table class="operations-table">
+                        <thead>
+                            <tr>
+                                <th>Activo</th>
+                                <th>Dirección</th>
+                                <th>Tiempo</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="operationsTable">
+                            <!-- Las operaciones se insertarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="users-container" id="usersContainer">
+            <div class="panel users-panel">
+                <h3><i class="fas fa-users"></i> Gestión de Usuarios</h3>
+                
+                <div class="admin-controls" style="margin-bottom: 20px;">
+                    <button id="refreshUsers" class="admin-btn btn-profit"><i class="fas fa-sync-alt"></i> Actualizar Lista</button>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID de Telegram</th>
+                                <th>Usuario</th>
+                                <th>Estado VIP</th>
+                                <th>Expiración VIP</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Los usuarios se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Estado de Conexión -->
-    <div id="connectionStatus" class="connection-status">
-        <div class="status-dot status-connected" id="statusDot"></div>
-        <span id="statusText">Conectado al servidor</span>
+    
+    <div class="notification" id="notification">
+        <i class="fas fa-bell"></i> Nueva señal recibida!
+    </div>
+    
+    <div class="signal-alert" id="signalAlert">
+        <div class="asset" id="alertAsset">EUR/USD</div>
+        <div class="direction up" id="alertDirection">
+            <span class="arrow up">↑</span>
+            <span>ALZA (CALL)</span>
+        </div>
+        <div class="time-remaining" id="alertTime">Expira en: 1:00</div>
+        <button id="closeAlert" style="margin-top: 20px;">ENTENDIDO</button>
     </div>
 
+    <div class="modal" id="vipModal">
+        <div class="modal-content">
+            <h3 style="color: var(--vip); margin-bottom: 20px; text-align: center;">
+                <i class="fas fa-crown"></i> Acceso VIP - 5000 CUP/mes
+            </h3>
+            <div style="text-align: left; margin: 20px 0; color: var(--text);">
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Acceso a TODAS las señales sin límites</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales en tiempo real VIP</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Soporte prioritario 24/7</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Estadísticas avanzadas personalizadas</p>
+                <p style="margin-bottom: 15px;"><i class="fas fa-check" style="color: var(--accent);"></i> Alertas instantáneas exclusivas</p>
+                <p style="margin-bottom: 20px;"><i class="fas fa-check" style="color: var(--accent);"></i> Señales antes que los usuarios free</p>
+            </div>
+            <p style="text-align: center; margin: 20px 0; color: var(--text-secondary);">
+                Duración: 30 días completos
+            </p>
+            <div style="text-align: center; margin: 25px 0;">
+                <a href="https://t.me/Asche90" target="_blank" style="display: inline-block; background: linear-gradient(90deg, var(--vip), #ff9900); color: var(--dark); padding: 14px 30px; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all 0.3s ease; font-size: 1.1rem;">
+                    <i class="fab fa-telegram"></i> Contactar al administrador
+                </a>
+            </div>
+            <p style="text-align: center; margin: 15px 0; color: var(--text-secondary); font-size: 0.9rem;">
+                Envíale un mensaje solicitando el plan VIP
+            </p>
+            <button id="closeVipModal" style="background: transparent; border: 1px solid var(--vip); color: var(--vip); margin-top: 10px;">
+                CERRAR
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
