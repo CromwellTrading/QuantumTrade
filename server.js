@@ -64,8 +64,8 @@ async function initializeAdminUser() {
                 .insert([
                     {
                         telegram_id: ADMIN_ID,
-                        username: 'admin',
-                        first_name: 'Administrador',
+                        username: 'Asche90',
+                        first_name: '☣︎𝐀𝐬𝐜𝐡𝐞᭄ᬊ𝐀𝐬𝐤𝐞𝐥𝐚𝐝𝐝𝐞n☬',
                         is_admin: true,
                         is_vip: true,
                         vip_expires_at: adminExpiry.toISOString(),
@@ -423,7 +423,8 @@ app.post('/api/signals', async (req, res) => {
                     timeframe: parseInt(timeframe),
                     direction: direction,
                     expires_at: expiresAt.toISOString(),
-                    is_free: true
+                    is_free: true,
+                    status: 'pending'
                 }
             ])
             .select();
