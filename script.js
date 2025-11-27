@@ -16,28 +16,24 @@ let signalManager = null;
 
 function getUserIdSuperRobust() {
     console.log('🔍 [USER_ID] Iniciando detección de User ID');
-    updateDebugInfo('🔍 Iniciando detección de User ID', 'info');
     
     // MÉTODO 1: Parámetro tgid en URL (PRIMERA PRIORIDAD)
     const urlParams = new URLSearchParams(window.location.search);
     const tgId = urlParams.get('tgid');
     if (tgId) {
         console.log('🎯 [USER_ID] ID obtenido desde tgid URL:', tgId);
-        updateDebugInfo('✅ ID detectado desde URL: ' + tgId, 'success');
         return tgId;
     }
     
     // MÉTODO 2: Telegram WebApp SDK
     if (window.Telegram && window.Telegram.WebApp) {
         console.log('🔧 [TELEGRAM] Telegram Web App SDK detectado');
-        updateDebugInfo('🔧 Telegram Web App SDK detectado', 'info');
         const tg = window.Telegram.WebApp;
         tg.expand();
         
         const user = tg.initDataUnsafe?.user;
         if (user && user.id) {
             console.log('🎯 [USER_ID] ID obtenido desde SDK:', user.id);
-            updateDebugInfo('✅ ID detectado desde SDK: ' + user.id, 'success');
             return user.id.toString();
         }
     }
@@ -46,13 +42,11 @@ function getUserIdSuperRobust() {
     try {
         const fragment = window.location.hash.substring(1);
         if (fragment) {
-            updateDebugInfo('🔍 Fragmento de URL detectado', 'info');
             const fragmentParams = new URLSearchParams(fragment);
             const tgWebAppData = fragmentParams.get('tgWebAppData');
             
             if (tgWebAppData) {
                 console.log('🔍 [TELEGRAM] Procesando tgWebAppData del fragmento');
-                updateDebugInfo('🔍 Procesando tgWebAppData del fragmento', 'info');
                 const decodedWebAppData = decodeURIComponent(tgWebAppData);
                 const webAppParams = new URLSearchParams(decodedWebAppData);
                 const userString = webAppParams.get('user');
@@ -61,7 +55,6 @@ function getUserIdSuperRobust() {
                     const userData = JSON.parse(decodeURIComponent(userString));
                     if (userData && userData.id) {
                         console.log('🎯 [USER_ID] ID obtenido desde fragmento:', userData.id);
-                        updateDebugInfo('✅ ID detectado desde fragmento: ' + userData.id, 'success');
                         return userData.id.toString();
                     }
                 }
@@ -69,59 +62,19 @@ function getUserIdSuperRobust() {
         }
     } catch (error) {
         console.error('❌ [TELEGRAM] Error parseando fragmento:', error);
-        updateDebugInfo('❌ Error parseando fragmento: ' + error.message, 'error');
     }
     
     // MÉTODO 4: localStorage
     const storedId = localStorage.getItem('tg_user_id');
     if (storedId) {
         console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
-        updateDebugInfo('✅ ID obtenido desde localStorage: ' + storedId, 'success');
         return storedId;
     }
     
     // MÉTODO 5: Guest ID (fallback)
     const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
     console.log('⚠️ [USER_ID] Generando ID de guest:', guestId);
-    updateDebugInfo('⚠️ Generando ID de guest: ' + guestId, 'warning');
     return guestId;
-}
-
-// =============================================
-// FUNCIÓN PARA ACTUALIZAR PANEL DEBUG
-// =============================================
-
-function updateDebugInfo(message, type = 'info') {
-    const debugInfo = document.getElementById('debugInfo');
-    
-    if (!debugInfo) return;
-    
-    const timestamp = new Date().toLocaleTimeString();
-    const colorClass = 'debug-' + type;
-    
-    const newEntry = document.createElement('div');
-    newEntry.className = colorClass;
-    newEntry.innerHTML = `[${timestamp}] ${message}`;
-    
-    debugInfo.appendChild(newEntry);
-    debugInfo.scrollTop = debugInfo.scrollHeight;
-}
-
-// =============================================
-// INICIALIZACIÓN INMEDIATA MEJORADA
-// =============================================
-
-console.log('🚀 [APP] Iniciando aplicación - Mejorada');
-
-// Detectar User ID inmediatamente
-const detectedUserId = getUserIdSuperRobust();
-console.log('🚀 [APP] User ID detectado al inicio:', detectedUserId);
-
-// Guardar en localStorage inmediatamente si es un ID real
-if (detectedUserId && !detectedUserId.startsWith('guest_')) {
-    localStorage.setItem('tg_user_id', detectedUserId);
-    console.log('💾 [APP] User ID guardado en localStorage');
-    updateDebugInfo('💾 User ID guardado en localStorage', 'success');
 }
 
 // =============================================
@@ -165,7 +118,6 @@ function createParticles() {
 class SignalManager {
     constructor() {
         console.log('🚀 [APP] Inicializando SignalManager con User ID:', detectedUserId);
-        updateDebugInfo('🚀 Inicializando SignalManager con User ID: ' + detectedUserId, 'success');
         
         this.signals = [];
         this.operations = [];
@@ -199,21 +151,18 @@ class SignalManager {
             
         } catch (error) {
             console.error('❌ [APP] Error durante la inicialización de SignalManager:', error);
-            updateDebugInfo('❌ Error durante la inicialización: ' + error.message, 'error');
         }
     }
     
     async loadUserData() {
         if (!this.currentUserId || this.currentUserId.startsWith('guest_')) {
             console.log('❌ [APP] No hay User ID válido para cargar datos');
-            updateDebugInfo('❌ No hay User ID válido para cargar datos', 'error');
             this.updateUserStatus();
             return;
         }
         
         try {
             console.log('🔍 [APP] Cargando datos del usuario desde servidor:', this.currentUserId);
-            updateDebugInfo('🔍 Cargando datos del usuario desde servidor: ' + this.currentUserId, 'info');
             
             const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
             
@@ -229,22 +178,18 @@ class SignalManager {
                 this.userData = result.data;
                 
                 console.log('🔍 [APP] Datos completos del servidor:', result.data);
-                updateDebugInfo('✅ Datos recibidos del servidor', 'success');
                 
                 // USAR EXCLUSIVAMENTE LOS DATOS DEL SERVIDOR
                 this.isAdmin = Boolean(result.data.is_admin);
                 this.isVIP = Boolean(result.data.is_vip);
                 
                 console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                updateDebugInfo('✅ Estados desde servidor - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'success');
                 
             } else {
                 console.error('❌ [APP] Error en respuesta del servidor:', result);
-                updateDebugInfo('❌ Error en respuesta del servidor', 'error');
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando datos del usuario:', error);
-            updateDebugInfo('❌ Error cargando datos del usuario: ' + error.message, 'error');
         } finally {
             this.updateUI();
         }
@@ -253,7 +198,6 @@ class SignalManager {
     async loadInitialSignals() {
         try {
             console.log('📡 [APP] Cargando señales iniciales desde Supabase');
-            updateDebugInfo('📡 Cargando señales iniciales desde Supabase', 'info');
             
             const { data, error } = await supabase
                 .from('signals')
@@ -280,20 +224,16 @@ class SignalManager {
                 this.updateStats();
                 
                 console.log('✅ [APP] Señales iniciales cargadas:', this.signals.length);
-                updateDebugInfo('✅ ' + this.signals.length + ' señales iniciales cargadas', 'success');
             } else {
                 console.log('ℹ️ [APP] No hay señales en la base de datos');
-                updateDebugInfo('ℹ️ No hay señales en la base de datos', 'info');
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando señales iniciales:', error);
-            updateDebugInfo('❌ Error cargando señales iniciales: ' + error.message, 'error');
         }
     }
     
     updateUI() {
         console.log('🔄 [APP] Actualizando UI con UserID:', this.currentUserId, 'Admin:', this.isAdmin, 'VIP:', this.isVIP);
-        updateDebugInfo('🔄 Actualizando UI - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'info');
         
         // Mostrar el ID del usuario inmediatamente
         const userIdDisplay = document.getElementById('userIdDisplay');
@@ -302,7 +242,6 @@ class SignalManager {
             if (this.isAdmin) {
                 userIdDisplay.classList.add('admin');
                 userIdDisplay.innerHTML = `<i class="fas fa-user-shield"></i> ID: ${this.currentUserId} (Admin)`;
-                updateDebugInfo('✅ Panel de administración ACTIVADO', 'success');
                 
                 // MOSTRAR PANEL DE ADMIN
                 if (this.adminPanel) {
@@ -312,11 +251,9 @@ class SignalManager {
             } else if (this.isVIP) {
                 userIdDisplay.classList.add('vip');
                 userIdDisplay.innerHTML = `<i class="fas fa-crown"></i> ID: ${this.currentUserId} (VIP)`;
-                updateDebugInfo('✅ Estado VIP ACTIVO', 'success');
             } else {
                 userIdDisplay.classList.add('regular');
                 userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${this.currentUserId}`;
-                updateDebugInfo('❌ Usuario Regular', 'info');
             }
         }
 
@@ -333,6 +270,9 @@ class SignalManager {
             if (this.showUsers) {
                 this.showUsers.style.display = 'block';
             }
+            if (this.showUserManagement) {
+                this.showUserManagement.style.display = 'block';
+            }
             this.loadUsersFromSupabase();
         } else {
             if (this.adminBtn) {
@@ -340,6 +280,9 @@ class SignalManager {
             }
             if (this.showUsers) {
                 this.showUsers.style.display = 'none';
+            }
+            if (this.showUserManagement) {
+                this.showUserManagement.style.display = 'none';
             }
             if (this.adminPanel) {
                 this.adminPanel.style.display = 'none';
@@ -360,7 +303,6 @@ class SignalManager {
 
     initializeDOMElements() {
         console.log('🏗️ [APP] Inicializando elementos DOM');
-        updateDebugInfo('🏗️ Inicializando elementos DOM', 'info');
         
         // Elementos principales
         this.sendSignalBtn = document.getElementById('sendSignal');
@@ -372,10 +314,12 @@ class SignalManager {
         this.showSignals = document.getElementById('showSignals');
         this.showStats = document.getElementById('showStats');
         this.showUsers = document.getElementById('showUsers');
+        this.showUserManagement = document.getElementById('showUserManagement');
         this.vipAccess = document.getElementById('vipAccess');
         this.adminBtn = document.getElementById('adminBtn');
         this.statsContainer = document.getElementById('statsContainer');
         this.usersContainer = document.getElementById('usersContainer');
+        this.userManagementContainer = document.getElementById('userManagementContainer');
         this.sessionInfo = document.getElementById('sessionInfo');
         this.userStatus = document.getElementById('userStatus');
         this.startSession = document.getElementById('startSession');
@@ -415,7 +359,6 @@ class SignalManager {
         this.performanceChart = null;
 
         console.log('✅ [APP] Elementos DOM inicializados correctamente');
-        updateDebugInfo('✅ Elementos DOM inicializados correctamente', 'success');
     }
 
     async checkServerConnection() {
@@ -485,6 +428,12 @@ class SignalManager {
         if (this.showUsers) {
             this.showUsers.addEventListener('click', () => {
                 this.showUsersView();
+            });
+        }
+        
+        if (this.showUserManagement) {
+            this.showUserManagement.addEventListener('click', () => {
+                this.showUserManagementView();
             });
         }
         
@@ -971,6 +920,9 @@ class SignalManager {
                     signals: []
                 };
                 
+                // Guardar sesión en localStorage
+                this.saveToLocalStorage();
+                
                 if (this.startSession) this.startSession.disabled = true;
                 if (this.endSession) this.endSession.disabled = false;
                 
@@ -1021,6 +973,7 @@ class SignalManager {
                 
                 this.currentSession = null;
                 
+                // Eliminar sesión de localStorage
                 this.saveToLocalStorage();
                 this.updateStats();
                 
@@ -1340,28 +1293,34 @@ class SignalManager {
         const signalsPanel = document.getElementById('signalsPanel');
         const statsContainer = document.getElementById('statsContainer');
         const usersContainer = document.getElementById('usersContainer');
+        const userManagementContainer = document.getElementById('userManagementContainer');
         
         if (signalsPanel) signalsPanel.classList.add('active');
         if (statsContainer) statsContainer.classList.remove('active');
         if (usersContainer) usersContainer.classList.remove('active');
+        if (userManagementContainer) userManagementContainer.classList.remove('active');
         
         if (this.showSignals) this.showSignals.classList.add('active');
         if (this.showStats) this.showStats.classList.remove('active');
         if (this.showUsers) this.showUsers.classList.remove('active');
+        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
     }
     
     showStatsView() {
         const signalsPanel = document.getElementById('signalsPanel');
         const statsContainer = document.getElementById('statsContainer');
         const usersContainer = document.getElementById('usersContainer');
+        const userManagementContainer = document.getElementById('userManagementContainer');
         
         if (signalsPanel) signalsPanel.classList.remove('active');
         if (statsContainer) statsContainer.classList.add('active');
         if (usersContainer) usersContainer.classList.remove('active');
+        if (userManagementContainer) userManagementContainer.classList.remove('active');
         
         if (this.showSignals) this.showSignals.classList.remove('active');
         if (this.showStats) this.showStats.classList.add('active');
         if (this.showUsers) this.showUsers.classList.remove('active');
+        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
         this.updateStats();
     }
     
@@ -1369,14 +1328,34 @@ class SignalManager {
         const signalsPanel = document.getElementById('signalsPanel');
         const statsContainer = document.getElementById('statsContainer');
         const usersContainer = document.getElementById('usersContainer');
+        const userManagementContainer = document.getElementById('userManagementContainer');
         
         if (signalsPanel) signalsPanel.classList.remove('active');
         if (statsContainer) statsContainer.classList.remove('active');
         if (usersContainer) usersContainer.classList.add('active');
+        if (userManagementContainer) userManagementContainer.classList.remove('active');
         
         if (this.showSignals) this.showSignals.classList.remove('active');
         if (this.showStats) this.showStats.classList.remove('active');
         if (this.showUsers) this.showUsers.classList.add('active');
+        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
+    }
+    
+    showUserManagementView() {
+        const signalsPanel = document.getElementById('signalsPanel');
+        const statsContainer = document.getElementById('statsContainer');
+        const usersContainer = document.getElementById('usersContainer');
+        const userManagementContainer = document.getElementById('userManagementContainer');
+        
+        if (signalsPanel) signalsPanel.classList.remove('active');
+        if (statsContainer) statsContainer.classList.remove('active');
+        if (usersContainer) usersContainer.classList.remove('active');
+        if (userManagementContainer) userManagementContainer.classList.add('active');
+        
+        if (this.showSignals) this.showSignals.classList.remove('active');
+        if (this.showStats) this.showStats.classList.remove('active');
+        if (this.showUsers) this.showUsers.classList.remove('active');
+        if (this.showUserManagement) this.showUserManagement.classList.add('active');
     }
     
     updateStats(period = 'day') {
@@ -1557,13 +1536,6 @@ class SignalManager {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
-    updateDebugInfo('🚀 DOM cargado - Iniciando aplicación', 'success');
-    
-    // Activar debug panel temporalmente
-    const debugPanel = document.getElementById('debugInfo');
-    if (debugPanel) {
-        debugPanel.style.display = 'block';
-    }
     
     // Actualizar UI inmediatamente con el ID detectado
     const userIdDisplay = document.getElementById('userIdDisplay');
@@ -1578,13 +1550,27 @@ document.addEventListener('DOMContentLoaded', () => {
         signalManager = new SignalManager();
     } catch (error) {
         console.error('❌ [APP] Error inicializando SignalManager:', error);
-        updateDebugInfo('❌ Error inicializando SignalManager: ' + error.message, 'error');
     }
     
-    // Timer para actualizar señales
+    // Timer para actualizar señales - optimizado para evitar parpadeos
     setInterval(() => {
         if (signalManager) {
-            signalManager.renderSignals();
+            // Solo actualizar los contadores de tiempo sin rerenderizar toda la lista
+            const timeElements = document.querySelectorAll('.time-remaining');
+            timeElements.forEach(element => {
+                const signalCard = element.closest('.signal-card');
+                if (signalCard) {
+                    const signalId = signalCard.dataset.signalId;
+                    const signal = signalManager.signals.find(s => s.id.toString() === signalId);
+                    if (signal) {
+                        const expiresDate = new Date(signal.expires);
+                        const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                        const minutes = Math.floor(timeRemaining / 60);
+                        const seconds = timeRemaining % 60;
+                        element.textContent = `Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    }
+                }
+            });
             
             const alert = document.getElementById('signalAlert');
             if (alert && alert.classList.contains('show')) {
@@ -1608,13 +1594,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // VERIFICACIÓN INMEDIATA MEJORADA
 // =============================================
 
+// Detectar User ID inmediatamente
+const detectedUserId = getUserIdSuperRobust();
+console.log('🚀 [APP] User ID detectado al inicio:', detectedUserId);
+
+// Guardar en localStorage inmediatamente si es un ID real
+if (detectedUserId && !detectedUserId.startsWith('guest_')) {
+    localStorage.setItem('tg_user_id', detectedUserId);
+    console.log('💾 [APP] User ID guardado en localStorage');
+}
+
 console.log('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===');
-updateDebugInfo('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===', 'info');
 console.log('User ID detectado:', detectedUserId);
 console.log('ADMIN_ID configurado:', ADMIN_ID);
 console.log('¿Coinciden?:', String(detectedUserId).trim() === String(ADMIN_ID).trim());
-
-updateDebugInfo('User ID detectado: ' + detectedUserId, 'info');
-updateDebugInfo('ADMIN_ID configurado: ' + ADMIN_ID, 'info');
-updateDebugInfo('¿Coinciden?: ' + (String(detectedUserId).trim() === String(ADMIN_ID).trim()), 
-               String(detectedUserId).trim() === String(ADMIN_ID).trim() ? 'success' : 'error');
