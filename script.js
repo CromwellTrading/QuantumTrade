@@ -191,6 +191,7 @@ class SignalManager {
             
             // Cargar datos del usuario
             this.loadUserData();
+            this.loadInitialSignals();
             this.setupRealtimeSubscription();
             this.checkServerConnection();
             
@@ -248,6 +249,47 @@ class SignalManager {
             this.updateUI();
         }
     }
+
+    async loadInitialSignals() {
+        try {
+            console.log('📡 [APP] Cargando señales iniciales desde Supabase');
+            updateDebugInfo('📡 Cargando señales iniciales desde Supabase', 'info');
+            
+            const { data, error } = await supabase
+                .from('signals')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(10);
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                this.signals = data.map(signal => ({
+                    id: signal.id,
+                    asset: signal.asset,
+                    timeframe: signal.timeframe,
+                    direction: signal.direction,
+                    timestamp: new Date(signal.created_at),
+                    expires: new Date(signal.expires_at),
+                    status: signal.status || 'pending',
+                    isFree: signal.is_free || false
+                }));
+                
+                this.operations = [...this.signals];
+                this.renderSignals();
+                this.updateStats();
+                
+                console.log('✅ [APP] Señales iniciales cargadas:', this.signals.length);
+                updateDebugInfo('✅ ' + this.signals.length + ' señales iniciales cargadas', 'success');
+            } else {
+                console.log('ℹ️ [APP] No hay señales en la base de datos');
+                updateDebugInfo('ℹ️ No hay señales en la base de datos', 'info');
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error cargando señales iniciales:', error);
+            updateDebugInfo('❌ Error cargando señales iniciales: ' + error.message, 'error');
+        }
+    }
     
     updateUI() {
         console.log('🔄 [APP] Actualizando UI con UserID:', this.currentUserId, 'Admin:', this.isAdmin, 'VIP:', this.isVIP);
@@ -261,6 +303,12 @@ class SignalManager {
                 userIdDisplay.classList.add('admin');
                 userIdDisplay.innerHTML = `<i class="fas fa-user-shield"></i> ID: ${this.currentUserId} (Admin)`;
                 updateDebugInfo('✅ Panel de administración ACTIVADO', 'success');
+                
+                // MOSTRAR PANEL DE ADMIN
+                if (this.adminPanel) {
+                    this.adminPanel.style.display = 'block';
+                    console.log('🎯 Panel de admin mostrado');
+                }
             } else if (this.isVIP) {
                 userIdDisplay.classList.add('vip');
                 userIdDisplay.innerHTML = `<i class="fas fa-crown"></i> ID: ${this.currentUserId} (VIP)`;
@@ -292,6 +340,9 @@ class SignalManager {
             }
             if (this.showUsers) {
                 this.showUsers.style.display = 'none';
+            }
+            if (this.adminPanel) {
+                this.adminPanel.style.display = 'none';
             }
         }
         
@@ -338,6 +389,9 @@ class SignalManager {
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
         
+        // Panel de administración
+        this.adminPanel = document.getElementById('adminPanel');
+        
         // Elementos para gestión de usuarios
         this.userSearchInput = document.getElementById('userSearchInput');
         this.searchUserBtn = document.getElementById('searchUserBtn');
@@ -345,6 +399,11 @@ class SignalManager {
         this.makeVipBtn = document.getElementById('makeVipBtn');
         this.removeVipBtn = document.getElementById('removeVipBtn');
         this.userActions = document.getElementById('userActions');
+        
+        // Elementos de formulario de señales
+        this.assetInput = document.getElementById('asset');
+        this.timeframeSelect = document.getElementById('timeframe');
+        this.directionSelect = document.getElementById('direction');
         
         this.isReady = false;
         
@@ -653,37 +712,6 @@ class SignalManager {
     // MÉTODOS DE GESTIÓN DE SEÑALES
     // =============================================
 
-    async loadSignalsFromSupabase() {
-        try {
-            const { data, error } = await supabase
-                .from('signals')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(20);
-            
-            if (error) throw error;
-            
-            if (data && data.length > 0) {
-                this.signals = data.map(signal => ({
-                    id: signal.id,
-                    asset: signal.asset,
-                    timeframe: signal.timeframe,
-                    direction: signal.direction,
-                    timestamp: new Date(signal.created_at),
-                    expires: new Date(signal.expires_at),
-                    status: signal.status || 'pending',
-                    isFree: signal.is_free || false
-                }));
-                
-                this.operations = [...this.signals];
-                this.renderSignals();
-                this.updateStats();
-            }
-        } catch (error) {
-            console.error('Error loading signals from Supabase:', error);
-        }
-    }
-    
     async loadUsersFromSupabase() {
         try {
             const { data, error } = await supabase
@@ -1530,6 +1558,12 @@ class SignalManager {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
     updateDebugInfo('🚀 DOM cargado - Iniciando aplicación', 'success');
+    
+    // Activar debug panel temporalmente
+    const debugPanel = document.getElementById('debugInfo');
+    if (debugPanel) {
+        debugPanel.style.display = 'block';
+    }
     
     // Actualizar UI inmediatamente con el ID detectado
     const userIdDisplay = document.getElementById('userIdDisplay');
