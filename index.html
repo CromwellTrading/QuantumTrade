@@ -934,7 +934,7 @@
         let signalManager = null;
 
         // =============================================
-        // FUNCIÓN DE DETECCIÓN MEJORADA - IDÉNTICA A LA PRUEBA
+        // FUNCIÓN DE DETECCIÓN MEJORADA
         // =============================================
 
         function getUserIdSuperRobust() {
@@ -1176,49 +1176,20 @@
                         console.log('🔍 [APP] Datos completos del servidor:', result.data);
                         updateDebugInfo('✅ Datos recibidos del servidor', 'success');
                         
-                        // DETECCIÓN ROBUSTA DE ADMIN
-                        const userIdStr = String(this.currentUserId).trim();
-                        const adminIdStr = String(ADMIN_ID).trim();
+                        // USAR EXCLUSIVAMENTE LOS DATOS DEL SERVIDOR
+                        this.isAdmin = Boolean(result.data.is_admin);
+                        this.isVIP = Boolean(result.data.is_vip);
                         
-                        console.log('🎯 [ADMIN] Comparando:', userIdStr, 'vs', adminIdStr);
-                        updateDebugInfo('🎯 Comparando User ID: ' + userIdStr + ' vs ADMIN_ID: ' + adminIdStr, 'info');
+                        console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+                        updateDebugInfo('✅ Estados desde servidor - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'success');
                         
-                        // PRIORIDAD: Datos del servidor, luego detección local
-                        this.isAdmin = result.data.is_admin || (userIdStr === adminIdStr);
-                        this.isVIP = result.data.is_vip || false;
-                        
-                        console.log('✅ [APP] Estados finales - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                        updateDebugInfo('✅ Estados finales - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'success');
-                        
-                        // Si es admin, asegurarse de que también sea VIP
-                        if (this.isAdmin && !this.isVIP) {
-                            console.log('🔄 [APP] Admin detectado - Activando VIP automáticamente');
-                            updateDebugInfo('🔄 Admin detectado - Activando VIP automáticamente', 'warning');
-                            this.isVIP = true;
-                        }
                     } else {
                         console.error('❌ [APP] Error en respuesta del servidor:', result);
                         updateDebugInfo('❌ Error en respuesta del servidor', 'error');
-                        
-                        // Fallback: detección local si el servidor falla
-                        const userIdStr = String(this.currentUserId).trim();
-                        const adminIdStr = String(ADMIN_ID).trim();
-                        this.isAdmin = (userIdStr === adminIdStr);
-                        this.isVIP = this.isAdmin;
-                        console.log('🔄 [APP] Usando detección local - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                        updateDebugInfo('🔄 Usando detección local - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'warning');
                     }
                 } catch (error) {
                     console.error('❌ [APP] Error cargando datos del usuario:', error);
                     updateDebugInfo('❌ Error cargando datos del usuario: ' + error.message, 'error');
-                    
-                    // Fallback en caso de error
-                    const userIdStr = String(this.currentUserId).trim();
-                    const adminIdStr = String(ADMIN_ID).trim();
-                    this.isAdmin = (userIdStr === adminIdStr);
-                    this.isVIP = this.isAdmin;
-                    console.log('🔄 [APP] Fallback por error - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                    updateDebugInfo('🔄 Fallback por error - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'warning');
                 } finally {
                     this.updateUI();
                 }
@@ -2398,27 +2369,6 @@
         updateDebugInfo('ADMIN_ID configurado: ' + ADMIN_ID, 'info');
         updateDebugInfo('¿Coinciden?: ' + (String(detectedUserId).trim() === String(ADMIN_ID).trim()), 
                        String(detectedUserId).trim() === String(ADMIN_ID).trim() ? 'success' : 'error');
-
-        // Verificación adicional después de 3 segundos
-        setTimeout(async () => {
-            console.log('=== 🔍 VERIFICACIÓN TARDÍA DE ADMIN ===');
-            updateDebugInfo('=== 🔍 VERIFICACIÓN TARDÍA DE ADMIN ===', 'info');
-            
-            if (signalManager) {
-                console.log('Estado actual en SignalManager:');
-                console.log('- isAdmin:', signalManager.isAdmin);
-                console.log('- isVIP:', signalManager.isVIP);
-                console.log('- User ID:', signalManager.currentUserId);
-                
-                updateDebugInfo('Estado actual en SignalManager:', 'info');
-                updateDebugInfo('- isAdmin: ' + signalManager.isAdmin, signalManager.isAdmin ? 'success' : 'error');
-                updateDebugInfo('- isVIP: ' + signalManager.isVIP, signalManager.isVIP ? 'success' : 'error');
-                updateDebugInfo('- User ID: ' + signalManager.currentUserId, 'info');
-                
-                // Forzar recarga de datos
-                await signalManager.loadUserData();
-            }
-        }, 3000);
     </script>
 </body>
 </html>
