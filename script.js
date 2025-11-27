@@ -1,60 +1,70 @@
 // =============================================
-// CONFIGURACIÓN GLOBAL Y DETECCIÓN DE USUARIO
+// CONFIGURACIÓN GLOBAL MEJORADA
 // =============================================
 
-// Configuración de Supabase
 const SUPABASE_URL = 'https://flodrkrvaqsmelbkfknv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2Rya3J2YXFzbWVsYmtma252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODY0NjgsImV4cCI6MjA3OTY2MjQ2OH0.zVTaUbkiLCJ0dUFs808TZErgnIXCYsYQ2lw-CEmVCFI';
-
-// Inicializar cliente de Supabase
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// URL del servidor (mismo dominio)
 const SERVER_URL = window.location.origin;
-
-// ID del administrador
 const ADMIN_ID = "5376388604";
 
-// Variable global para el manager
 let signalManager = null;
 
 // =============================================
-// FUNCIÓN PRINCIPAL DE DETECCIÓN DE USER ID
+// FUNCIÓN DE DETECCIÓN MEJORADA
 // =============================================
 
 function getUserIdSuperRobust() {
     console.log('🔍 [USER_ID] Iniciando detección de User ID');
+    updateDebugInfo('🔍 Iniciando detección de User ID', 'info');
     
-    // 1. PRIMERA PRIORIDAD: tgid de la URL (más confiable)
+    // MÉTODO 1: Parámetro tgid en URL (PRIMERA PRIORIDAD)
     const urlParams = new URLSearchParams(window.location.search);
     const tgId = urlParams.get('tgid');
     if (tgId) {
         console.log('🎯 [USER_ID] ID obtenido desde tgid URL:', tgId);
+        updateDebugInfo('✅ ID detectado desde URL: ' + tgId, 'success');
         return tgId;
+    } else {
+        updateDebugInfo('❌ No se encontró tgid en la URL', 'error');
+        console.log('❌ [USER_ID] No se encontró tgid en la URL');
+        console.log('🔍 [USER_ID] URL completa:', window.location.href);
+        console.log('🔍 [USER_ID] Parámetros de búsqueda:', window.location.search);
     }
     
-    // 2. SEGUNDA OPCIÓN: Telegram Web App SDK
+    // MÉTODO 2: Telegram WebApp SDK
     if (window.Telegram && window.Telegram.WebApp) {
         console.log('🔧 [TELEGRAM] Telegram Web App SDK detectado');
+        updateDebugInfo('🔧 Telegram Web App SDK detectado', 'info');
         const tg = window.Telegram.WebApp;
         tg.expand();
         
         const user = tg.initDataUnsafe?.user;
         if (user && user.id) {
             console.log('🎯 [USER_ID] ID obtenido desde SDK:', user.id);
+            updateDebugInfo('✅ ID detectado desde SDK: ' + user.id, 'success');
             return user.id.toString();
+        } else {
+            updateDebugInfo('⚠️ SDK disponible pero sin user.id', 'warning');
+            console.log('⚠️ [USER_ID] SDK disponible pero sin user.id');
+            console.log('🔍 [USER_ID] initDataUnsafe:', tg.initDataUnsafe);
         }
+    } else {
+        updateDebugInfo('❌ SDK de Telegram no disponible', 'error');
+        console.log('❌ [USER_ID] SDK de Telegram no disponible');
     }
     
-    // 3. TERCERA OPCIÓN: Fragmento de URL (tgWebAppData)
+    // MÉTODO 3: Fragmento URL (tgWebAppData)
     try {
         const fragment = window.location.hash.substring(1);
         if (fragment) {
+            updateDebugInfo('🔍 Fragmento de URL detectado', 'info');
             const fragmentParams = new URLSearchParams(fragment);
             const tgWebAppData = fragmentParams.get('tgWebAppData');
             
             if (tgWebAppData) {
                 console.log('🔍 [TELEGRAM] Procesando tgWebAppData del fragmento');
+                updateDebugInfo('🔍 Procesando tgWebAppData del fragmento', 'info');
                 const decodedWebAppData = decodeURIComponent(tgWebAppData);
                 const webAppParams = new URLSearchParams(decodedWebAppData);
                 const userString = webAppParams.get('user');
@@ -63,40 +73,83 @@ function getUserIdSuperRobust() {
                     const userData = JSON.parse(decodeURIComponent(userString));
                     if (userData && userData.id) {
                         console.log('🎯 [USER_ID] ID obtenido desde fragmento:', userData.id);
+                        updateDebugInfo('✅ ID detectado desde fragmento: ' + userData.id, 'success');
                         return userData.id.toString();
+                    } else {
+                        updateDebugInfo('❌ userString sin ID válido', 'error');
                     }
+                } else {
+                    updateDebugInfo('❌ No se encontró user en tgWebAppData', 'error');
                 }
+            } else {
+                updateDebugInfo('❌ No se encontró tgWebAppData en el fragmento', 'error');
             }
+        } else {
+            updateDebugInfo('❌ Sin fragmento en URL', 'error');
         }
     } catch (error) {
         console.error('❌ [TELEGRAM] Error parseando fragmento:', error);
+        updateDebugInfo('❌ Error parseando fragmento: ' + error.message, 'error');
     }
     
-    // 4. CUARTA OPCIÓN: localStorage
+    // MÉTODO 4: localStorage
     const storedId = localStorage.getItem('tg_user_id');
     if (storedId) {
         console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
+        updateDebugInfo('✅ ID obtenido desde localStorage: ' + storedId, 'success');
         return storedId;
+    } else {
+        updateDebugInfo('❌ No hay ID en localStorage', 'error');
     }
     
-    // 5. ÚLTIMO RECURSO: Generar guest ID
+    // MÉTODO 5: Guest ID (fallback)
     const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
     console.log('⚠️ [USER_ID] Generando ID de guest:', guestId);
+    updateDebugInfo('⚠️ Generando ID de guest: ' + guestId, 'warning');
     return guestId;
 }
 
 // =============================================
-// INICIALIZACIÓN INMEDIATA DEL USER ID
+// FUNCIÓN PARA ACTUALIZAR PANEL DEBUG
 // =============================================
 
-// Detectar User ID inmediatamente al cargar la página
+function updateDebugInfo(message, type = 'info') {
+    const debugInfo = document.getElementById('debugInfo');
+    
+    if (!debugInfo) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const colorClass = 'debug-' + type;
+    
+    const newEntry = document.createElement('div');
+    newEntry.className = colorClass;
+    newEntry.innerHTML = `[${timestamp}] ${message}`;
+    
+    debugInfo.appendChild(newEntry);
+    debugInfo.scrollTop = debugInfo.scrollHeight;
+}
+
+// =============================================
+// INICIALIZACIÓN INMEDIATA MEJORADA
+// =============================================
+
+console.log('🚀 [APP] Iniciando aplicación - Mejorada');
+
+// Detectar User ID inmediatamente
 const detectedUserId = getUserIdSuperRobust();
 console.log('🚀 [APP] User ID detectado al inicio:', detectedUserId);
 
-// Guardar en localStorage inmediatamente
+// Guardar en localStorage inmediatamente si es un ID real
 if (detectedUserId && !detectedUserId.startsWith('guest_')) {
     localStorage.setItem('tg_user_id', detectedUserId);
     console.log('💾 [APP] User ID guardado en localStorage');
+    updateDebugInfo('💾 User ID guardado en localStorage', 'success');
+}
+
+// Actualizar UI inmediatamente con el ID detectado
+const userIdDisplay = document.getElementById('userIdDisplay');
+if (userIdDisplay) {
+    userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${detectedUserId}`;
 }
 
 // =============================================
@@ -123,7 +176,7 @@ function createParticles() {
         particle.style.width = `${size}px`;
         particle.style.height = `${size}px`;
         
-        const colors = ['var(--primary)', 'var(--secondary)', 'var(--accent)'];
+        const colors = ['#00ff9d', '#00e5ff', '#ff00e5'];
         const color = colors[Math.floor(Math.random() * colors.length)];
         particle.style.background = color;
         
@@ -132,7 +185,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE PRINCIPAL SIGNAL MANAGER - CORREGIDA
+// CLASE SIGNAL MANAGER MEJORADA
 // =============================================
 
 class SignalManager {
@@ -152,6 +205,7 @@ class SignalManager {
         this.searchedUser = null;
         
         console.log('🚀 [APP] Inicializando SignalManager con User ID:', this.currentUserId);
+        updateDebugInfo('🚀 Inicializando SignalManager con User ID: ' + this.currentUserId, 'success');
         
         // Inicialización inmediata
         this.initializeDOMElements();
@@ -174,12 +228,15 @@ class SignalManager {
     async loadUserData() {
         if (!this.currentUserId || this.currentUserId.startsWith('guest_')) {
             console.log('❌ [APP] No hay User ID válido para cargar datos');
+            updateDebugInfo('❌ No hay User ID válido para cargar datos', 'error');
             this.updateUserStatus();
             return;
         }
         
         try {
             console.log('🔍 [APP] Cargando datos del usuario desde servidor:', this.currentUserId);
+            updateDebugInfo('🔍 Cargando datos del usuario desde servidor: ' + this.currentUserId, 'info');
+            
             const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
             
             const response = await fetch(apiUrl);
@@ -194,61 +251,22 @@ class SignalManager {
                 this.userData = result.data;
                 
                 console.log('🔍 [APP] Datos completos del servidor:', result.data);
+                updateDebugInfo('✅ Datos recibidos del servidor', 'success');
                 
-                // DETECCIÓN ROBUSTA DE ADMIN - CON LOGS DETALLADOS
-                const userIdStr = String(this.currentUserId).trim();
-                const adminIdStr = String(ADMIN_ID).trim();
+                // USAR EXCLUSIVAMENTE LOS DATOS DEL SERVIDOR
+                this.isAdmin = Boolean(result.data.is_admin);
+                this.isVIP = Boolean(result.data.is_vip);
                 
-                console.log('🎯 [ADMIN] Comparando:');
-                console.log('🎯 [ADMIN] User ID:', userIdStr);
-                console.log('🎯 [ADMIN] ADMIN_ID:', adminIdStr);
-                console.log('🎯 [ADMIN] ¿Coinciden?:', userIdStr === adminIdStr);
-                console.log('🎯 [ADMIN] is_admin desde servidor:', result.data.is_admin);
+                console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+                updateDebugInfo('✅ Estados desde servidor - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'success');
                 
-                // PRIORIDAD: Datos del servidor, luego detección local
-                this.isAdmin = result.data.is_admin || (userIdStr === adminIdStr);
-                this.isVIP = result.data.is_vip || false;
-                
-                console.log('✅ [APP] Estados finales - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                
-                // Verificar si el VIP ha expirado
-                if (this.isVIP && this.userData.vip_expires_at) {
-                    const expiryDate = new Date(this.userData.vip_expires_at);
-                    const now = new Date();
-                    console.log('📅 [VIP] Fecha de expiración:', expiryDate);
-                    console.log('📅 [VIP] Fecha actual:', now);
-                    console.log('📅 [VIP] ¿Ha expirado?:', expiryDate < now);
-                    
-                    if (expiryDate < now) {
-                        this.isVIP = false;
-                        console.log('⚠️ [APP] VIP expirado');
-                    }
-                }
-                
-                // Si es admin, asegurarse de que también sea VIP
-                if (this.isAdmin && !this.isVIP) {
-                    console.log('🔄 [APP] Admin detectado - Activando VIP automáticamente');
-                    this.isVIP = true;
-                }
             } else {
                 console.error('❌ [APP] Error en respuesta del servidor:', result);
-                
-                // Fallback: detección local si el servidor falla
-                const userIdStr = String(this.currentUserId).trim();
-                const adminIdStr = String(ADMIN_ID).trim();
-                this.isAdmin = (userIdStr === adminIdStr);
-                this.isVIP = this.isAdmin; // Admin siempre es VIP
-                console.log('🔄 [APP] Usando detección local - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+                updateDebugInfo('❌ Error en respuesta del servidor', 'error');
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando datos del usuario:', error);
-            
-            // Fallback en caso de error
-            const userIdStr = String(this.currentUserId).trim();
-            const adminIdStr = String(ADMIN_ID).trim();
-            this.isAdmin = (userIdStr === adminIdStr);
-            this.isVIP = this.isAdmin;
-            console.log('🔄 [APP] Fallback por error - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+            updateDebugInfo('❌ Error cargando datos del usuario: ' + error.message, 'error');
         } finally {
             this.updateUI();
         }
@@ -256,15 +274,24 @@ class SignalManager {
     
     updateUI() {
         console.log('🔄 [APP] Actualizando UI con UserID:', this.currentUserId, 'Admin:', this.isAdmin, 'VIP:', this.isVIP);
+        updateDebugInfo('🔄 Actualizando UI - Admin: ' + this.isAdmin + ', VIP: ' + this.isVIP, 'info');
         
         // Mostrar el ID del usuario inmediatamente
         const userIdDisplay = document.getElementById('userIdDisplay');
         if (userIdDisplay) {
-            userIdDisplay.textContent = `ID: ${this.currentUserId}`;
+            userIdDisplay.className = 'user-badge ';
             if (this.isAdmin) {
-                userIdDisplay.innerHTML += ' <span style="color: var(--primary);">(Admin)</span>';
+                userIdDisplay.classList.add('admin');
+                userIdDisplay.innerHTML = `<i class="fas fa-user-shield"></i> ID: ${this.currentUserId} (Admin)`;
+                updateDebugInfo('✅ Panel de administración ACTIVADO', 'success');
             } else if (this.isVIP) {
-                userIdDisplay.innerHTML += ' <span style="color: var(--vip);">(VIP)</span>';
+                userIdDisplay.classList.add('vip');
+                userIdDisplay.innerHTML = `<i class="fas fa-crown"></i> ID: ${this.currentUserId} (VIP)`;
+                updateDebugInfo('✅ Estado VIP ACTIVO', 'success');
+            } else {
+                userIdDisplay.classList.add('regular');
+                userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${this.currentUserId}`;
+                updateDebugInfo('❌ Usuario Regular', 'info');
             }
         }
 
@@ -276,12 +303,10 @@ class SignalManager {
             this.adminBtn.style.display = 'block';
             this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Panel Admin';
             this.adminBtn.classList.add('active');
-            this.adminPanel.style.display = 'block';
             this.showUsers.style.display = 'block';
             this.loadUsersFromSupabase();
         } else {
             this.adminBtn.style.display = 'none';
-            this.adminPanel.style.display = 'none';
             this.showUsers.style.display = 'none';
         }
         
@@ -293,13 +318,11 @@ class SignalManager {
             this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP';
             this.vipAccess.classList.remove('active');
         }
-        
-        // Actualizar panel de debug
-        this.updateDebugPanel();
     }
 
     initializeDOMElements() {
         console.log('🏗️ [APP] Inicializando elementos DOM');
+        updateDebugInfo('🏗️ Inicializando elementos DOM', 'info');
         
         this.sendSignalBtn = document.getElementById('sendSignal');
         this.signalsContainer = document.getElementById('signalsContainer');
@@ -321,7 +344,6 @@ class SignalManager {
         this.notifyClients = document.getElementById('notifyClients');
         this.vipModal = document.getElementById('vipModal');
         this.closeVipModal = document.getElementById('closeVipModal');
-        this.adminPanel = document.getElementById('adminPanel');
         this.usersTableBody = document.getElementById('usersTableBody');
         this.refreshUsers = document.getElementById('refreshUsers');
         this.connectionStatus = document.getElementById('connectionStatus');
@@ -344,48 +366,8 @@ class SignalManager {
         this.totalCount = document.getElementById('totalCount');
         this.operationsTable = document.getElementById('operationsTable');
         this.performanceChart = null;
-        
-        // Crear panel de debug
-        this.createDebugPanel();
     }
-    
-    createDebugPanel() {
-        let debugDiv = document.getElementById('debugInfo');
-        if (!debugDiv) {
-            debugDiv = document.createElement('div');
-            debugDiv.id = 'debugInfo';
-            debugDiv.style.cssText = 'position:fixed; top:10px; right:10px; background:rgba(255,0,0,0.9); color:white; padding:10px; z-index:10000; font-size:12px; border-radius:5px; max-width:300px; word-break: break-all;';
-            document.body.appendChild(debugDiv);
-        }
-        this.debugDiv = debugDiv;
-        this.updateDebugPanel();
-    }
-    
-    updateDebugPanel() {
-        if (!this.debugDiv) return;
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const tgid = urlParams.get('tgid');
-        
-        let telegramSDK = '❌';
-        let sdkUser = 'NO';
-        if (window.Telegram && window.Telegram.WebApp) {
-            telegramSDK = '✅';
-            sdkUser = window.Telegram.WebApp.initDataUnsafe?.user?.id || 'NO';
-        }
-        
-        this.debugDiv.innerHTML = `
-            <strong>🔍 DEBUG INFO MEJORADO</strong><br>
-            <strong>URL tgid:</strong> ${tgid || 'NO'}<br>
-            <strong>UserID actual:</strong> ${this.currentUserId || 'NO'}<br>
-            <strong>Telegram SDK:</strong> ${telegramSDK} (${sdkUser})<br>
-            <strong>isAdmin:</strong> ${this.isAdmin}<br>
-            <strong>isVIP:</strong> ${this.isVIP}<br>
-            <strong>Estrategia:</strong> Servidor como fuente de verdad<br>
-            <strong>Admin ID:</strong> ${ADMIN_ID}
-        `;
-    }
-    
+
     async checkServerConnection() {
         try {
             const response = await fetch(`${SERVER_URL}/health`);
@@ -634,37 +616,6 @@ class SignalManager {
         }
     }
     
-    async loadSignalsFromSupabase() {
-        try {
-            const { data, error } = await supabase
-                .from('signals')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(20);
-            
-            if (error) throw error;
-            
-            if (data && data.length > 0) {
-                this.signals = data.map(signal => ({
-                    id: signal.id,
-                    asset: signal.asset,
-                    timeframe: signal.timeframe,
-                    direction: signal.direction,
-                    timestamp: new Date(signal.created_at),
-                    expires: new Date(signal.expires_at),
-                    status: signal.status || 'pending',
-                    isFree: signal.is_free || false
-                }));
-                
-                this.operations = [...this.signals];
-                this.renderSignals();
-                this.updateStats();
-            }
-        } catch (error) {
-            console.error('Error loading signals from Supabase:', error);
-        }
-    }
-    
     async loadUsersFromSupabase() {
         try {
             const { data, error } = await supabase
@@ -858,15 +809,21 @@ class SignalManager {
     }
     
     showVipModal() {
-        this.vipModal.classList.add('active');
+        this.vipModal.style.display = 'block';
+        setTimeout(() => {
+            this.vipModal.classList.add('active');
+        }, 10);
     }
     
     hideVipModal() {
         this.vipModal.classList.remove('active');
+        setTimeout(() => {
+            this.vipModal.style.display = 'none';
+        }, 300);
     }
     
     showAdminPanel() {
-        this.adminPanel.style.display = this.adminPanel.style.display === 'none' ? 'block' : 'none';
+        this.usersContainer.style.display = this.usersContainer.style.display === 'none' ? 'block' : 'none';
     }
     
     updateUserStatus() {
@@ -1250,16 +1207,20 @@ class SignalManager {
     }
     
     showSignalsView() {
-        this.statsContainer.classList.remove('active');
-        this.usersContainer.classList.remove('active');
+        document.getElementById('signalsPanel').classList.add('active');
+        document.getElementById('statsContainer').classList.remove('active');
+        document.getElementById('usersContainer').classList.remove('active');
+        
         this.showSignals.classList.add('active');
         this.showStats.classList.remove('active');
         this.showUsers.classList.remove('active');
     }
     
     showStatsView() {
-        this.statsContainer.classList.add('active');
-        this.usersContainer.classList.remove('active');
+        document.getElementById('signalsPanel').classList.remove('active');
+        document.getElementById('statsContainer').classList.add('active');
+        document.getElementById('usersContainer').classList.remove('active');
+        
         this.showSignals.classList.remove('active');
         this.showStats.classList.add('active');
         this.showUsers.classList.remove('active');
@@ -1267,8 +1228,10 @@ class SignalManager {
     }
     
     showUsersView() {
-        this.statsContainer.classList.remove('active');
-        this.usersContainer.classList.add('active');
+        document.getElementById('signalsPanel').classList.remove('active');
+        document.getElementById('statsContainer').classList.remove('active');
+        document.getElementById('usersContainer').classList.add('active');
+        
         this.showSignals.classList.remove('active');
         this.showStats.classList.remove('active');
         this.showUsers.classList.add('active');
@@ -1444,6 +1407,7 @@ class SignalManager {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
+    updateDebugInfo('🚀 DOM cargado - Iniciando aplicación', 'success');
     createParticles();
     
     // Inicializar SignalManager con el User ID ya detectado
@@ -1469,24 +1433,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =============================================
-// VERIFICACIÓN INMEDIATA DE ADMIN
+// VERIFICACIÓN INMEDIATA MEJORADA
 // =============================================
 
 console.log('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===');
+updateDebugInfo('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===', 'info');
 console.log('User ID detectado:', detectedUserId);
 console.log('ADMIN_ID configurado:', ADMIN_ID);
 console.log('¿Coinciden?:', String(detectedUserId).trim() === String(ADMIN_ID).trim());
 
-// Verificación adicional después de 3 segundos
-setTimeout(async () => {
-    console.log('=== 🔍 VERIFICACIÓN TARDÍA DE ADMIN ===');
-    if (signalManager) {
-        console.log('Estado actual en SignalManager:');
-        console.log('- isAdmin:', signalManager.isAdmin);
-        console.log('- isVIP:', signalManager.isVIP);
-        console.log('- User ID:', signalManager.currentUserId);
-        
-        // Forzar recarga de datos
-        await signalManager.loadUserData();
-    }
-}, 3000);
+updateDebugInfo('User ID detectado: ' + detectedUserId, 'info');
+updateDebugInfo('ADMIN_ID configurado: ' + ADMIN_ID, 'info');
+updateDebugInfo('¿Coinciden?: ' + (String(detectedUserId).trim() === String(ADMIN_ID).trim()), 
+               String(detectedUserId).trim() === String(ADMIN_ID).trim() ? 'success' : 'error');
