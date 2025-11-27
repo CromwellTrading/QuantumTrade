@@ -103,7 +103,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER MEJORADA
+// CLASE SIGNAL MANAGER - COMPLETAMENTE CORREGIDA
 // =============================================
 
 class SignalManager {
@@ -773,15 +773,15 @@ class SignalManager {
     }
     
     // =============================================
-    // SUSCRIPCIÓN EN TIEMPO REAL - MEJORADA
+    // SUSCRIPCIÓN EN TIEMPO REAL - COMPLETAMENTE CORREGIDA
     // =============================================
     
     setupRealtimeSubscription() {
-        console.log('📡 [APP] Configurando suscripción en tiempo real');
+        console.log('📡 [APP] Configurando suscripción en tiempo real MEJORADA');
         
-        // Suscripción a nuevas señales
-        supabase
-            .channel('signals-channel')
+        // Suscripción a nuevas señales - CON MÁS LOGS Y MANEJO DE ERRORES
+        const subscription = supabase
+            .channel('public:signals')
             .on('postgres_changes', 
                 { 
                     event: 'INSERT', 
@@ -789,7 +789,7 @@ class SignalManager {
                     table: 'signals' 
                 }, 
                 (payload) => {
-                    console.log('🆕 [REALTIME] Nueva señal recibida:', payload.new);
+                    console.log('🆕 [REALTIME] Nueva señal detectada:', payload.new);
                     this.handleNewSignal(payload.new);
                 }
             )
@@ -806,10 +806,28 @@ class SignalManager {
             )
             .subscribe((status) => {
                 console.log('📡 [REALTIME] Estado de suscripción:', status);
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ [REALTIME] Suscripción a señales ACTIVADA correctamente');
+                    this.showNotification('Conexión en tiempo real activada', 'success');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ [REALTIME] Error en la suscripción');
+                    this.showNotification('Error en conexión en tiempo real', 'error');
+                } else if (status === 'TIMED_OUT') {
+                    console.error('❌ [REALTIME] Suscripción timeout');
+                    // Reintentar suscripción después de 5 segundos
+                    setTimeout(() => {
+                        console.log('🔄 [REALTIME] Reintentando suscripción...');
+                        this.setupRealtimeSubscription();
+                    }, 5000);
+                }
             });
+            
+        return subscription;
     }
     
     handleNewSignal(signalData) {
+        console.log('📨 [APP] Procesando nueva señal en tiempo real:', signalData);
+        
         const signal = {
             id: signalData.id,
             asset: signalData.asset,
@@ -823,29 +841,38 @@ class SignalManager {
         
         const canReceiveSignal = this.isVIP || signal.isFree;
         
-        console.log('📨 [APP] Procesando nueva señal:', signal.asset, signal.direction);
         console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree);
         
         if (canReceiveSignal) {
-            // Agregar señal al principio del array
-            this.signals.unshift(signal);
-            this.operations.unshift(signal);
+            // Verificar si la señal ya existe para evitar duplicados
+            const signalExists = this.signals.some(s => s.id === signal.id);
             
-            // Renderizar señales inmediatamente
-            this.renderSignals();
-            
-            // Mostrar notificación
-            this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
-            
-            // Mostrar alerta si está listo
-            if (this.isReady) {
-                this.showAlert(signal);
+            if (!signalExists) {
+                // Agregar señal al principio del array
+                this.signals.unshift(signal);
+                this.operations.unshift(signal);
+                
+                console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
+                
+                // Renderizar señales inmediatamente
+                this.renderSignals();
+                
+                // Mostrar notificación
+                this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
+                
+                // Mostrar alerta si está listo
+                if (this.isReady) {
+                    console.log('🔔 [APP] Mostrando alerta de señal');
+                    this.showAlert(signal);
+                }
+                
+                // Actualizar estadísticas
+                this.updateStats();
+                
+                console.log('✅ [APP] Señal procesada y mostrada al usuario en tiempo real');
+            } else {
+                console.log('ℹ️ [APP] Señal ya existe, ignorando duplicado');
             }
-            
-            // Actualizar estadísticas
-            this.updateStats();
-            
-            console.log('✅ [APP] Señal procesada y mostrada al usuario');
         } else {
             console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
             this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
@@ -853,24 +880,26 @@ class SignalManager {
     }
     
     handleUpdatedSignal(signalData) {
-        console.log('🔄 [APP] Actualizando señal existente:', signalData.id);
+        console.log('🔄 [APP] Actualizando señal existente en tiempo real:', signalData.id);
         
         const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
         const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
         
         if (signalIndex !== -1) {
             this.signals[signalIndex].status = signalData.status;
+            console.log('✅ [APP] Señal actualizada en lista principal');
         }
         
         if (operationIndex !== -1) {
             this.operations[operationIndex].status = signalData.status;
+            console.log('✅ [APP] Señal actualizada en operaciones');
         }
         
         // Re-renderizar señales para reflejar cambios
         this.renderSignals();
         this.updateStats();
         
-        console.log('✅ [APP] Señal actualizada correctamente');
+        console.log('✅ [APP] Señal actualizada correctamente en tiempo real');
     }
     
     showVipModal() {
@@ -1136,8 +1165,14 @@ class SignalManager {
         }
     }
     
+    // =============================================
+    // ACTUALIZACIÓN DE RESULTADOS - CORREGIDA
+    // =============================================
+    
     async updateOperationStatus(operationId, status) {
         try {
+            console.log(`🔄 [APP] Actualizando operación ${operationId} a ${status}`);
+            
             const response = await fetch(`${SERVER_URL}/api/signals/${operationId}`, {
                 method: 'PUT',
                 headers: {
@@ -1150,13 +1185,31 @@ class SignalManager {
             });
             
             if (response.ok) {
-                this.showNotification(`Estado cambiado a: ${status}`, 'info');
+                this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
+                
+                // Actualizar la señal localmente inmediatamente
+                const signalIndex = this.signals.findIndex(s => s.id === operationId);
+                const operationIndex = this.operations.findIndex(o => o.id === operationId);
+                
+                if (signalIndex !== -1) {
+                    this.signals[signalIndex].status = status;
+                }
+                
+                if (operationIndex !== -1) {
+                    this.operations[operationIndex].status = status;
+                }
+                
+                // Re-renderizar inmediatamente
+                this.renderSignals();
+                this.updateStats();
+                
+                console.log(`✅ [APP] Operación ${operationId} actualizada a ${status}`);
             } else {
                 throw new Error('Error actualizando estado');
             }
         } catch (error) {
             console.error('Error actualizando estado:', error);
-            alert('Error al actualizar el estado. Por favor, inténtalo de nuevo.');
+            this.showNotification('Error al actualizar el estado', 'error');
         }
     }
     
@@ -1200,7 +1253,7 @@ class SignalManager {
                 statusText = 'PERDIDA';
                 statusIcon = '<i class="fas fa-times-circle"></i>';
                 resultBadge = '<div class="operation-result result-loss">LOSS</div>';
-            } else if (isExpired) {
+            } else if (isExpired && signal.status === 'pending') {
                 statusClass = 'status-pending';
                 statusText = 'EXPIRADA';
                 statusIcon = '<i class="fas fa-hourglass-end"></i>';
@@ -1226,7 +1279,7 @@ class SignalManager {
                             <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
                         </div>
                     </div>
-                    ${!isExpired ? `
+                    ${!isExpired && signal.status === 'pending' ? `
                         <div class="time-remaining" id="time-${signal.id}">
                             <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
                         </div>
