@@ -1,5 +1,5 @@
 // =============================================
-// CONFIGURACIÓN GLOBAL MEJORADA
+// CONFIGURACIÓN GLOBAL
 // =============================================
 
 const SUPABASE_URL = 'https://flodrkrvaqsmelbkfknv.supabase.co';
@@ -11,29 +11,24 @@ const ADMIN_ID = "5376388604";
 let signalManager = null;
 
 // =============================================
-// FUNCIÓN DE DETECCIÓN MEJORADA
+// FUNCIÓN DE DETECCIÓN DE USER ID
 // =============================================
 
 function getUserIdSuperRobust() {
-    console.log('🔍 [USER_ID] Iniciando detección de User ID');
-    
     // MÉTODO 1: Parámetro tgid en URL (PRIMERA PRIORIDAD)
     const urlParams = new URLSearchParams(window.location.search);
     const tgId = urlParams.get('tgid');
     if (tgId) {
-        console.log('🎯 [USER_ID] ID obtenido desde tgid URL:', tgId);
         return tgId;
     }
     
     // MÉTODO 2: Telegram WebApp SDK
     if (window.Telegram && window.Telegram.WebApp) {
-        console.log('🔧 [TELEGRAM] Telegram Web App SDK detectado');
         const tg = window.Telegram.WebApp;
         tg.expand();
         
         const user = tg.initDataUnsafe?.user;
         if (user && user.id) {
-            console.log('🎯 [USER_ID] ID obtenido desde SDK:', user.id);
             return user.id.toString();
         }
     }
@@ -46,7 +41,6 @@ function getUserIdSuperRobust() {
             const tgWebAppData = fragmentParams.get('tgWebAppData');
             
             if (tgWebAppData) {
-                console.log('🔍 [TELEGRAM] Procesando tgWebAppData del fragmento');
                 const decodedWebAppData = decodeURIComponent(tgWebAppData);
                 const webAppParams = new URLSearchParams(decodedWebAppData);
                 const userString = webAppParams.get('user');
@@ -54,7 +48,6 @@ function getUserIdSuperRobust() {
                 if (userString) {
                     const userData = JSON.parse(decodeURIComponent(userString));
                     if (userData && userData.id) {
-                        console.log('🎯 [USER_ID] ID obtenido desde fragmento:', userData.id);
                         return userData.id.toString();
                     }
                 }
@@ -67,13 +60,11 @@ function getUserIdSuperRobust() {
     // MÉTODO 4: localStorage
     const storedId = localStorage.getItem('tg_user_id');
     if (storedId) {
-        console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
         return storedId;
     }
     
     // MÉTODO 5: Guest ID (fallback)
     const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
-    console.log('⚠️ [USER_ID] Generando ID de guest:', guestId);
     return guestId;
 }
 
@@ -112,7 +103,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER MEJORADA - COMPLETA
+// CLASE SIGNAL MANAGER MEJORADA
 // =============================================
 
 class SignalManager {
@@ -658,7 +649,7 @@ class SignalManager {
     }
 
     // =============================================
-    // MÉTODOS DE GESTIÓN DE SEÑALES
+    // MÉTODOS DE GESTIÓN DE SEÑALES - CORREGIDOS
     // =============================================
 
     async loadUsersFromSupabase() {
@@ -781,7 +772,14 @@ class SignalManager {
         this.showNotification(`Notificación enviada al usuario ${telegramId} sobre su VIP próximo a expirar.`, 'success');
     }
     
+    // =============================================
+    // SUSCRIPCIÓN EN TIEMPO REAL - MEJORADA
+    // =============================================
+    
     setupRealtimeSubscription() {
+        console.log('📡 [APP] Configurando suscripción en tiempo real');
+        
+        // Suscripción a nuevas señales
         supabase
             .channel('signals-channel')
             .on('postgres_changes', 
@@ -791,7 +789,7 @@ class SignalManager {
                     table: 'signals' 
                 }, 
                 (payload) => {
-                    console.log('Nueva señal recibida:', payload);
+                    console.log('🆕 [REALTIME] Nueva señal recibida:', payload.new);
                     this.handleNewSignal(payload.new);
                 }
             )
@@ -802,11 +800,13 @@ class SignalManager {
                     table: 'signals' 
                 }, 
                 (payload) => {
-                    console.log('Señal actualizada:', payload);
+                    console.log('🔄 [REALTIME] Señal actualizada:', payload.new);
                     this.handleUpdatedSignal(payload.new);
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('📡 [REALTIME] Estado de suscripción:', status);
+            });
     }
     
     handleNewSignal(signalData) {
@@ -823,23 +823,38 @@ class SignalManager {
         
         const canReceiveSignal = this.isVIP || signal.isFree;
         
+        console.log('📨 [APP] Procesando nueva señal:', signal.asset, signal.direction);
+        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree);
+        
         if (canReceiveSignal) {
+            // Agregar señal al principio del array
             this.signals.unshift(signal);
             this.operations.unshift(signal);
-            this.renderSignals();
-            this.showNotification('Nueva señal recibida!', 'success');
             
+            // Renderizar señales inmediatamente
+            this.renderSignals();
+            
+            // Mostrar notificación
+            this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
+            
+            // Mostrar alerta si está listo
             if (this.isReady) {
                 this.showAlert(signal);
             }
+            
+            // Actualizar estadísticas
+            this.updateStats();
+            
+            console.log('✅ [APP] Señal procesada y mostrada al usuario');
         } else {
+            console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
             this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
         }
-        
-        this.updateStats();
     }
     
     handleUpdatedSignal(signalData) {
+        console.log('🔄 [APP] Actualizando señal existente:', signalData.id);
+        
         const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
         const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
         
@@ -851,8 +866,11 @@ class SignalManager {
             this.operations[operationIndex].status = signalData.status;
         }
         
+        // Re-renderizar señales para reflejar cambios
         this.renderSignals();
         this.updateStats();
+        
+        console.log('✅ [APP] Señal actualizada correctamente');
     }
     
     showVipModal() {
@@ -1086,6 +1104,8 @@ class SignalManager {
         }
         
         try {
+            console.log('📤 [APP] Enviando señal:', assetValue, directionValue, timeframeValue);
+            
             const response = await fetch(`${SERVER_URL}/api/signals`, {
                 method: 'POST',
                 headers: {
@@ -1106,12 +1126,12 @@ class SignalManager {
                 
                 this.showNotification('Señal enviada correctamente', 'success');
                 
-                console.log('Señal enviada:', result);
+                console.log('✅ [APP] Señal enviada correctamente:', result);
             } else {
                 throw new Error('Error enviando señal');
             }
         } catch (error) {
-            console.error('Error enviando señal:', error);
+            console.error('❌ [APP] Error enviando señal:', error);
             alert('Error al enviar la señal. Por favor, inténtalo de nuevo.');
         }
     }
@@ -1139,6 +1159,10 @@ class SignalManager {
             alert('Error al actualizar el estado. Por favor, inténtalo de nuevo.');
         }
     }
+    
+    // =============================================
+    // RENDERIZADO DE SEÑALES - MEJORADO
+    // =============================================
     
     renderSignals() {
         if (!this.signalsContainer) return;
@@ -1183,7 +1207,7 @@ class SignalManager {
             }
             
             return `
-                <div class="signal-card ${isExpired ? '' : 'new'}">
+                <div class="signal-card" data-signal-id="${signal.id}">
                     ${resultBadge}
                     <div class="signal-header">
                         <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
@@ -1203,7 +1227,7 @@ class SignalManager {
                         </div>
                     </div>
                     ${!isExpired ? `
-                        <div class="time-remaining">
+                        <div class="time-remaining" id="time-${signal.id}">
                             <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
                         </div>
                     ` : ''}
@@ -1226,12 +1250,33 @@ class SignalManager {
             `;
         }).join('');
         
-        setTimeout(() => {
-            const newCards = document.querySelectorAll('.signal-card.new');
-            newCards.forEach(card => {
-                card.classList.remove('new');
+        // Iniciar actualización de contadores para todas las señales
+        this.startTimeUpdates();
+    }
+    
+    startTimeUpdates() {
+        // Actualizar todos los contadores cada segundo
+        setInterval(() => {
+            this.signals.forEach(signal => {
+                if (signal.status === 'pending') {
+                    const expiresDate = new Date(signal.expires);
+                    const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                    const minutes = Math.floor(timeRemaining / 60);
+                    const seconds = timeRemaining % 60;
+                    
+                    const timeElement = document.getElementById(`time-${signal.id}`);
+                    if (timeElement) {
+                        timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    }
+                    
+                    // Si la señal expiró, actualizar el estado
+                    if (timeRemaining <= 0 && signal.status === 'pending') {
+                        signal.status = 'expired';
+                        this.renderSignals();
+                    }
+                }
             });
-        }, 1500);
+        }, 1000);
     }
     
     showNotification(message, type = 'info') {
@@ -1281,6 +1326,26 @@ class SignalManager {
         }
         
         this.signalAlert.classList.add('show');
+        
+        // Actualizar el tiempo en la alerta cada segundo
+        const alertInterval = setInterval(() => {
+            if (this.signalAlert.classList.contains('show')) {
+                const expiresDate = new Date(signal.expires);
+                const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                
+                if (alertTime) {
+                    alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                }
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(alertInterval);
+                }
+            } else {
+                clearInterval(alertInterval);
+            }
+        }, 1000);
     }
     
     hideAlert() {
@@ -1551,47 +1616,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
         console.error('❌ [APP] Error inicializando SignalManager:', error);
     }
-    
-    // Timer para actualizar señales - optimizado para evitar parpadeos
-    setInterval(() => {
-        if (signalManager) {
-            // Solo actualizar los contadores de tiempo sin rerenderizar toda la lista
-            const timeElements = document.querySelectorAll('.time-remaining');
-            timeElements.forEach(element => {
-                const signalCard = element.closest('.signal-card');
-                if (signalCard) {
-                    const signalId = signalCard.dataset.signalId;
-                    const signal = signalManager.signals.find(s => s.id.toString() === signalId);
-                    if (signal) {
-                        const expiresDate = new Date(signal.expires);
-                        const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-                        const minutes = Math.floor(timeRemaining / 60);
-                        const seconds = timeRemaining % 60;
-                        element.textContent = `Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                    }
-                }
-            });
-            
-            const alert = document.getElementById('signalAlert');
-            if (alert && alert.classList.contains('show')) {
-                const activeSignal = signalManager.signals[0];
-                if (activeSignal) {
-                    const expiresDate = new Date(activeSignal.expires);
-                    const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-                    const minutes = Math.floor(timeRemaining / 60);
-                    const seconds = timeRemaining % 60;
-                    const alertTime = document.getElementById('alertTime');
-                    if (alertTime) {
-                        alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                    }
-                }
-            }
-        }
-    }, 1000);
 });
 
 // =============================================
-// VERIFICACIÓN INMEDIATA MEJORADA
+// DETECCIÓN INMEDIATA DE USER ID
 // =============================================
 
 // Detectar User ID inmediatamente
