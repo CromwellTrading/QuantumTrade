@@ -25,11 +25,6 @@ function getUserIdSuperRobust() {
         console.log('🎯 [USER_ID] ID obtenido desde tgid URL:', tgId);
         updateDebugInfo('✅ ID detectado desde URL: ' + tgId, 'success');
         return tgId;
-    } else {
-        updateDebugInfo('❌ No se encontró tgid en la URL', 'error');
-        console.log('❌ [USER_ID] No se encontró tgid en la URL');
-        console.log('🔍 [USER_ID] URL completa:', window.location.href);
-        console.log('🔍 [USER_ID] Parámetros de búsqueda:', window.location.search);
     }
     
     // MÉTODO 2: Telegram WebApp SDK
@@ -44,14 +39,7 @@ function getUserIdSuperRobust() {
             console.log('🎯 [USER_ID] ID obtenido desde SDK:', user.id);
             updateDebugInfo('✅ ID detectado desde SDK: ' + user.id, 'success');
             return user.id.toString();
-        } else {
-            updateDebugInfo('⚠️ SDK disponible pero sin user.id', 'warning');
-            console.log('⚠️ [USER_ID] SDK disponible pero sin user.id');
-            console.log('🔍 [USER_ID] initDataUnsafe:', tg.initDataUnsafe);
         }
-    } else {
-        updateDebugInfo('❌ SDK de Telegram no disponible', 'error');
-        console.log('❌ [USER_ID] SDK de Telegram no disponible');
     }
     
     // MÉTODO 3: Fragmento URL (tgWebAppData)
@@ -75,17 +63,9 @@ function getUserIdSuperRobust() {
                         console.log('🎯 [USER_ID] ID obtenido desde fragmento:', userData.id);
                         updateDebugInfo('✅ ID detectado desde fragmento: ' + userData.id, 'success');
                         return userData.id.toString();
-                    } else {
-                        updateDebugInfo('❌ userString sin ID válido', 'error');
                     }
-                } else {
-                    updateDebugInfo('❌ No se encontró user en tgWebAppData', 'error');
                 }
-            } else {
-                updateDebugInfo('❌ No se encontró tgWebAppData en el fragmento', 'error');
             }
-        } else {
-            updateDebugInfo('❌ Sin fragmento en URL', 'error');
         }
     } catch (error) {
         console.error('❌ [TELEGRAM] Error parseando fragmento:', error);
@@ -98,8 +78,6 @@ function getUserIdSuperRobust() {
         console.log('🎯 [USER_ID] ID obtenido desde localStorage:', storedId);
         updateDebugInfo('✅ ID obtenido desde localStorage: ' + storedId, 'success');
         return storedId;
-    } else {
-        updateDebugInfo('❌ No hay ID en localStorage', 'error');
     }
     
     // MÉTODO 5: Guest ID (fallback)
@@ -146,18 +124,14 @@ if (detectedUserId && !detectedUserId.startsWith('guest_')) {
     updateDebugInfo('💾 User ID guardado en localStorage', 'success');
 }
 
-// Actualizar UI inmediatamente con el ID detectado
-const userIdDisplay = document.getElementById('userIdDisplay');
-if (userIdDisplay) {
-    userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${detectedUserId}`;
-}
-
 // =============================================
 // SISTEMA DE PARTÍCULAS
 // =============================================
 
 function createParticles() {
     const particlesContainer = document.getElementById('particles');
+    if (!particlesContainer) return;
+    
     const particleCount = 50;
     
     for (let i = 0; i < particleCount; i++) {
@@ -185,11 +159,14 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER MEJORADA
+// CLASE SIGNAL MANAGER MEJORADA - COMPLETA
 // =============================================
 
 class SignalManager {
     constructor() {
+        console.log('🚀 [APP] Inicializando SignalManager con User ID:', detectedUserId);
+        updateDebugInfo('🚀 Inicializando SignalManager con User ID: ' + detectedUserId, 'success');
+        
         this.signals = [];
         this.operations = [];
         this.sessions = [];
@@ -204,25 +181,25 @@ class SignalManager {
         this.userData = null;
         this.searchedUser = null;
         
-        console.log('🚀 [APP] Inicializando SignalManager con User ID:', this.currentUserId);
-        updateDebugInfo('🚀 Inicializando SignalManager con User ID: ' + this.currentUserId, 'success');
-        
-        // Inicialización inmediata
-        this.initializeDOMElements();
-        this.initEventListeners();
-        this.loadFromLocalStorage();
-        this.updateStats();
-        this.initChart();
-        
-        // Cargar datos del usuario
-        this.loadUserData();
-        this.setupRealtimeSubscription();
-        this.checkServerConnection();
-        
-        setInterval(() => this.checkServerConnection(), 30000);
-        
-        // Actualizar UI inmediatamente
-        this.updateUI();
+        try {
+            // Inicialización inmediata
+            this.initializeDOMElements();
+            this.initEventListeners();
+            this.loadFromLocalStorage();
+            this.updateStats();
+            this.initChart();
+            
+            // Cargar datos del usuario
+            this.loadUserData();
+            this.setupRealtimeSubscription();
+            this.checkServerConnection();
+            
+            setInterval(() => this.checkServerConnection(), 30000);
+            
+        } catch (error) {
+            console.error('❌ [APP] Error durante la inicialización de SignalManager:', error);
+            updateDebugInfo('❌ Error durante la inicialización: ' + error.message, 'error');
+        }
     }
     
     async loadUserData() {
@@ -300,23 +277,33 @@ class SignalManager {
         
         // Mostrar/ocultar panel de admin
         if (this.isAdmin) {
-            this.adminBtn.style.display = 'block';
-            this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Panel Admin';
-            this.adminBtn.classList.add('active');
-            this.showUsers.style.display = 'block';
+            if (this.adminBtn) {
+                this.adminBtn.style.display = 'block';
+                this.adminBtn.innerHTML = '<i class="fas fa-user-shield"></i> Panel Admin';
+                this.adminBtn.classList.add('active');
+            }
+            if (this.showUsers) {
+                this.showUsers.style.display = 'block';
+            }
             this.loadUsersFromSupabase();
         } else {
-            this.adminBtn.style.display = 'none';
-            this.showUsers.style.display = 'none';
+            if (this.adminBtn) {
+                this.adminBtn.style.display = 'none';
+            }
+            if (this.showUsers) {
+                this.showUsers.style.display = 'none';
+            }
         }
         
         // Actualizar estado VIP
-        if (this.isVIP) {
-            this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP ACTIVO';
-            this.vipAccess.classList.add('active');
-        } else {
-            this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP';
-            this.vipAccess.classList.remove('active');
+        if (this.vipAccess) {
+            if (this.isVIP) {
+                this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP ACTIVO';
+                this.vipAccess.classList.add('active');
+            } else {
+                this.vipAccess.innerHTML = '<i class="fas fa-crown"></i> VIP';
+                this.vipAccess.classList.remove('active');
+            }
         }
     }
 
@@ -324,6 +311,7 @@ class SignalManager {
         console.log('🏗️ [APP] Inicializando elementos DOM');
         updateDebugInfo('🏗️ Inicializando elementos DOM', 'info');
         
+        // Elementos principales
         this.sendSignalBtn = document.getElementById('sendSignal');
         this.signalsContainer = document.getElementById('signalsContainer');
         this.notification = document.getElementById('notification');
@@ -366,6 +354,9 @@ class SignalManager {
         this.totalCount = document.getElementById('totalCount');
         this.operationsTable = document.getElementById('operationsTable');
         this.performanceChart = null;
+
+        console.log('✅ [APP] Elementos DOM inicializados correctamente');
+        updateDebugInfo('✅ Elementos DOM inicializados correctamente', 'success');
     }
 
     async checkServerConnection() {
@@ -385,85 +376,121 @@ class SignalManager {
     }
     
     updateConnectionStatus(connected, message) {
-        if (connected) {
-            this.statusDot.className = 'status-dot status-connected';
-            this.statusText.textContent = message;
-            this.connectionStatus.style.background = 'rgba(0, 255, 157, 0.1)';
-        } else {
-            this.statusDot.className = 'status-dot status-disconnected';
-            this.statusText.textContent = message;
-            this.connectionStatus.style.background = 'rgba(255, 0, 51, 0.1)';
+        if (this.connectionStatus && this.statusDot && this.statusText) {
+            if (connected) {
+                this.statusDot.className = 'status-dot status-connected';
+                this.statusText.textContent = message;
+                this.connectionStatus.style.background = 'rgba(0, 255, 157, 0.1)';
+            } else {
+                this.statusDot.className = 'status-dot status-disconnected';
+                this.statusText.textContent = message;
+                this.connectionStatus.style.background = 'rgba(255, 0, 51, 0.1)';
+            }
         }
     }
     
     initEventListeners() {
+        console.log('🔧 [APP] Inicializando event listeners');
+        
         // Evento para enviar señales
-        this.sendSignalBtn.addEventListener('click', () => {
-            this.sendSignal();
-        });
+        if (this.sendSignalBtn) {
+            this.sendSignalBtn.addEventListener('click', () => {
+                this.sendSignal();
+            });
+        }
         
-        this.readyBtn.addEventListener('click', () => {
-            this.toggleReady();
-        });
+        if (this.readyBtn) {
+            this.readyBtn.addEventListener('click', () => {
+                this.toggleReady();
+            });
+        }
         
-        this.closeAlert.addEventListener('click', () => {
-            this.hideAlert();
-        });
+        if (this.closeAlert) {
+            this.closeAlert.addEventListener('click', () => {
+                this.hideAlert();
+            });
+        }
         
-        this.showSignals.addEventListener('click', () => {
-            this.showSignalsView();
-        });
+        if (this.showSignals) {
+            this.showSignals.addEventListener('click', () => {
+                this.showSignalsView();
+            });
+        }
         
-        this.showStats.addEventListener('click', () => {
-            this.showStatsView();
-        });
+        if (this.showStats) {
+            this.showStats.addEventListener('click', () => {
+                this.showStatsView();
+            });
+        }
         
-        this.showUsers.addEventListener('click', () => {
-            this.showUsersView();
-        });
+        if (this.showUsers) {
+            this.showUsers.addEventListener('click', () => {
+                this.showUsersView();
+            });
+        }
         
-        this.vipAccess.addEventListener('click', () => {
-            this.showVipModal();
-        });
+        if (this.vipAccess) {
+            this.vipAccess.addEventListener('click', () => {
+                this.showVipModal();
+            });
+        }
         
-        this.adminBtn.addEventListener('click', () => {
-            if (this.isAdmin) {
-                this.showAdminPanel();
-            }
-        });
+        if (this.adminBtn) {
+            this.adminBtn.addEventListener('click', () => {
+                if (this.isAdmin) {
+                    this.showAdminPanel();
+                }
+            });
+        }
         
-        this.startSession.addEventListener('click', () => {
-            this.startTradingSession();
-        });
+        if (this.startSession) {
+            this.startSession.addEventListener('click', () => {
+                this.startTradingSession();
+            });
+        }
         
-        this.endSession.addEventListener('click', () => {
-            this.endTradingSession();
-        });
+        if (this.endSession) {
+            this.endSession.addEventListener('click', () => {
+                this.endTradingSession();
+            });
+        }
         
-        this.notifyClients.addEventListener('click', () => {
-            this.sendClientNotification();
-        });
+        if (this.notifyClients) {
+            this.notifyClients.addEventListener('click', () => {
+                this.sendClientNotification();
+            });
+        }
         
-        this.closeVipModal.addEventListener('click', () => {
-            this.hideVipModal();
-        });
+        if (this.closeVipModal) {
+            this.closeVipModal.addEventListener('click', () => {
+                this.hideVipModal();
+            });
+        }
         
-        this.refreshUsers.addEventListener('click', () => {
-            this.loadUsersFromSupabase();
-        });
+        if (this.refreshUsers) {
+            this.refreshUsers.addEventListener('click', () => {
+                this.loadUsersFromSupabase();
+            });
+        }
 
         // Event listeners para gestión de usuarios
-        this.searchUserBtn.addEventListener('click', () => {
-            this.searchUser();
-        });
+        if (this.searchUserBtn) {
+            this.searchUserBtn.addEventListener('click', () => {
+                this.searchUser();
+            });
+        }
         
-        this.makeVipBtn.addEventListener('click', () => {
-            this.makeUserVip();
-        });
+        if (this.makeVipBtn) {
+            this.makeVipBtn.addEventListener('click', () => {
+                this.makeUserVip();
+            });
+        }
         
-        this.removeVipBtn.addEventListener('click', () => {
-            this.removeUserVip();
-        });
+        if (this.removeVipBtn) {
+            this.removeVipBtn.addEventListener('click', () => {
+                this.removeUserVip();
+            });
+        }
         
         // Filtros de tiempo para estadísticas
         document.querySelectorAll('.time-filter').forEach(filter => {
@@ -473,7 +500,13 @@ class SignalManager {
                 this.updateStats(filter.dataset.period);
             });
         });
+
+        console.log('✅ [APP] Event listeners inicializados correctamente');
     }
+
+    // =============================================
+    // MÉTODOS DE GESTIÓN DE USUARIOS
+    // =============================================
 
     async searchUser() {
         const searchId = this.userSearchInput.value.trim();
@@ -615,6 +648,41 @@ class SignalManager {
             this.showNotification('Error al quitar VIP al usuario', 'error');
         }
     }
+
+    // =============================================
+    // MÉTODOS DE GESTIÓN DE SEÑALES
+    // =============================================
+
+    async loadSignalsFromSupabase() {
+        try {
+            const { data, error } = await supabase
+                .from('signals')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(20);
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                this.signals = data.map(signal => ({
+                    id: signal.id,
+                    asset: signal.asset,
+                    timeframe: signal.timeframe,
+                    direction: signal.direction,
+                    timestamp: new Date(signal.created_at),
+                    expires: new Date(signal.expires_at),
+                    status: signal.status || 'pending',
+                    isFree: signal.is_free || false
+                }));
+                
+                this.operations = [...this.signals];
+                this.renderSignals();
+                this.updateStats();
+            }
+        } catch (error) {
+            console.error('Error loading signals from Supabase:', error);
+        }
+    }
     
     async loadUsersFromSupabase() {
         try {
@@ -634,6 +702,8 @@ class SignalManager {
     }
     
     renderUsers(users) {
+        if (!this.usersTableBody) return;
+        
         this.usersTableBody.innerHTML = users.map(user => {
             const isVip = user.is_vip;
             const vipExpires = user.vip_expires_at ? new Date(user.vip_expires_at) : null;
@@ -694,7 +764,7 @@ class SignalManager {
                 this.loadUsersFromSupabase();
             } else {
                 this.showNotification('Error al hacer VIP: ' + result.error, 'error');
-                }
+            }
         } catch (error) {
             console.error('Error haciendo usuario VIP:', error);
             this.showNotification('Error al hacer VIP al usuario', 'error');
@@ -809,24 +879,27 @@ class SignalManager {
     }
     
     showVipModal() {
-        this.vipModal.style.display = 'block';
-        setTimeout(() => {
+        if (this.vipModal) {
             this.vipModal.classList.add('active');
-        }, 10);
+        }
     }
     
     hideVipModal() {
-        this.vipModal.classList.remove('active');
-        setTimeout(() => {
-            this.vipModal.style.display = 'none';
-        }, 300);
+        if (this.vipModal) {
+            this.vipModal.classList.remove('active');
+        }
     }
     
     showAdminPanel() {
-        this.usersContainer.style.display = this.usersContainer.style.display === 'none' ? 'block' : 'none';
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            adminPanel.style.display = adminPanel.style.display === 'none' ? 'block' : 'none';
+        }
     }
     
     updateUserStatus() {
+        if (!this.userStatus) return;
+        
         if (this.isVIP) {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--vip);">
@@ -870,13 +943,15 @@ class SignalManager {
                     signals: []
                 };
                 
-                this.startSession.disabled = true;
-                this.endSession.disabled = false;
+                if (this.startSession) this.startSession.disabled = true;
+                if (this.endSession) this.endSession.disabled = false;
                 
-                this.sessionInfo.innerHTML = `
-                    <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
-                `;
-                this.sessionInfo.classList.add('session-active');
+                if (this.sessionInfo) {
+                    this.sessionInfo.innerHTML = `
+                        <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
+                    `;
+                    this.sessionInfo.classList.add('session-active');
+                }
                 
                 this.showNotification('Sesión de trading iniciada', 'success');
             } else {
@@ -906,13 +981,15 @@ class SignalManager {
                 this.currentSession.endTime = new Date();
                 this.sessions.push(this.currentSession);
                 
-                this.startSession.disabled = false;
-                this.endSession.disabled = true;
+                if (this.startSession) this.startSession.disabled = false;
+                if (this.endSession) this.endSession.disabled = true;
                 
-                this.sessionInfo.innerHTML = `
-                    <i class="fas fa-stop-circle"></i> Sesión finalizada - Duración: ${this.getSessionDuration(this.currentSession)}
-                `;
-                this.sessionInfo.classList.remove('session-active');
+                if (this.sessionInfo) {
+                    this.sessionInfo.innerHTML = `
+                        <i class="fas fa-stop-circle"></i> Sesión finalizada - Duración: ${this.getSessionDuration(this.currentSession)}
+                    `;
+                    this.sessionInfo.classList.remove('session-active');
+                }
                 
                 this.currentSession = null;
                 
@@ -997,22 +1074,32 @@ class SignalManager {
     toggleReady() {
         this.isReady = !this.isReady;
         if (this.isReady) {
-            this.readyBtn.innerHTML = '<i class="fas fa-check"></i> LISTOS';
-            this.readyBtn.classList.add('ready');
+            if (this.readyBtn) {
+                this.readyBtn.innerHTML = '<i class="fas fa-check"></i> LISTOS';
+                this.readyBtn.classList.add('ready');
+            }
             this.showNotification('Estado cambiado a LISTOS - Recibirás alertas de señales', 'success');
         } else {
-            this.readyBtn.innerHTML = '<i class="fas fa-bell"></i> PREPARADOS';
-            this.readyBtn.classList.remove('ready');
+            if (this.readyBtn) {
+                this.readyBtn.innerHTML = '<i class="fas fa-bell"></i> PREPARADOS';
+                this.readyBtn.classList.remove('ready');
+            }
             this.showNotification('Estado cambiado a PREPARADOS', 'info');
         }
     }
     
     async sendSignal() {
-        const asset = document.getElementById('asset').value;
-        const timeframe = document.getElementById('timeframe').value;
-        const direction = document.getElementById('direction').value;
+        const asset = document.getElementById('asset');
+        const timeframe = document.getElementById('timeframe');
+        const direction = document.getElementById('direction');
         
-        if(!asset) {
+        if (!asset || !timeframe || !direction) return;
+        
+        const assetValue = asset.value;
+        const timeframeValue = timeframe.value;
+        const directionValue = direction.value;
+        
+        if(!assetValue) {
             alert('Por favor, ingresa un activo');
             return;
         }
@@ -1024,9 +1111,9 @@ class SignalManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    asset: asset.toUpperCase(),
-                    timeframe: parseInt(timeframe),
-                    direction: direction,
+                    asset: assetValue.toUpperCase(),
+                    timeframe: parseInt(timeframeValue),
+                    direction: directionValue,
                     userId: this.currentUserId
                 })
             });
@@ -1034,7 +1121,7 @@ class SignalManager {
             if (response.ok) {
                 const result = await response.json();
                 this.hasReceivedFreeSignal = true;
-                document.getElementById('asset').value = '';
+                asset.value = '';
                 
                 this.showNotification('Señal enviada correctamente', 'success');
                 
@@ -1073,6 +1160,8 @@ class SignalManager {
     }
     
     renderSignals() {
+        if (!this.signalsContainer) return;
+        
         if(this.signals.length === 0) {
             this.signalsContainer.innerHTML = `
                 <div class="empty-state">
@@ -1165,6 +1254,8 @@ class SignalManager {
     }
     
     showNotification(message, type = 'info') {
+        if (!this.notification) return;
+        
         this.notification.textContent = message;
         
         if (type === 'success') {
@@ -1184,57 +1275,80 @@ class SignalManager {
     }
     
     showAlert(signal) {
-        document.getElementById('alertAsset').textContent = signal.asset;
+        if (!this.signalAlert) return;
         
+        const alertAsset = document.getElementById('alertAsset');
         const alertDirection = document.getElementById('alertDirection');
-        alertDirection.className = `direction ${signal.direction}`;
-        alertDirection.innerHTML = `
-            <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
-            <span>${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}</span>
-        `;
+        const alertTime = document.getElementById('alertTime');
         
-        const expiresDate = new Date(signal.expires);
-        const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-        const minutes = Math.floor(timeRemaining / 60);
-        const seconds = timeRemaining % 60;
-        document.getElementById('alertTime').textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        if (alertAsset) alertAsset.textContent = signal.asset;
+        
+        if (alertDirection) {
+            alertDirection.className = `direction ${signal.direction}`;
+            alertDirection.innerHTML = `
+                <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
+                <span>${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}</span>
+            `;
+        }
+        
+        if (alertTime) {
+            const expiresDate = new Date(signal.expires);
+            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }
         
         this.signalAlert.classList.add('show');
     }
     
     hideAlert() {
-        this.signalAlert.classList.remove('show');
+        if (this.signalAlert) {
+            this.signalAlert.classList.remove('show');
+        }
     }
     
     showSignalsView() {
-        document.getElementById('signalsPanel').classList.add('active');
-        document.getElementById('statsContainer').classList.remove('active');
-        document.getElementById('usersContainer').classList.remove('active');
+        const signalsPanel = document.getElementById('signalsPanel');
+        const statsContainer = document.getElementById('statsContainer');
+        const usersContainer = document.getElementById('usersContainer');
         
-        this.showSignals.classList.add('active');
-        this.showStats.classList.remove('active');
-        this.showUsers.classList.remove('active');
+        if (signalsPanel) signalsPanel.classList.add('active');
+        if (statsContainer) statsContainer.classList.remove('active');
+        if (usersContainer) usersContainer.classList.remove('active');
+        
+        if (this.showSignals) this.showSignals.classList.add('active');
+        if (this.showStats) this.showStats.classList.remove('active');
+        if (this.showUsers) this.showUsers.classList.remove('active');
     }
     
     showStatsView() {
-        document.getElementById('signalsPanel').classList.remove('active');
-        document.getElementById('statsContainer').classList.add('active');
-        document.getElementById('usersContainer').classList.remove('active');
+        const signalsPanel = document.getElementById('signalsPanel');
+        const statsContainer = document.getElementById('statsContainer');
+        const usersContainer = document.getElementById('usersContainer');
         
-        this.showSignals.classList.remove('active');
-        this.showStats.classList.add('active');
-        this.showUsers.classList.remove('active');
+        if (signalsPanel) signalsPanel.classList.remove('active');
+        if (statsContainer) statsContainer.classList.add('active');
+        if (usersContainer) usersContainer.classList.remove('active');
+        
+        if (this.showSignals) this.showSignals.classList.remove('active');
+        if (this.showStats) this.showStats.classList.add('active');
+        if (this.showUsers) this.showUsers.classList.remove('active');
         this.updateStats();
     }
     
     showUsersView() {
-        document.getElementById('signalsPanel').classList.remove('active');
-        document.getElementById('statsContainer').classList.remove('active');
-        document.getElementById('usersContainer').classList.add('active');
+        const signalsPanel = document.getElementById('signalsPanel');
+        const statsContainer = document.getElementById('statsContainer');
+        const usersContainer = document.getElementById('usersContainer');
         
-        this.showSignals.classList.remove('active');
-        this.showStats.classList.remove('active');
-        this.showUsers.classList.add('active');
+        if (signalsPanel) signalsPanel.classList.remove('active');
+        if (statsContainer) statsContainer.classList.remove('active');
+        if (usersContainer) usersContainer.classList.add('active');
+        
+        if (this.showSignals) this.showSignals.classList.remove('active');
+        if (this.showStats) this.showStats.classList.remove('active');
+        if (this.showUsers) this.showUsers.classList.add('active');
     }
     
     updateStats(period = 'day') {
@@ -1271,46 +1385,50 @@ class SignalManager {
         const winCount = winOperations.length;
         const lossCount = lossOperations.length;
         
-        this.winCount.textContent = winCount;
-        this.lossCount.textContent = lossCount;
-        this.totalCount.textContent = totalOperations;
+        if (this.winCount) this.winCount.textContent = winCount;
+        if (this.lossCount) this.lossCount.textContent = lossCount;
+        if (this.totalCount) this.totalCount.textContent = totalOperations;
         
-        this.operationsTable.innerHTML = filteredOperations.map(op => {
-            let statusClass = 'status-pending';
-            let statusText = 'PENDIENTE';
-            let statusIcon = '<i class="fas fa-clock"></i>';
-            
-            if (op.status === 'profit') {
-                statusClass = 'status-profit';
-                statusText = 'GANADA';
-                statusIcon = '<i class="fas fa-check-circle"></i>';
-            } else if (op.status === 'loss') {
-                statusClass = 'status-loss';
-                statusText = 'PERDIDA';
-                statusIcon = '<i class="fas fa-times-circle"></i>';
-            }
-            
-            return `
-                <tr>
-                    <td>${op.asset}</td>
-                    <td>
-                        <span class="direction ${op.direction}">
-                            ${op.direction === 'up' ? 'ALZA' : 'BAJA'}
-                        </span>
-                    </td>
-                    <td>${op.timeframe} min</td>
-                    <td><span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span></td>
-                    <td>${new Date(op.timestamp).toLocaleString()}</td>
-                </tr>
-            `;
-        }).join('');
+        if (this.operationsTable) {
+            this.operationsTable.innerHTML = filteredOperations.map(op => {
+                let statusClass = 'status-pending';
+                let statusText = 'PENDIENTE';
+                let statusIcon = '<i class="fas fa-clock"></i>';
+                
+                if (op.status === 'profit') {
+                    statusClass = 'status-profit';
+                    statusText = 'GANADA';
+                    statusIcon = '<i class="fas fa-check-circle"></i>';
+                } else if (op.status === 'loss') {
+                    statusClass = 'status-loss';
+                    statusText = 'PERDIDA';
+                    statusIcon = '<i class="fas fa-times-circle"></i>';
+                }
+                
+                return `
+                    <tr>
+                        <td>${op.asset}</td>
+                        <td>
+                            <span class="direction ${op.direction}">
+                                ${op.direction === 'up' ? 'ALZA' : 'BAJA'}
+                            </span>
+                        </td>
+                        <td>${op.timeframe} min</td>
+                        <td><span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span></td>
+                        <td>${new Date(op.timestamp).toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
         
         this.updateChart(winCount, lossCount, totalOperations);
     }
     
     initChart() {
-        const ctx = document.getElementById('performanceChart').getContext('2d');
-        this.performanceChart = new Chart(ctx, {
+        const ctx = document.getElementById('performanceChart');
+        if (!ctx) return;
+        
+        this.performanceChart = new Chart(ctx.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: ['Ganadas', 'Perdidas', 'Pendientes'],
@@ -1356,6 +1474,8 @@ class SignalManager {
     }
     
     updateChart(winCount, lossCount, totalCount) {
+        if (!this.performanceChart) return;
+        
         const pendingCount = totalCount - winCount - lossCount;
         
         this.performanceChart.data.datasets[0].data = [winCount, lossCount, pendingCount];
@@ -1388,12 +1508,14 @@ class SignalManager {
             }
             
             if (this.currentSession) {
-                this.startSession.disabled = true;
-                this.endSession.disabled = false;
-                this.sessionInfo.innerHTML = `
-                    <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
-                `;
-                this.sessionInfo.classList.add('session-active');
+                if (this.startSession) this.startSession.disabled = true;
+                if (this.endSession) this.endSession.disabled = false;
+                if (this.sessionInfo) {
+                    this.sessionInfo.innerHTML = `
+                        <i class="fas fa-play-circle"></i> Sesión activa - Iniciada: ${this.currentSession.startTime.toLocaleTimeString()}
+                    `;
+                    this.sessionInfo.classList.add('session-active');
+                }
             }
             
             this.updateUserStatus();
@@ -1408,24 +1530,40 @@ class SignalManager {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
     updateDebugInfo('🚀 DOM cargado - Iniciando aplicación', 'success');
+    
+    // Actualizar UI inmediatamente con el ID detectado
+    const userIdDisplay = document.getElementById('userIdDisplay');
+    if (userIdDisplay) {
+        userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${detectedUserId}`;
+    }
+    
     createParticles();
     
-    // Inicializar SignalManager con el User ID ya detectado
-    signalManager = new SignalManager();
+    try {
+        // Inicializar SignalManager con el User ID ya detectado
+        signalManager = new SignalManager();
+    } catch (error) {
+        console.error('❌ [APP] Error inicializando SignalManager:', error);
+        updateDebugInfo('❌ Error inicializando SignalManager: ' + error.message, 'error');
+    }
     
+    // Timer para actualizar señales
     setInterval(() => {
         if (signalManager) {
             signalManager.renderSignals();
             
             const alert = document.getElementById('signalAlert');
-            if (alert.classList.contains('show')) {
+            if (alert && alert.classList.contains('show')) {
                 const activeSignal = signalManager.signals[0];
                 if (activeSignal) {
                     const expiresDate = new Date(activeSignal.expires);
                     const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
                     const minutes = Math.floor(timeRemaining / 60);
                     const seconds = timeRemaining % 60;
-                    document.getElementById('alertTime').textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    const alertTime = document.getElementById('alertTime');
+                    if (alertTime) {
+                        alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    }
                 }
             }
         }
