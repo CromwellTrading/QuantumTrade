@@ -103,7 +103,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - OPTIMIZADA PARA VELOCIDAD
+// CLASE SIGNAL MANAGER - COMPLETAMENTE CORREGIDA
 // =============================================
 
 class SignalManager {
@@ -196,7 +196,7 @@ class SignalManager {
                 .from('signals')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(20); // Aumentar límite para más historial
+                .limit(20);
             
             if (error) throw error;
             
@@ -506,151 +506,6 @@ class SignalManager {
     }
 
     // =============================================
-    // MÉTODOS DE GESTIÓN DE USUARIOS
-    // =============================================
-
-    async searchUser() {
-        const searchId = this.userSearchInput.value.trim();
-        if (!searchId) {
-            alert('Por favor, ingresa un ID de Telegram');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${SERVER_URL}/api/users/search/${searchId}`);
-            const result = await response.json();
-
-            if (result.success) {
-                this.searchedUser = result.data;
-                this.displayUserSearchResult();
-            } else {
-                this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
-                this.userSearchResult.style.display = 'block';
-            }
-        } catch (error) {
-            console.error('Error buscando usuario:', error);
-            this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
-            this.userSearchResult.style.display = 'block';
-        }
-    }
-
-    displayUserSearchResult() {
-        if (!this.searchedUser) {
-            this.userSearchResult.innerHTML = `
-                <div class="user-not-found">
-                    <i class="fas fa-user-times"></i>
-                    <p>Usuario no encontrado</p>
-                    <p>El ID ${this.userSearchInput.value} no está registrado en el sistema</p>
-                </div>
-            `;
-        } else {
-            const isVip = this.searchedUser.is_vip;
-            const vipExpires = this.searchedUser.vip_expires_at ? new Date(this.searchedUser.vip_expires_at) : null;
-            const now = new Date();
-            const daysLeft = vipExpires ? Math.ceil((vipExpires - now) / (1000 * 60 * 60 * 24)) : 0;
-            
-            let vipStatus = 'No VIP';
-            let daysLeftHtml = '';
-            
-            if (isVip && vipExpires && vipExpires > now) {
-                vipStatus = 'Usuario VIP';
-                daysLeftHtml = `<div class="vip-time-remaining">Tiempo restante: <span class="days-left">${daysLeft} días</span></div>`;
-            } else if (isVip && vipExpires && vipExpires <= now) {
-                vipStatus = 'VIP Expirado';
-            }
-
-            this.userSearchResult.innerHTML = `
-                <div class="user-found">
-                    <div class="user-header">
-                        <i class="fas fa-user"></i>
-                        <h4>Usuario Encontrado</h4>
-                    </div>
-                    <div class="user-details">
-                        <p><strong>ID:</strong> ${this.searchedUser.telegram_id}</p>
-                        <p><strong>Nombre:</strong> ${this.searchedUser.first_name || 'No especificado'}</p>
-                        <p><strong>Usuario:</strong> @${this.searchedUser.username || 'No especificado'}</p>
-                        <p><strong>Estado:</strong> <span class="user-status ${isVip && vipExpires > now ? 'vip' : 'regular'}">${vipStatus}</span></p>
-                        ${daysLeftHtml}
-                    </div>
-                </div>
-            `;
-
-            // Mostrar botones según el estado VIP
-            this.userActions.style.display = 'flex';
-            this.makeVipBtn.style.display = (!isVip || (vipExpires && vipExpires <= now)) ? 'block' : 'none';
-            this.removeVipBtn.style.display = (isVip && vipExpires && vipExpires > now) ? 'block' : 'none';
-        }
-
-        this.userSearchResult.style.display = 'block';
-    }
-
-    async makeUserVip() {
-        if (!this.searchedUser) return;
-
-        const days = prompt('¿Por cuántos días quieres hacer VIP al usuario?', '30');
-        if (!days || isNaN(days)) return;
-
-        try {
-            const response = await fetch(`${SERVER_URL}/api/users/vip`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    telegramId: this.searchedUser.telegram_id,
-                    userId: this.currentUserId,
-                    days: parseInt(days)
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.showNotification(result.message, 'success');
-                // Recargar la información del usuario
-                await this.searchUser();
-            } else {
-                this.showNotification('Error al hacer VIP: ' + result.error, 'error');
-            }
-        } catch (error) {
-            console.error('Error haciendo usuario VIP:', error);
-            this.showNotification('Error al hacer VIP al usuario', 'error');
-        }
-    }
-
-    async removeUserVip() {
-        if (!this.searchedUser) return;
-
-        if (!confirm('¿Estás seguro de que quieres quitar el VIP a este usuario?')) return;
-
-        try {
-            const response = await fetch(`${SERVER_URL}/api/users/remove-vip`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    telegramId: this.searchedUser.telegram_id,
-                    userId: this.currentUserId
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                this.showNotification(result.message, 'success');
-                // Recargar la información del usuario
-                await this.searchUser();
-            } else {
-                this.showNotification('Error al quitar VIP: ' + result.error, 'error');
-            }
-        } catch (error) {
-            console.error('Error quitando VIP:', error);
-            this.showNotification('Error al quitar VIP al usuario', 'error');
-        }
-    }
-
-    // =============================================
     // SUSCRIPCIÓN EN TIEMPO REAL - MÁXIMA VELOCIDAD
     // =============================================
     
@@ -754,7 +609,7 @@ class SignalManager {
     }
     
     handleUpdatedSignal(signalData) {
-        console.log('🔄 [APP] Actualizando señal existente en tiempo real:', signalData.id);
+        console.log('🔄 [APP] Actualizando señal existente:', signalData.id);
         
         const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
         const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
@@ -841,7 +696,7 @@ class SignalManager {
     }
 
     // =============================================
-    // RENDERIZADO DE SEÑALES MEJORADO
+    // RENDERIZADO DE SEÑALES MEJORADO - BOTONES FIJOS
     // =============================================
     
     renderSignals() {
@@ -886,6 +741,9 @@ class SignalManager {
                 statusIcon = '<i class="fas fa-hourglass-end"></i>';
             }
             
+            // BOTONES SIEMPRE VISIBLES PARA ADMIN EN SEÑALES PENDIENTES EXPIRADAS
+            const showAdminButtons = this.isAdmin && isExpired && signal.status === 'pending';
+            
             return `
                 <div class="signal-card" data-signal-id="${signal.id}">
                     ${resultBadge}
@@ -915,12 +773,12 @@ class SignalManager {
                         <div class="status-badge ${statusClass}">
                             ${statusIcon} ${statusText}
                         </div>
-                        ${this.isAdmin && isExpired && signal.status === 'pending' ? `
+                        ${showAdminButtons ? `
                             <div class="admin-controls">
-                                <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus(${signal.id}, 'profit')">
+                                <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus('${signal.id}', 'profit')">
                                     <i class="fas fa-check"></i> Ganada
                                 </button>
-                                <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus(${signal.id}, 'loss')">
+                                <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus('${signal.id}', 'loss')">
                                     <i class="fas fa-times"></i> Perdida
                                 </button>
                             </div>
@@ -935,7 +793,7 @@ class SignalManager {
     }
 
     // =============================================
-    // MÉTODOS RESTANTES (sin cambios significativos)
+    // ACTUALIZACIÓN DE RESULTADOS - COMPLETAMENTE CORREGIDA
     // =============================================
     
     async updateOperationStatus(operationId, status) {
@@ -957,8 +815,8 @@ class SignalManager {
                 this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
                 
                 // Actualizar la señal localmente inmediatamente
-                const signalIndex = this.signals.findIndex(s => s.id === operationId);
-                const operationIndex = this.operations.findIndex(o => o.id === operationId);
+                const signalIndex = this.signals.findIndex(s => s.id == operationId);
+                const operationIndex = this.operations.findIndex(o => o.id == operationId);
                 
                 if (signalIndex !== -1) {
                     this.signals[signalIndex].status = status;
@@ -974,11 +832,12 @@ class SignalManager {
                 
                 console.log(`✅ [APP] Operación ${operationId} actualizada a ${status}`);
             } else {
-                throw new Error('Error actualizando estado');
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
         } catch (error) {
-            console.error('Error actualizando estado:', error);
-            this.showNotification('Error al actualizar el estado', 'error');
+            console.error('❌ [APP] Error actualizando estado:', error);
+            this.showNotification('Error al actualizar el estado: ' + error.message, 'error');
         }
     }
 
@@ -997,13 +856,17 @@ class SignalManager {
                     }
                     
                     if (timeRemaining <= 0 && signal.status === 'pending') {
-                        signal.status = 'expired';
+                        // Forzar re-render para mostrar botones de admin
                         this.renderSignals();
                     }
                 }
             });
         }, 1000);
     }
+
+    // =============================================
+    // MÉTODOS RESTANTES (sin cambios significativos)
+    // =============================================
 
     showNotification(message, type = 'info') {
         if (!this.notification) return;
@@ -1031,8 +894,6 @@ class SignalManager {
             this.signalAlert.classList.remove('show');
         }
     }
-
-    // ... (resto de métodos sin cambios)
     
     async loadUsersFromSupabase() {
         try {
@@ -1643,6 +1504,151 @@ class SignalManager {
             }
             
             this.updateUserStatus();
+        }
+    }
+
+    // =============================================
+    // MÉTODOS DE GESTIÓN DE USUARIOS
+    // =============================================
+
+    async searchUser() {
+        const searchId = this.userSearchInput.value.trim();
+        if (!searchId) {
+            alert('Por favor, ingresa un ID de Telegram');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${SERVER_URL}/api/users/search/${searchId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                this.searchedUser = result.data;
+                this.displayUserSearchResult();
+            } else {
+                this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
+                this.userSearchResult.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error buscando usuario:', error);
+            this.userSearchResult.innerHTML = '<p class="error">Error al buscar usuario</p>';
+            this.userSearchResult.style.display = 'block';
+        }
+    }
+
+    displayUserSearchResult() {
+        if (!this.searchedUser) {
+            this.userSearchResult.innerHTML = `
+                <div class="user-not-found">
+                    <i class="fas fa-user-times"></i>
+                    <p>Usuario no encontrado</p>
+                    <p>El ID ${this.userSearchInput.value} no está registrado en el sistema</p>
+                </div>
+            `;
+        } else {
+            const isVip = this.searchedUser.is_vip;
+            const vipExpires = this.searchedUser.vip_expires_at ? new Date(this.searchedUser.vip_expires_at) : null;
+            const now = new Date();
+            const daysLeft = vipExpires ? Math.ceil((vipExpires - now) / (1000 * 60 * 60 * 24)) : 0;
+            
+            let vipStatus = 'No VIP';
+            let daysLeftHtml = '';
+            
+            if (isVip && vipExpires && vipExpires > now) {
+                vipStatus = 'Usuario VIP';
+                daysLeftHtml = `<div class="vip-time-remaining">Tiempo restante: <span class="days-left">${daysLeft} días</span></div>`;
+            } else if (isVip && vipExpires && vipExpires <= now) {
+                vipStatus = 'VIP Expirado';
+            }
+
+            this.userSearchResult.innerHTML = `
+                <div class="user-found">
+                    <div class="user-header">
+                        <i class="fas fa-user"></i>
+                        <h4>Usuario Encontrado</h4>
+                    </div>
+                    <div class="user-details">
+                        <p><strong>ID:</strong> ${this.searchedUser.telegram_id}</p>
+                        <p><strong>Nombre:</strong> ${this.searchedUser.first_name || 'No especificado'}</p>
+                        <p><strong>Usuario:</strong> @${this.searchedUser.username || 'No especificado'}</p>
+                        <p><strong>Estado:</strong> <span class="user-status ${isVip && vipExpires > now ? 'vip' : 'regular'}">${vipStatus}</span></p>
+                        ${daysLeftHtml}
+                    </div>
+                </div>
+            `;
+
+            // Mostrar botones según el estado VIP
+            this.userActions.style.display = 'flex';
+            this.makeVipBtn.style.display = (!isVip || (vipExpires && vipExpires <= now)) ? 'block' : 'none';
+            this.removeVipBtn.style.display = (isVip && vipExpires && vipExpires > now) ? 'block' : 'none';
+        }
+
+        this.userSearchResult.style.display = 'block';
+    }
+
+    async makeUserVip() {
+        if (!this.searchedUser) return;
+
+        const days = prompt('¿Por cuántos días quieres hacer VIP al usuario?', '30');
+        if (!days || isNaN(days)) return;
+
+        try {
+            const response = await fetch(`${SERVER_URL}/api/users/vip`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    telegramId: this.searchedUser.telegram_id,
+                    userId: this.currentUserId,
+                    days: parseInt(days)
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                // Recargar la información del usuario
+                await this.searchUser();
+            } else {
+                this.showNotification('Error al hacer VIP: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error haciendo usuario VIP:', error);
+            this.showNotification('Error al hacer VIP al usuario', 'error');
+        }
+    }
+
+    async removeUserVip() {
+        if (!this.searchedUser) return;
+
+        if (!confirm('¿Estás seguro de que quieres quitar el VIP a este usuario?')) return;
+
+        try {
+            const response = await fetch(`${SERVER_URL}/api/users/remove-vip`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    telegramId: this.searchedUser.telegram_id,
+                    userId: this.currentUserId
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                // Recargar la información del usuario
+                await this.searchUser();
+            } else {
+                this.showNotification('Error al quitar VIP: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error quitando VIP:', error);
+            this.showNotification('Error al quitar VIP al usuario', 'error');
         }
     }
 }
