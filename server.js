@@ -375,9 +375,10 @@ app.put('/api/signals/:id', async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
-        if (!['pending', 'profit', 'loss'].includes(status)) {
-            return res.status(400).json({ error: 'Estado inválido. Use: pending, profit o loss' });
-        }
+        // En el endpoint PUT /api/signals/:id
+if (!['pending', 'expired', 'profit', 'loss'].includes(status)) {
+    return res.status(400).json({ error: 'Estado inválido. Use: pending, expired, profit o loss' });
+}
 
         // Actualizar señal en Supabase
         const { data, error } = await supabase
