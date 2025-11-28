@@ -1212,6 +1212,17 @@ class SignalManager {
             if (response.ok) {
                 this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
                 
+                // Actualizar también en Supabase para sincronización en tiempo real
+                const { data, error } = await supabase
+                    .from('signals')
+                    .update({ status: status })
+                    .eq('id', operationId);
+                
+                if (error) {
+                    console.error('❌ [APP] Error actualizando en Supabase:', error);
+                }
+                
+                // Actualizar localmente
                 const signalIndex = this.signals.findIndex(s => s.id == operationId);
                 const operationIndex = this.operations.findIndex(o => o.id == operationId);
                 
@@ -1235,143 +1246,167 @@ class SignalManager {
             this.showNotification('Error al actualizar el estado', 'error');
         }
     }
+
     renderSignals() {
-    if (!this.signalsContainer) return;
-    
-    if(this.signals.length === 0) {
-        this.signalsContainer.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-satellite-dish"></i>
-                <p>Esperando señales de trading...</p>
-                <p>Las señales aparecerán aquí automáticamente</p>
-            </div>
-        `;
-        return;
-    }
-    
-    this.signalsContainer.innerHTML = this.signals.map(signal => {
-        const expiresDate = new Date(signal.expires);
-        const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-        const minutes = Math.floor(timeRemaining / 60);
-        const seconds = timeRemaining % 60;
-        const isExpired = timeRemaining <= 0;
+        if (!this.signalsContainer) return;
         
-        let statusClass = 'status-pending';
-        let statusText = 'PENDIENTE';
-        let statusIcon = '<i class="fas fa-clock"></i>';
-        let resultBadge = '';
-        
-        if (signal.status === 'profit') {
-            statusClass = 'status-profit';
-            statusText = 'GANADA';
-            statusIcon = '<i class="fas fa-check-circle"></i>';
-            resultBadge = '<div class="operation-result result-profit">PROFIT</div>';
-        } else if (signal.status === 'loss') {
-            statusClass = 'status-loss';
-            statusText = 'PERDIDA';
-            statusIcon = '<i class="fas fa-times-circle"></i>';
-            resultBadge = '<div class="operation-result result-loss">LOSS</div>';
-        } else if (isExpired && signal.status === 'pending') {
-            // Cuando expira, cambia automáticamente a estado "expired"
-            statusClass = 'status-expired';
-            statusText = 'EXPIRADA';
-            statusIcon = '<i class="fas fa-hourglass-end"></i>';
-            
-            // Actualizar el estado en el servidor si es necesario
-            if (this.isAdmin) {
-                this.updateSignalToExpired(signal.id);
-            }
+        if(this.signals.length === 0) {
+            this.signalsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-satellite-dish"></i>
+                    <p>Esperando señales de trading...</p>
+                    <p>Las señales aparecerán aquí automáticamente</p>
+                </div>
+            `;
+            return;
         }
         
-        // Mostrar botones de resultado SOLO para señales expiradas
-        const showAdminButtons = this.isAdmin && isExpired && signal.status === 'pending';
-        
-        return `
-            <div class="signal-card" data-signal-id="${signal.id}">
-                ${resultBadge}
-                <div class="signal-header">
-                    <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
-                    <div class="direction ${signal.direction}">
-                        <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
-                        <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
+        this.signalsContainer.innerHTML = this.signals.map(signal => {
+            const expiresDate = new Date(signal.expires);
+            const now = new Date();
+            const timeRemaining = Math.max(0, Math.floor((expiresDate - now) / 1000));
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            const isExpired = timeRemaining <= 0;
+            
+            // ACTUALIZACIÓN CRÍTICA: Si la señal está expirada y sigue como pending, actualizar estado
+            if (isExpired && signal.status === 'pending') {
+                signal.status = 'expired';
+                // Si es admin, actualizar también en el servidor
+                if (this.isAdmin) {
+                    this.updateSignalToExpired(signal.id);
+                }
+            }
+            
+            let statusClass = 'status-pending';
+            let statusText = 'PENDIENTE';
+            let statusIcon = '<i class="fas fa-clock"></i>';
+            let resultBadge = '';
+            
+            if (signal.status === 'profit') {
+                statusClass = 'status-profit';
+                statusText = 'GANADA';
+                statusIcon = '<i class="fas fa-check-circle"></i>';
+                resultBadge = '<div class="operation-result result-profit">PROFIT</div>';
+            } else if (signal.status === 'loss') {
+                statusClass = 'status-loss';
+                statusText = 'PERDIDA';
+                statusIcon = '<i class="fas fa-times-circle"></i>';
+                resultBadge = '<div class="operation-result result-loss">LOSS</div>';
+            } else if (signal.status === 'expired') {
+                statusClass = 'status-expired';
+                statusText = 'EXPIRADA';
+                statusIcon = '<i class="fas fa-hourglass-end"></i>';
+            }
+            
+            // MOSTRAR BOTONES DE ADMIN SOLO PARA SEÑALES EXPIRADAS
+            const showAdminButtons = this.isAdmin && signal.status === 'expired';
+            
+            return `
+                <div class="signal-card" data-signal-id="${signal.id}">
+                    ${resultBadge}
+                    <div class="signal-header">
+                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
+                        <div class="direction ${signal.direction}">
+                            <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
+                            <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
+                        </div>
                     </div>
-                </div>
-                <div class="signal-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Duración</span>
-                        <span class="detail-value">${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}</span>
+                    <div class="signal-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Duración</span>
+                            <span class="detail-value">${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Expira</span>
+                            <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Expira</span>
-                        <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
-                    </div>
-                </div>
-                ${!isExpired && signal.status === 'pending' ? `
-                    <div class="time-remaining" id="time-${signal.id}">
-                        <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
-                    </div>
-                ` : ''}
-                <div class="signal-status">
-                    <div class="status-badge ${statusClass}">
-                        ${statusIcon} ${statusText}
-                    </div>
-                    ${showAdminButtons ? `
-                        <div class="admin-controls">
-                            <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus('${signal.id}', 'profit')">
-                                <i class="fas fa-check"></i> Ganada
-                            </button>
-                            <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus('${signal.id}', 'loss')">
-                                <i class="fas fa-times"></i> Perdida
-                            </button>
+                    ${!isExpired && signal.status === 'pending' ? `
+                        <div class="time-remaining" id="time-${signal.id}">
+                            <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
                         </div>
                     ` : ''}
+                    <div class="signal-status">
+                        <div class="status-badge ${statusClass}">
+                            ${statusIcon} ${statusText}
+                        </div>
+                        ${showAdminButtons ? `
+                            <div class="admin-controls">
+                                <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus('${signal.id}', 'profit')">
+                                    <i class="fas fa-check"></i> Ganada
+                                </button>
+                                <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus('${signal.id}', 'loss')">
+                                    <i class="fas fa-times"></i> Perdida
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
-    
-    this.startTimeUpdates();
-}
-
-// Nuevo método para actualizar señales a expiradas
-async updateSignalToExpired(signalId) {
-    try {
-        const response = await fetch(`${SERVER_URL}/api/signals/${signalId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                status: 'expired',
-                userId: this.currentUserId
-            })
-        });
+            `;
+        }).join('');
         
-        if (response.ok) {
-            console.log(`✅ [APP] Señal ${signalId} actualizada a expirada`);
-        }
-    } catch (error) {
-        console.error('Error actualizando señal a expirada:', error);
+        this.startTimeUpdates();
     }
-}
+
+    // Nuevo método para actualizar señales a expiradas
+    async updateSignalToExpired(signalId) {
+        try {
+            console.log(`🔄 [APP] Actualizando señal ${signalId} a expirada en servidor`);
+            
+            const response = await fetch(`${SERVER_URL}/api/signals/${signalId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: 'expired',
+                    userId: this.currentUserId
+                })
+            });
+            
+            if (response.ok) {
+                console.log(`✅ [APP] Señal ${signalId} actualizada a expirada en servidor`);
+                
+                // Actualizar también en tiempo real para otros clientes
+                const { data, error } = await supabase
+                    .from('signals')
+                    .update({ status: 'expired' })
+                    .eq('id', signalId);
+                    
+                if (error) {
+                    console.error('❌ [APP] Error actualizando en Supabase:', error);
+                }
+            } else {
+                console.error('❌ [APP] Error en respuesta del servidor:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error actualizando señal a expirada:', error);
+        }
+    }
     
     startTimeUpdates() {
         setInterval(() => {
             this.signals.forEach(signal => {
                 if (signal.status === 'pending') {
                     const expiresDate = new Date(signal.expires);
-                    const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                    const now = new Date();
+                    const timeRemaining = Math.max(0, Math.floor((expiresDate - now) / 1000));
                     const minutes = Math.floor(timeRemaining / 60);
                     const seconds = timeRemaining % 60;
                     
                     const timeElement = document.getElementById(`time-${signal.id}`);
                     if (timeElement) {
-                        timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                    }
-                    
-                    if (timeRemaining <= 0 && signal.status === 'pending') {
-                        signal.status = 'expired';
-                        this.renderSignals();
+                        if (timeRemaining > 0) {
+                            timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                        } else {
+                            // Cuando expira, actualizar el estado
+                            signal.status = 'expired';
+                            if (this.isAdmin) {
+                                this.updateSignalToExpired(signal.id);
+                            }
+                            this.renderSignals();
+                        }
                     }
                 }
             });
