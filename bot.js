@@ -12,7 +12,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🤖 INICIANDO BOT CON SISTEMA DE RESULTADOS ===');
+console.log('=== 🤖 INICIANDO BOT MEJORADO ===');
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -50,8 +50,32 @@ function createMainKeyboard() {
             resize_keyboard: true,
             keyboard: [
                 [{ text: '📈 SEÑALES' }, { text: '💎 VIP' }],
-                [{ text: '🌐 WEBAPP' }, { text: '❓ AYUDA' }]
+                [{ text: '🌐 WEBAPP' }, { text: '❓ AYUDA' }],
+                [{ text: 'ℹ️ INFORMACIÓN' }, { text: '📊 PLATAFORMA' }]
             ]
+        }
+    };
+}
+
+function createPlatformKeyboard() {
+    return {
+        reply_markup: {
+            inline_keyboard: [[
+                { text: '🚀 REGISTRARSE EN OLYMPTRADE', url: 'https://olymptrade.com/pages/referral/?rf=108107566' }
+            ]]
+        }
+    };
+}
+
+function createVIPKeyboard(userId) {
+    return {
+        reply_markup: {
+            inline_keyboard: [[
+                { 
+                    text: '💎 SOLICITAR ACCESO VIP', 
+                    url: `https://t.me/share/url?url=Hola!%20Quiero%20acceder%20al%20plan%20VIP%20de%20Quantum%20Signal%20Trader.%20Mi%20ID%20es:%20${userId}`
+                }
+            ]]
         }
     };
 }
@@ -109,9 +133,15 @@ bot.onText(/\/start/, async (msg) => {
         created_at: new Date().toISOString()
     }).then(() => console.log(`✅ [BOT] Usuario ${userId} guardado`));
 
-    const welcomeMessage = `🤖 *Quantum Signal Trader*\n\n¡Hola *${userName}*! 👋`;
-    
+    const welcomeMessage = `🤖 *Quantum Signal Trader Pro*\n\n¡Hola *${userName}*! 👋\n\n*Tu ID:* \`${userId}\`\n\n🎯 *Sistema Profesional de Señales*:\n• 🤖 Bot automatizado\n• ⚡ Señales en tiempo real\n• 💰 Opciones binarias\n• 📊 Plataforma web integrada\n\n📈 *Horarios de Sesiones*:\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *La primera señal de cada sesión es GRATIS*`;
+
     await sendFastMessage(chatId, welcomeMessage, createMainKeyboard());
+    
+    // Enviar mensaje adicional sobre la plataforma
+    setTimeout(async () => {
+        const platformMessage = `📊 *PLATAFORMA RECOMENDADA*\n\nPara operar con nuestras señales, te recomendamos:\n\n🔗 *Olymptrade* - Plataforma regulada\n\n👉 Regístrate usando nuestro enlace oficial:`;
+        await sendFastMessage(chatId, platformMessage, createPlatformKeyboard());
+    }, 1000);
 });
 
 bot.on('message', async (msg) => {
@@ -126,7 +156,7 @@ bot.on('message', async (msg) => {
             await handleFastSignals(chatId, userId);
             break;
         case '💎 VIP':
-            await handleFastVIP(chatId);
+            await handleFastVIP(chatId, userId);
             break;
         case '🌐 WEBAPP':
             await handleFastWebApp(chatId, userId);
@@ -134,11 +164,17 @@ bot.on('message', async (msg) => {
         case '❓ AYUDA':
             await handleFastHelp(chatId);
             break;
+        case 'ℹ️ INFORMACIÓN':
+            await handleFastInfo(chatId);
+            break;
+        case '📊 PLATAFORMA':
+            await handleFastPlatform(chatId);
+            break;
     }
 });
 
 // =============================================
-// MANEJADORES DE COMANDOS
+// MANEJADORES DE COMANDOS MEJORADOS
 // =============================================
 
 async function handleFastSignals(chatId, userId) {
@@ -147,59 +183,74 @@ async function handleFastSignals(chatId, userId) {
             .from('signals')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(3);
+            .limit(5);
 
-        let message = `📊 *Últimas Señales*\n\n`;
+        let message = `📊 *ÚLTIMAS SEÑALES*\n\n`;
         
         if (signals?.length > 0) {
             signals.forEach(signal => {
                 const arrow = signal.direction === 'up' ? '🟢 ALZA' : '🔴 BAJA';
-                const status = signal.status === 'profit' ? '💰' : 
-                              signal.status === 'loss' ? '📉' : '⏳';
+                const status = signal.status === 'profit' ? '💰 GANADA' : 
+                              signal.status === 'loss' ? '📉 PERDIDA' : '⏳ PENDIENTE';
+                const time = new Date(signal.created_at).toLocaleTimeString();
                 
                 message += `${arrow} *${signal.asset}*\n`;
                 message += `⏱ ${signal.timeframe}min | ${status}\n`;
-                message += `ID: ${signal.id}\n`;
+                message += `🕐 ${time} | ID: ${signal.id}\n`;
                 message += `━━━━━━━━━━━━━━\n`;
             });
+            
+            message += `\n📈 *Próxima Sesión:*\n🕙 10:00 AM | 10:00 PM\n\n🎁 *Primera señal GRATIS en cada sesión*`;
         } else {
-            message += `No hay señales activas.\n`;
+            message += `No hay señales activas en este momento.\n\n`;
+            message += `📅 *Próximas Sesiones:*\n`;
+            message += `🕙 10:00 AM - Sesión Matutina\n`;
+            message += `🕙 10:00 PM - Sesión Nocturna\n\n`;
+            message += `🎯 La primera señal de cada sesión es GRATIS`;
         }
 
         await sendFastMessage(chatId, message);
         
     } catch (error) {
-        await sendFastMessage(chatId, '⚠️ Error cargando señales.');
+        await sendFastMessage(chatId, '⚠️ Error temporal cargando señales. Intenta nuevamente.');
     }
 }
 
-async function handleFastVIP(chatId) {
-    const message = `💎 *Plan VIP*\n\n• Todas las señales\n• Alertas instantáneas\n• Soporte prioritario\n\n*Precio: 5,000 CUP/mes*\n\n💬 Contacta: @Asche90`;
+async function handleFastVIP(chatId, userId) {
+    const message = `💎 *PLAN VIP - ACCESO COMPLETO*\n\n✨ *Beneficios Exclusivos:*\n\n• ✅ Todas las señales ilimitadas\n• ⚡ Alertas instantáneas\n• 🎯 Señales premium\n• 📊 Estadísticas avanzadas\n• 🔔 Soporte prioritario\n• 📈 Mejores oportunidades\n\n💰 *Inversión:* 5,000 CUP/mes\n\n👤 *Tu ID:* \`${userId}\`\n\n*¡Solicita tu acceso VIP ahora!* 🚀`;
     
-    await sendFastMessage(chatId, message, {
-        reply_markup: {
-            inline_keyboard: [[
-                { text: '💬 CONTACTAR', url: 'https://t.me/Asche90' }
-            ]]
-        }
-    });
+    await sendFastMessage(chatId, message, createVIPKeyboard(userId));
 }
 
 async function handleFastWebApp(chatId, userId) {
     const webAppUrl = `${RENDER_URL}?tgid=${userId}`;
-    const message = `🌐 *Plataforma Web*\n\nAccede a señales en tiempo real:`;
+    const message = `🌐 *PLATAFORMA WEB - QUANTUM TRADER*\n\n*Características Principales:*\n\n• 📱 Interfaz moderna y responsive\n• ⚡ Señales en tiempo real\n• 📊 Panel de estadísticas\n• 🔔 Sistema de alertas\n• 👑 Panel VIP integrado\n• 📈 Historial completo\n\n*Para recibir alertas:*\n1. Abre la plataforma\n2. Toca el botón \"PREPARADOS\"\n3. Recibe señales automáticamente\n\n*Tu acceso personalizado:*`;
     
     await sendFastMessage(chatId, message, {
         reply_markup: {
             inline_keyboard: [[
-                { text: '🚀 ABRIR PLATAFORMA', web_app: { url: webAppUrl } }
+                { text: '🚀 ABRIR PLATAFORMA WEB', web_app: { url: webAppUrl } }
             ]]
         }
     });
 }
 
 async function handleFastHelp(chatId) {
-    await sendFastMessage(chatId, '❓ *Ayuda*\n\nPara soporte contacta: @Asche90');
+    const message = `❓ *GUÍA COMPLETA - QUANTUM SIGNAL TRADER*\n\n*¿CÓMO FUNCIONA?*\n\n🤖 *EL BOT:*\n• Envía señales de trading automáticamente\n• Opera con opciones binarias\n• Horarios: 10AM y 10PM\n• Primera señal GRATIS por sesión\n\n📱 *BOTONES PRINCIPALES:*\n\n📈 *SEÑALES:*\nMuestra las últimas señales enviadas\n\n💎 *VIP:*\nAcceso a todas las señales ilimitadas\n\n🌐 *WEBAPP:*\nPlataforma web con interfaz completa\n\n❓ *AYUDA:*\nEsta guía de uso\n\nℹ️ *INFORMACIÓN:*\nDetalles del sistema\n\n📊 *PLATAFORMA:*\nEnlace para registrarse\n\n⚡ *PARA RECIBIR SEÑALES:*\n1. Abre la WEBAPP (botón 🌐 WEBAPP)\n2. Toca \"PREPARADOS\" para activar alertas\n3. Recibe señales automáticamente\n4. Opera en tu plataforma preferida\n\n📅 *HORARIOS DE SESIONES:*\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *LA PRIMERA SEÑAL DE CADA SESIÓN ES GRATIS*\n\n🔗 *PLATAFORMA RECOMENDADA:*\nOlymptrade - Regulada y confiable\n\n*¡Éxitos en tus operaciones!* 🚀`;
+    
+    await sendFastMessage(chatId, message);
+}
+
+async function handleFastInfo(chatId) {
+    const message = `ℹ️ *INFORMACIÓN DEL SISTEMA*\n\n*QUANTUM SIGNAL TRADER PRO*\n\n🎯 *Qué Hacemos:*\nProveemos señales de trading automatizadas para opciones binarias con alta precisión.\n\n⏰ *Horarios Operativos:*\n• 🕙 10:00 AM - Sesión Matutina\n• 🕙 10:00 PM - Sesión Nocturna\n\n💰 *Modelo de Servicio:*\n• 🎁 Primera señal de cada sesión: GRATIS\n• 💎 Acceso completo: Plan VIP\n\n📊 *Características Técnicas:*\n• 🤖 Bot completamente automatizado\n• ⚡ Señales en tiempo real\n• 📱 Plataforma web responsive\n• 🔔 Sistema de alertas instantáneas\n• 📈 Panel de estadísticas\n\n🎯 *Recomendaciones:*\n• Opera con capital que puedas arriesgar\n• Usa gestión de riesgo\n• Sigue las señales disciplinadamente\n• La primera señal de cada sesión es gratuita\n\n*¡Trading responsable y exitoso!* 📈`;
+    
+    await sendFastMessage(chatId, message);
+}
+
+async function handleFastPlatform(chatId) {
+    const message = `📊 *PLATAFORMA DE TRADING RECOMENDADA*\n\n*OLYMPTRADE* - Plataforma Regulada\n\n✨ *Ventajas:*\n• 📈 Regulada internacionalmente\n• 💰 Múltiples métodos de pago\n• 📱 App móvil disponible\n• 🎯 Interfaz intuitiva\n• 🔒 Seguridad garantizada\n\n💰 *Depósito Mínimo:* $10\n\n👉 *Regístrate usando nuestro enlace oficial:*`;
+    
+    await sendFastMessage(chatId, message, createPlatformKeyboard());
 }
 
 // =============================================
@@ -451,7 +502,7 @@ async function broadcastSessionStart() {
     const { data: users } = await supabase.from('users').select('telegram_id');
     if (!users) return;
 
-    const message = `🚀 *SESIÓN INICIADA*\n\n¡La sesión de trading ha comenzado! Prepárate para las señales. ⚡`;
+    const message = `🚀 *SESIÓN INICIADA*\n\n¡La sesión de trading ha comenzado! Prepárate para las señales. ⚡\n\n🎁 *Recuerda:* La primera señal es GRATIS`;
     
     users.forEach(user => {
         sendFastMessage(user.telegram_id, message).catch(() => null);
@@ -462,7 +513,7 @@ async function broadcastSessionEnd() {
     const { data: users } = await supabase.from('users').select('telegram_id');
     if (!users) return;
 
-    const message = `🏁 *SESIÓN FINALIZADA*\n\nLa sesión de trading ha terminado. ¡Gracias por participar!`;
+    const message = `🏁 *SESIÓN FINALIZADA*\n\nLa sesión de trading ha terminado. ¡Gracias por participar!\n\n📅 *Próxima Sesión:*\n🕙 10:00 AM | 10:00 PM`;
     
     users.forEach(user => {
         sendFastMessage(user.telegram_id, message).catch(() => null);
@@ -474,11 +525,13 @@ async function broadcastSessionEnd() {
 // =============================================
 
 bot.getMe().then((me) => {
-    console.log('🎉 === BOT CON SISTEMA DE RESULTADOS OPERATIVO ===');
+    console.log('🎉 === BOT MEJORADO OPERATIVO ===');
     console.log(`🤖 Bot: @${me.username}`);
     console.log('📊 Sistema de IDs y resultados activado');
     console.log('⚡ Comandos admin: /resultado <ID> <profit/loss>');
     console.log('⚡ Comandos admin: /pendientes');
+    console.log('🕙 Horarios: 10AM y 10PM');
+    console.log('🎁 Primera señal gratis por sesión');
 });
 
 module.exports = bot;
