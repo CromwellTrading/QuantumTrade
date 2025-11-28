@@ -242,6 +242,106 @@
             </button>
         </div>
     </div>
+    <!-- Agregar esto en tu index.html antes del cierre del body -->
+<div id="termsModal" class="modal">
+    <div class="modal-content terms-content">
+        <div class="terms-header">
+            <h2><i class="fas fa-scale-balanced"></i> TÉRMINOS Y CONDICIONES</h2>
+            <p class="terms-subtitle">Quantum Signal Trader - Última actualización: Enero 2024</p>
+        </div>
+        
+        <div class="terms-body">
+            <div class="terms-section">
+                <h3><i class="fas fa-exclamation-triangle"></i> DECLARACIÓN DE RESPONSABILIDAD</h3>
+                <p>Al utilizar Quantum Signal Trader, usted acepta expresamente los siguientes términos y condiciones:</p>
+                
+                <div class="terms-list">
+                    <div class="term-item">
+                        <h4>1. Responsabilidad del Usuario</h4>
+                        <p>El usuario reconoce y acepta que el uso de Quantum Signal Trader es bajo su exclusiva responsabilidad. No nos hacemos responsables del uso indebido, incorrecto o inapropiado que pueda realizar con las señales proporcionadas.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>2. Gestión de Capital</h4>
+                        <p>El usuario es el único responsable de la gestión de su capital y del monto invertido en cada operación. Quantum Signal Trader solo proporciona señales de dirección (CALL/PUT), activo y timeframe, mas no recomendaciones sobre montos específicos a invertir.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>3. Pérdidas y Ganancias</h4>
+                        <p>No nos hacemos responsables de las pérdidas económicas que puedan derivarse del uso de las señales. Asimismo, no reclamamos derecho alguno sobre las ganancias obtenidas por el usuario. El trading conlleva riesgos significativos y puede resultar en la pérdida total del capital invertido.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>4. Naturaleza de las Señales</h4>
+                        <p>Las señales proporcionadas son meramente informativas y no constituyen asesoramiento financiero, recomendación de inversión u oferta de compra/venta. El usuario debe realizar su propio análisis y considerar su situación financiera personal antes de operar.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>5. Exactitud de las Señales</h4>
+                        <p>Aunque nos esforzamos por proporcionar señales precisas, no garantizamos la exactitud, integridad o oportunidad de la información proporcionada. El rendimiento pasado no es indicador de resultados futuros.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>6. Conocimiento del Mercado</h4>
+                        <p>El usuario declara poseer el conocimiento necesario sobre los mercados financieros y los instrumentos con los que opera. En caso contrario, se recomienda buscar asesoramiento profesional antes de utilizar este servicio.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>7. Edad y Capacidad Legal</h4>
+                        <p>El usuario declara ser mayor de edad y tener plena capacidad legal para operar en los mercados financieros según las leyes de su jurisdicción.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>8. Cumplimiento Normativo</h4>
+                        <p>Es responsabilidad del usuario verificar que el uso de esta aplicación cumple con las leyes y regulaciones de su país de residencia.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>9. Modificaciones del Servicio</h4>
+                        <p>Nos reservamos el derecho de modificar, suspender o discontinuar el servicio en cualquier momento, sin previo aviso.</p>
+                    </div>
+                    
+                    <div class="term-item">
+                        <h4>10. Aceptación de Riesgos</h4>
+                        <p>El usuario reconoce que el trading es una actividad de alto riesgo y acepta que puede perder parte o la totalidad de su capital invertido. Solo debe operar con capital que esté dispuesto a perder.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="terms-warning">
+                <div class="warning-icon">
+                    <i class="fas fa-radiation"></i>
+                </div>
+                <div class="warning-content">
+                    <h4>ADVERTENCIA IMPORTANTE</h4>
+                    <p>El trading con opciones binarias, Forex y CFD conlleva un alto nivel de riesgo y puede no ser adecuado para todos los inversores. Existe la posibilidad de que sufra una pérdida igual o superior a su inversión inicial. No invierta dinero que no pueda permitirse perder.</p>
+                    <p>Antes de decidir operar, debe asegurarse de entender los riesgos involucrados y considerar su nivel de experiencia, sus objetivos de inversión y buscar asesoramiento financiero independiente si es necesario.</p>
+                </div>
+            </div>
+            
+            <div class="terms-acceptance">
+                <label class="accept-checkbox">
+                    <input type="checkbox" id="acceptTerms">
+                    <span class="checkmark"></span>
+                    <span class="accept-text">
+                        He leído, comprendido y acepto todos los términos y condiciones anteriores. 
+                        Entiendo los riesgos involucrados y soy plenamente responsable de mis 
+                        decisiones de trading.
+                    </span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="terms-footer">
+            <button id="confirmTerms" class="btn-primary" disabled>
+                <i class="fas fa-check-circle"></i> ACEPTAR Y CONTINUAR
+            </button>
+            <button id="declineTerms" class="btn-secondary">
+                <i class="fas fa-times-circle"></i> RECHAZAR Y SALIR
+            </button>
+        </div>
+    </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
