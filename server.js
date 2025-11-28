@@ -16,12 +16,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🚀 INICIANDO SERVIDOR WEB ===');
-console.log('🔧 [SERVER] Configuración cargada:');
-console.log('🔧 [SERVER] SUPABASE_URL:', SUPABASE_URL ? '✅ Configurado' : '❌ Faltante');
-console.log('🔧 [SERVER] SUPABASE_KEY:', SUPABASE_KEY ? '✅ Configurado' : '❌ Faltante');
-console.log('🔧 [SERVER] ADMIN_ID:', ADMIN_ID);
-console.log('🔧 [SERVER] RENDER_URL:', RENDER_URL);
+console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE RESULTADOS ===');
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -38,79 +33,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 console.log('✅ [SERVER] Conexión a Supabase establecida');
 
 // =============================================
-// FUNCIÓN PARA INICIALIZAR USUARIO ADMIN
-// =============================================
-
-async function initializeAdminUser() {
-    try {
-        console.log('🔧 [SERVER] Verificando usuario administrador...');
-        
-        // Verificar si el admin ya existe
-        const { data: existingAdmin, error: findError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('telegram_id', ADMIN_ID)
-            .single();
-
-        if (findError && findError.code === 'PGRST116') {
-            // Admin no existe, crearlo
-            console.log('👑 [SERVER] Creando usuario administrador...');
-            
-            const adminExpiry = new Date();
-            adminExpiry.setFullYear(adminExpiry.getFullYear() + 10); // VIP por 10 años
-            
-            const { data: newAdmin, error: createError } = await supabase
-                .from('users')
-                .insert([
-                    {
-                        telegram_id: ADMIN_ID,
-                        username: 'Asche90',
-                        first_name: '☣︎𝐀𝐬𝐜𝐡𝐞᭄ᬊ𝐀𝐬𝐤𝐞𝐥𝐚𝐝𝐝𝐞n☬',
-                        is_admin: true,
-                        is_vip: true,
-                        vip_expires_at: adminExpiry.toISOString(),
-                        created_at: new Date().toISOString()
-                    }
-                ])
-                .select();
-
-            if (createError) {
-                console.error('❌ [SERVER] Error creando admin:', createError);
-            } else {
-                console.log('✅ [SERVER] Usuario administrador creado exitosamente:', newAdmin);
-            }
-        } else if (existingAdmin) {
-            console.log('✅ [SERVER] Usuario administrador ya existe:', existingAdmin.telegram_id);
-            
-            // Asegurarse de que el admin tenga los privilegios correctos
-            if (!existingAdmin.is_admin || !existingAdmin.is_vip) {
-                console.log('🔄 [SERVER] Actualizando privilegios de administrador...');
-                
-                const adminExpiry = new Date();
-                adminExpiry.setFullYear(adminExpiry.getFullYear() + 10);
-                
-                const { error: updateError } = await supabase
-                    .from('users')
-                    .update({
-                        is_admin: true,
-                        is_vip: true,
-                        vip_expires_at: adminExpiry.toISOString()
-                    })
-                    .eq('telegram_id', ADMIN_ID);
-                
-                if (updateError) {
-                    console.error('❌ [SERVER] Error actualizando admin:', updateError);
-                } else {
-                    console.log('✅ [SERVER] Privilegios de administrador actualizados');
-                }
-            }
-        }
-    } catch (error) {
-        console.error('❌ [SERVER] Error en initializeAdminUser:', error);
-    }
-}
-
-// =============================================
 // CONFIGURACIÓN DEL SERVIDOR WEB
 // =============================================
 
@@ -119,44 +41,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Middleware de logging para TODAS las requests
+// Middleware de logging
 app.use((req, res, next) => {
     console.log(`🌐 [SERVER] ${new Date().toISOString()} - ${req.method} ${req.url}`);
-    console.log(`🌐 [SERVER] Query parameters:`, req.query);
-    console.log(`🌐 [SERVER] Headers:`, {
-        'user-agent': req.headers['user-agent'],
-        'referer': req.headers['referer'],
-        'origin': req.headers['origin']
-    });
     next();
 });
 
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
-    console.log(`📄 [SERVER] Sirviendo index.html`);
-    console.log(`📄 [SERVER] Parámetros recibidos en /:`, req.query);
-    console.log(`📄 [SERVER] tgid parameter:`, req.query.tgid);
-    
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Health check mejorado
+// Health check
 app.get('/health', (req, res) => {
-    console.log(`🏥 [SERVER] Health check - Query:`, req.query);
-    
-    const healthData = {
+    res.status(200).json({
         status: 'OK',
-        message: 'Quantum Signal Trader is running',
-        timestamp: new Date().toISOString(),
-        uptime: Math.round(process.uptime() / 60) + ' minutos',
-        query_params: req.query
-    };
-    
-    res.status(200).json(healthData);
+        message: 'Quantum Signal Trader with Results System is running',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // =============================================
-// ENDPOINT MEJORADO PARA INFORMACIÓN DE USUARIO
+// ENDPOINTS DE USUARIO
 // =============================================
 
 app.get('/api/user/:userId', async (req, res) => {
@@ -164,14 +70,9 @@ app.get('/api/user/:userId', async (req, res) => {
         const { userId } = req.params;
         
         console.log(`👤 [SERVER] GET /api/user/${userId}`);
-        console.log(`👤 [SERVER] ¿Es ADMIN_ID? ${userId === ADMIN_ID}`);
-        console.log(`👤 [SERVER] ADMIN_ID configurado: ${ADMIN_ID}`);
-        console.log(`👤 [SERVER] userId recibido: ${userId} (tipo: ${typeof userId})`);
         
-        // VERIFICACIÓN ROBUSTA DE ADMIN
+        // Verificación de admin
         const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
-        
-        console.log(`🔍 [SERVER] Buscando usuario en BD: ${userId}`);
         
         // Obtener información del usuario de Supabase
         const { data: user, error } = await supabase
@@ -181,10 +82,7 @@ app.get('/api/user/:userId', async (req, res) => {
             .single();
 
         if (error) {
-            console.error(`❌ [SERVER] Error en consulta de usuario:`, error);
             if (error.code === 'PGRST116') {
-                console.log(`👤 [SERVER] Usuario ${userId} no encontrado en BD, creando nuevo...`);
-                
                 // Si no existe, crear usuario con privilegios de admin si corresponde
                 const userData = {
                     telegram_id: userId,
@@ -196,20 +94,15 @@ app.get('/api/user/:userId', async (req, res) => {
                     created_at: new Date().toISOString()
                 };
                 
-                console.log(`✅ [SERVER] Datos de usuario (nuevo):`, userData);
                 return res.json({ success: true, data: userData });
             } else {
                 throw error;
             }
         }
 
-        // Si el usuario existe en la BD, USAR LOS DATOS DEL SERVIDOR COMO ÚNICA FUENTE DE VERDAD
+        // Si el usuario existe en la BD
         const finalIsAdmin = user.is_admin || isAdminByID;
         const finalIsVip = user.is_vip || isAdminByID;
-
-        console.log(`🔍 [SERVER] Usuario BD - is_admin: ${user.is_admin}, is_vip: ${user.is_vip}`);
-        console.log(`🔍 [SERVER] Por ID - isAdminByID: ${isAdminByID}`);
-        console.log(`🔍 [SERVER] Resultado final - Admin: ${finalIsAdmin}, VIP: ${finalIsVip}`);
 
         const userData = {
             telegram_id: user.telegram_id,
@@ -219,8 +112,6 @@ app.get('/api/user/:userId', async (req, res) => {
             username: user.username,
             first_name: user.first_name
         };
-
-        console.log(`✅ [SERVER] Datos de usuario finales:`, userData);
         
         res.json({ success: true, data: userData });
     } catch (error) {
@@ -230,22 +121,17 @@ app.get('/api/user/:userId', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE ADMINISTRACIÓN (SOLO ADMIN)
+// ENDPOINTS DE ADMINISTRACIÓN
 // =============================================
 
 // Middleware para verificar admin
 async function verifyAdmin(userId) {
-    console.log(`🔐 [SERVER] Verificando permisos de admin para: ${userId}`);
-    
-    // Verificación directa por ID
     const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
     
     if (isAdminByID) {
-        console.log(`✅ [SERVER] Usuario ${userId} es admin por ID`);
         return true;
     }
     
-    // Verificar en base de datos por si acaso
     try {
         const { data: user, error } = await supabase
             .from('users')
@@ -254,14 +140,10 @@ async function verifyAdmin(userId) {
             .single();
 
         if (error || !user) {
-            console.log(`❌ [SERVER] Usuario no encontrado o error:`, error);
             return false;
         }
 
-        const isAdmin = user.is_admin;
-        console.log(`🔍 [SERVER] Usuario ${userId} - is_admin en BD: ${isAdmin}`);
-        
-        return isAdmin;
+        return user.is_admin;
     } catch (error) {
         console.error('❌ [SERVER] Error verificando admin:', error);
         return false;
@@ -275,10 +157,8 @@ app.get('/api/users', async (req, res) => {
         
         console.log(`👥 [SERVER] GET /api/users - Solicitado por: ${userId}`);
         
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -305,10 +185,8 @@ app.get('/api/users/search/:telegramId', async (req, res) => {
         
         console.log(`🔍 [SERVER] Buscando usuario: ${telegramId} - Solicitado por: ${userId}`);
         
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -321,8 +199,6 @@ app.get('/api/users/search/:telegramId', async (req, res) => {
         if (error && error.code !== 'PGRST116') {
             throw error;
         }
-
-        console.log(`✅ [SERVER] Búsqueda completada - Usuario encontrado: ${!!user}`);
         
         res.status(200).json({ 
             success: true, 
@@ -342,10 +218,8 @@ app.post('/api/users/vip', async (req, res) => {
 
         console.log(`👑 [SERVER] Haciendo VIP usuario: ${telegramId} por ${days} días - Solicitado por: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -362,7 +236,6 @@ app.post('/api/users/vip', async (req, res) => {
         let result;
         if (findError && findError.code === 'PGRST116') {
             // Usuario no existe, crear uno nuevo
-            console.log(`👤 [SERVER] Creando nuevo usuario VIP: ${telegramId}`);
             result = await supabase
                 .from('users')
                 .insert({
@@ -374,7 +247,6 @@ app.post('/api/users/vip', async (req, res) => {
                 .select();
         } else {
             // Usuario existe, actualizar
-            console.log(`👤 [SERVER] Actualizando usuario existente a VIP: ${telegramId}`);
             result = await supabase
                 .from('users')
                 .update({ 
@@ -407,10 +279,8 @@ app.post('/api/users/remove-vip', async (req, res) => {
 
         console.log(`👑 [SERVER] Quitando VIP a usuario: ${telegramId} - Solicitado por: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -439,7 +309,7 @@ app.post('/api/users/remove-vip', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES
+// ENDPOINTS DE SEÑALES CON SISTEMA DE RESULTADOS
 // =============================================
 
 // Endpoint para enviar señales (solo admin)
@@ -449,15 +319,12 @@ app.post('/api/signals', async (req, res) => {
 
         console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min - Solicitado por: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
         if (!asset || !timeframe || !direction) {
-            console.log(`❌ [SERVER] Faltan campos requeridos para señal`);
             return res.status(400).json({ error: 'Faltan campos requeridos' });
         }
 
@@ -482,7 +349,7 @@ app.post('/api/signals', async (req, res) => {
 
         if (error) throw error;
 
-        console.log('✅ [SERVER] Señal enviada correctamente:', asset, direction, timeframe + 'min');
+        console.log('✅ [SERVER] Señal enviada correctamente con ID:', data[0].id);
         
         res.status(200).json({ 
             success: true, 
@@ -495,7 +362,7 @@ app.post('/api/signals', async (req, res) => {
     }
 });
 
-// Endpoint para actualizar estado de una señal (solo admin)
+// Endpoint para actualizar estado de una señal (solo admin) - MEJORADO
 app.put('/api/signals/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -503,11 +370,13 @@ app.put('/api/signals/:id', async (req, res) => {
 
         console.log(`🔄 [SERVER] Actualizando señal ${id} a estado: ${status} - Solicitado por: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        if (!['pending', 'profit', 'loss'].includes(status)) {
+            return res.status(400).json({ error: 'Estado inválido. Use: pending, profit o loss' });
         }
 
         // Actualizar señal en Supabase
@@ -519,15 +388,51 @@ app.put('/api/signals/:id', async (req, res) => {
 
         if (error) throw error;
 
-        console.log(`✅ [SERVER] Señal ${id} actualizada a: ${status}`);
-        
-        res.status(200).json({ 
-            success: true, 
-            data,
-            message: `Estado actualizado a: ${status}`
-        });
+        if (data && data.length > 0) {
+            console.log(`✅ [SERVER] Señal ${id} actualizada a: ${status}`);
+            
+            res.status(200).json({ 
+                success: true, 
+                data,
+                message: `Estado actualizado a: ${status}`
+            });
+        } else {
+            res.status(404).json({ 
+                success: false, 
+                error: 'Señal no encontrada'
+            });
+        }
     } catch (error) {
         console.error('❌ [SERVER] Error actualizando señal:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// NUEVO: Endpoint para obtener señales pendientes de resultado
+app.get('/api/signals/pending', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        
+        console.log(`📋 [SERVER] Obteniendo señales pendientes - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const { data, error } = await supabase
+            .from('signals')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log(`✅ [SERVER] ${data?.length || 0} señales pendientes obtenidas`);
+        
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo señales pendientes:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -558,17 +463,14 @@ app.get('/api/signals', async (req, res) => {
 // ENDPOINTS DE SESIONES Y NOTIFICACIONES
 // =============================================
 
-// Endpoint para notificar a los clientes (10 minutos)
 app.post('/api/notify', async (req, res) => {
     try {
         const { userId } = req.body;
 
         console.log(`🔔 [SERVER] Notificación de 10 minutos solicitada por: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -584,17 +486,14 @@ app.post('/api/notify', async (req, res) => {
     }
 });
 
-// Endpoint para iniciar sesión
 app.post('/api/sessions/start', async (req, res) => {
     try {
         const { userId } = req.body;
 
         console.log(`▶️ [SERVER] Iniciando sesión para usuario: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -610,17 +509,14 @@ app.post('/api/sessions/start', async (req, res) => {
     }
 });
 
-// Endpoint para finalizar sesión
 app.post('/api/sessions/end', async (req, res) => {
     try {
         const { userId } = req.body;
 
         console.log(`⏹️ [SERVER] Finalizando sesión para usuario: ${userId}`);
 
-        // Verificar permisos de admin
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
@@ -637,54 +533,16 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINT PARA DEBUG
-// =============================================
-
-app.get('/api/debug/request', (req, res) => {
-    const debugInfo = {
-        timestamp: new Date().toISOString(),
-        method: req.method,
-        url: req.url,
-        query: req.query,
-        params: req.params,
-        headers: {
-            'user-agent': req.headers['user-agent'],
-            'referer': req.headers['referer'],
-            'origin': req.headers['origin'],
-            'host': req.headers['host']
-        },
-        body: req.body
-    };
-    
-    console.log(`🐛 [DEBUG] Información completa de request:`, debugInfo);
-    
-    res.json({ 
-        success: true, 
-        message: 'Debug information',
-        data: debugInfo 
-    });
-});
-
-// =============================================
 // INICIO DEL SERVIDOR
 // =============================================
 
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`✅ [SERVER] Servidor web ejecutándose en puerto ${PORT}`);
-    console.log('🚀 [SERVER] Servidor completamente operativo');
+    console.log('🚀 [SERVER] Sistema de resultados activado');
     console.log(`🌐 [SERVER] URL: ${RENDER_URL}`);
-    
-    // Inicializar el usuario admin al arrancar el servidor
-    await initializeAdminUser();
 });
 
-// =============================================
-// KEEP-ALIVE PARA PREVENIR SUSPENSIÓN
-// =============================================
-
-console.log('🔧 [SERVER] Configurando sistema keep-alive...');
-
-// Función para mantener el servidor activo
+// Keep-alive para prevenir suspensión
 const keepAlive = async () => {
     try {
         const response = await fetch(`${RENDER_URL}/health`);
@@ -693,140 +551,6 @@ const keepAlive = async () => {
         console.error('❌ [KEEP-ALIVE] Error:', error.message);
     }
 };
-// Añadir al servidor existente (en el archivo server.js)
 
-// =============================================
-// ENDPOINT PARA OBTENER SEÑALES EN TIEMPO REAL
-// =============================================
-
-app.get('/api/realtime/signals', async (req, res) => {
-    try {
-        const { userId, lastUpdate } = req.query;
-        
-        console.log(`📡 [SERVER] GET /api/realtime/signals - Usuario: ${userId}, Última actualización: ${lastUpdate}`);
-        
-        // Obtener señales desde la última actualización
-        let query = supabase
-            .from('signals')
-            .select('*')
-            .order('created_at', { ascending: false });
-            
-        if (lastUpdate) {
-            query = query.gt('created_at', lastUpdate);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) throw error;
-        
-        console.log(`✅ [SERVER] ${data?.length || 0} señales nuevas obtenidas`);
-        
-        res.status(200).json({ 
-            success: true, 
-            data,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error('❌ [SERVER] Error obteniendo señales en tiempo real:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// =============================================
-// ENDPOINT PARA GUARDAR SESIONES EN BD
-// =============================================
-
-app.post('/api/sessions/save', async (req, res) => {
-    try {
-        const { userId, sessionData } = req.body;
-
-        console.log(`💾 [SERVER] Guardando sesión para usuario: ${userId}`);
-
-        // Verificar permisos de admin
-        const isAdmin = await verifyAdmin(userId);
-        if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        // Guardar sesión en la base de datos
-        const { data, error } = await supabase
-            .from('sessions')
-            .insert({
-                user_id: userId,
-                session_data: sessionData,
-                created_at: new Date().toISOString()
-            })
-            .select();
-
-        if (error) throw error;
-
-        console.log(`✅ [SERVER] Sesión guardada para admin: ${userId}`);
-        
-        res.status(200).json({ 
-            success: true,
-            data,
-            message: 'Sesión guardada correctamente'
-        });
-    } catch (error) {
-        console.error('❌ [SERVER] Error guardando sesión:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// =============================================
-// ENDPOINT PARA CARGAR SESIONES DESDE BD
-// =============================================
-
-app.get('/api/sessions/load', async (req, res) => {
-    try {
-        const { userId } = req.query;
-
-        console.log(`📥 [SERVER] Cargando sesión para usuario: ${userId}`);
-
-        // Verificar permisos de admin
-        const isAdmin = await verifyAdmin(userId);
-        if (!isAdmin) {
-            console.log(`❌ [SERVER] Usuario ${userId} no tiene permisos de admin`);
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        // Cargar última sesión del usuario
-        const { data, error } = await supabase
-            .from('sessions')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (error && error.code !== 'PGRST116') {
-            throw error;
-        }
-
-        console.log(`✅ [SERVER] Sesión cargada para admin: ${userId}`);
-        
-        res.status(200).json({ 
-            success: true,
-            data: data || null,
-            message: data ? 'Sesión cargada correctamente' : 'No hay sesiones guardadas'
-        });
-    } catch (error) {
-        console.error('❌ [SERVER] Error cargando sesión:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Ejecutar keep-alive cada 5 minutos
 setInterval(keepAlive, 5 * 60 * 1000);
-
 console.log('✅ [SERVER] Sistema keep-alive configurado');
-
-// Manejo de errores
-process.on('uncaughtException', (error) => {
-    console.error('❌ [SERVER] Error no capturado:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ [SERVER] Promise rechazada:', reason);
-});
