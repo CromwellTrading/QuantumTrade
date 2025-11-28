@@ -1167,4 +1167,68 @@ button:hover {
         margin-bottom: 10px;
         text-align: center;
     }
+/* AÑADIR AL FINAL DEL ARCHIVO CSS EXISTENTE */
+
+/* ANIMACIONES MÁS RÁPIDAS */
+.signal-alert {
+    transition: transform 0.1s ease !important;
+}
+
+.signal-alert.show {
+    transform: translate(-50%, -50%) scale(1) !important;
+}
+
+.session-alert {
+    z-index: 2001;
+}
+
+/* NOTIFICACIONES MÁS RÁPIDAS */
+.notification {
+    transition: transform 0.2s ease !important;
+}
+
+/* EFECTOS DE PERFORMANCE */
+.signal-card {
+    will-change: transform;
+}
+
+.particle {
+    will-change: transform;
+}
+
+/* ANIMACIONES OPTIMIZADAS */
+@keyframes ultraPulse {
+    0%, 100% { 
+        box-shadow: 0 0 5px rgba(0, 240, 255, 0.5);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 20px rgba(0, 240, 255, 0.8);
+        transform: scale(1.02);
+    }
+}
+
+.time-remaining {
+    animation: ultraPulse 1.5s infinite;
+}
+
+/* BOTONES MÁS RESPONSIVOS */
+button {
+    transition: all 0.15s ease !important;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* MEJORAS DE RENDIMIENTO PARA MÓVILES */
+@media (max-width: 768px) {
+    .signal-alert {
+        width: 95% !important;
+        padding: 20px !important;
+    }
+    
+    .signal-alert .asset {
+        font-size: 2rem !important;
+    }
 }
