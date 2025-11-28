@@ -103,7 +103,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - COMPLETAMENTE CORREGIDA
+// CLASE SIGNAL MANAGER - OPTIMIZADA PARA VELOCIDAD
 // =============================================
 
 class SignalManager {
@@ -132,12 +132,13 @@ class SignalManager {
             this.updateStats();
             this.initChart();
             
-            // Cargar datos del usuario
-            this.loadUserData();
-            this.loadInitialSignals();
-            this.setupRealtimeSubscription();
-            this.checkServerConnection();
+            // Cargar datos del usuario - PRIORIDAD MÁXIMA
+            this.loadUserData().then(() => {
+                this.loadInitialSignals();
+                this.setupRealtimeSubscription();
+            });
             
+            this.checkServerConnection();
             setInterval(() => this.checkServerConnection(), 30000);
             
         } catch (error) {
@@ -155,30 +156,31 @@ class SignalManager {
         try {
             console.log('🔍 [APP] Cargando datos del usuario desde servidor:', this.currentUserId);
             
-            const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
+            // VERIFICACIÓN DIRECTA - MÁS RÁPIDA
+            this.isAdmin = String(this.currentUserId).trim() === String(ADMIN_ID).trim();
+            this.isVIP = this.isAdmin; // Admin es automáticamente VIP
             
-            const response = await fetch(apiUrl);
+            console.log('✅ [APP] Estados calculados - Admin:', this.isAdmin, 'VIP:', this.isVIP);
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Intentar obtener datos adicionales del servidor
+            try {
+                const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
+                const response = await fetch(apiUrl);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        this.userData = result.data;
+                        // USAR DATOS DEL SERVIDOR SI ESTÁN DISPONIBLES
+                        this.isAdmin = Boolean(result.data.is_admin) || this.isAdmin;
+                        this.isVIP = Boolean(result.data.is_vip) || this.isVIP;
+                        console.log('✅ [APP] Datos del servidor aplicados');
+                    }
+                }
+            } catch (serverError) {
+                console.log('ℹ️ [APP] No se pudieron obtener datos adicionales del servidor, usando verificación local');
             }
             
-            const result = await response.json();
-            
-            if (result.success) {
-                this.userData = result.data;
-                
-                console.log('🔍 [APP] Datos completos del servidor:', result.data);
-                
-                // USAR EXCLUSIVAMENTE LOS DATOS DEL SERVIDOR
-                this.isAdmin = Boolean(result.data.is_admin);
-                this.isVIP = Boolean(result.data.is_vip);
-                
-                console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
-                
-            } else {
-                console.error('❌ [APP] Error en respuesta del servidor:', result);
-            }
         } catch (error) {
             console.error('❌ [APP] Error cargando datos del usuario:', error);
         } finally {
@@ -194,7 +196,7 @@ class SignalManager {
                 .from('signals')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(20); // Aumentar límite para más historial
             
             if (error) throw error;
             
@@ -649,9 +651,389 @@ class SignalManager {
     }
 
     // =============================================
-    // MÉTODOS DE GESTIÓN DE SEÑALES - CORREGIDOS
+    // SUSCRIPCIÓN EN TIEMPO REAL - MÁXIMA VELOCIDAD
     // =============================================
+    
+    setupRealtimeSubscription() {
+        console.log('📡 [APP] Configurando suscripción en tiempo real ULTRA-RÁPIDA');
+        
+        // Suscripción a nuevas señales - CON MÁXIMA PRIORIDAD
+        const subscription = supabase
+            .channel('ultra-fast-signals')
+            .on('postgres_changes', 
+                { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'signals' 
+                }, 
+                (payload) => {
+                    console.log('🆕 [REALTIME] Nueva señal detectada INMEDIATAMENTE:', payload.new);
+                    this.handleNewSignalUltraFast(payload.new);
+                }
+            )
+            .on('postgres_changes', 
+                { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'signals' 
+                }, 
+                (payload) => {
+                    console.log('🔄 [REALTIME] Señal actualizada INMEDIATAMENTE:', payload.new);
+                    this.handleUpdatedSignal(payload.new);
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 [REALTIME] Estado de suscripción:', status);
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ [REALTIME] Suscripción ULTRA-RÁPIDA ACTIVADA');
+                    this.showNotification('Conexión en tiempo real activada', 'success');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ [REALTIME] Error en la suscripción');
+                    // Reintentar inmediatamente
+                    setTimeout(() => {
+                        this.setupRealtimeSubscription();
+                    }, 1000);
+                }
+            });
+            
+        return subscription;
+    }
+    
+    handleNewSignalUltraFast(signalData) {
+        console.log('⚡ [APP] Procesando nueva señal ULTRA-RÁPIDA:', signalData);
+        
+        const signal = {
+            id: signalData.id,
+            asset: signalData.asset,
+            timeframe: signalData.timeframe,
+            direction: signalData.direction,
+            timestamp: new Date(signalData.created_at),
+            expires: new Date(signalData.expires_at),
+            status: signalData.status || 'pending',
+            isFree: signalData.is_free || false
+        };
+        
+        const canReceiveSignal = this.isVIP || signal.isFree;
+        
+        console.log('⚡ [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree);
+        
+        if (canReceiveSignal) {
+            // Verificar si la señal ya existe para evitar duplicados
+            const signalExists = this.signals.some(s => s.id === signal.id);
+            
+            if (!signalExists) {
+                // Agregar señal al principio del array - MÁS RÁPIDO
+                this.signals.unshift(signal);
+                this.operations.unshift(signal);
+                
+                console.log('✅ [APP] Señal agregada INMEDIATAMENTE:', signal.asset, signal.direction);
+                
+                // Renderizar señales inmediatamente
+                this.renderSignals();
+                
+                // Mostrar notificación INMEDIATA
+                this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
+                
+                // Mostrar alerta si está listo - MÁS RÁPIDO
+                if (this.isReady) {
+                    console.log('🔔 [APP] Mostrando alerta de señal INMEDIATA');
+                    this.showAlertUltraFast(signal);
+                }
+                
+                // Actualizar estadísticas
+                this.updateStats();
+                
+                console.log('✅ [APP] Señal procesada y mostrada al usuario EN MILISEGUNDOS');
+            } else {
+                console.log('ℹ️ [APP] Señal ya existe, ignorando duplicado');
+            }
+        } else {
+            console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
+            this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
+        }
+    }
+    
+    handleUpdatedSignal(signalData) {
+        console.log('🔄 [APP] Actualizando señal existente en tiempo real:', signalData.id);
+        
+        const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
+        const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
+        
+        if (signalIndex !== -1) {
+            this.signals[signalIndex].status = signalData.status;
+        }
+        
+        if (operationIndex !== -1) {
+            this.operations[operationIndex].status = signalData.status;
+        }
+        
+        // Re-renderizar señales para reflejar cambios
+        this.renderSignals();
+        this.updateStats();
+    }
 
+    // =============================================
+    // ALERTAS ULTRA-RÁPIDAS MEJORADAS
+    // =============================================
+    
+    showAlertUltraFast(signal) {
+        if (!this.signalAlert) return;
+        
+        const alertAsset = document.getElementById('alertAsset');
+        const alertDirection = document.getElementById('alertDirection');
+        const alertTime = document.getElementById('alertTime');
+        
+        if (alertAsset) alertAsset.textContent = signal.asset;
+        
+        if (alertDirection) {
+            alertDirection.className = `direction ${signal.direction}`;
+            alertDirection.innerHTML = `
+                <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
+                <span>${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}</span>
+            `;
+        }
+        
+        if (alertTime) {
+            const expiresDate = new Date(signal.expires);
+            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            
+            // MOSTRAR TIEMPO DE OPERACIÓN Y CUENTA REGRESIVA
+            alertTime.innerHTML = `
+                <div style="margin-bottom: 8px; font-size: 1.1rem;">
+                    <i class="fas fa-clock"></i> Duración: ${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}
+                </div>
+                <div style="font-size: 1.3rem; font-weight: bold; color: var(--primary);">
+                    Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
+                </div>
+            `;
+        }
+        
+        this.signalAlert.classList.add('show');
+        
+        // Actualizar el tiempo en la alerta cada segundo - MÁS EFICIENTE
+        const alertInterval = setInterval(() => {
+            if (this.signalAlert.classList.contains('show')) {
+                const expiresDate = new Date(signal.expires);
+                const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                
+                if (alertTime) {
+                    alertTime.innerHTML = `
+                        <div style="margin-bottom: 8px; font-size: 1.1rem;">
+                            <i class="fas fa-clock"></i> Duración: ${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}
+                        </div>
+                        <div style="font-size: 1.3rem; font-weight: bold; color: var(--primary);">
+                            Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
+                        </div>
+                    `;
+                }
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(alertInterval);
+                }
+            } else {
+                clearInterval(alertInterval);
+            }
+        }, 1000);
+    }
+
+    // =============================================
+    // RENDERIZADO DE SEÑALES MEJORADO
+    // =============================================
+    
+    renderSignals() {
+        if (!this.signalsContainer) return;
+        
+        if(this.signals.length === 0) {
+            this.signalsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-satellite-dish"></i>
+                    <p>Esperando señales de trading...</p>
+                    <p>Las señales aparecerán aquí automáticamente</p>
+                </div>
+            `;
+            return;
+        }
+        
+        this.signalsContainer.innerHTML = this.signals.map(signal => {
+            const expiresDate = new Date(signal.expires);
+            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            const isExpired = timeRemaining <= 0;
+            
+            let statusClass = 'status-pending';
+            let statusText = 'PENDIENTE';
+            let statusIcon = '<i class="fas fa-clock"></i>';
+            let resultBadge = '';
+            
+            if (signal.status === 'profit') {
+                statusClass = 'status-profit';
+                statusText = 'GANADA';
+                statusIcon = '<i class="fas fa-check-circle"></i>';
+                resultBadge = '<div class="operation-result result-profit">PROFIT</div>';
+            } else if (signal.status === 'loss') {
+                statusClass = 'status-loss';
+                statusText = 'PERDIDA';
+                statusIcon = '<i class="fas fa-times-circle"></i>';
+                resultBadge = '<div class="operation-result result-loss">LOSS</div>';
+            } else if (isExpired && signal.status === 'pending') {
+                statusClass = 'status-pending';
+                statusText = 'EXPIRADA';
+                statusIcon = '<i class="fas fa-hourglass-end"></i>';
+            }
+            
+            return `
+                <div class="signal-card" data-signal-id="${signal.id}">
+                    ${resultBadge}
+                    <div class="signal-header">
+                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
+                        <div class="direction ${signal.direction}">
+                            <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
+                            <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
+                        </div>
+                    </div>
+                    <div class="signal-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Duración</span>
+                            <span class="detail-value">${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Expira</span>
+                            <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                    ${!isExpired && signal.status === 'pending' ? `
+                        <div class="time-remaining" id="time-${signal.id}">
+                            <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
+                        </div>
+                    ` : ''}
+                    <div class="signal-status">
+                        <div class="status-badge ${statusClass}">
+                            ${statusIcon} ${statusText}
+                        </div>
+                        ${this.isAdmin && isExpired && signal.status === 'pending' ? `
+                            <div class="admin-controls">
+                                <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus(${signal.id}, 'profit')">
+                                    <i class="fas fa-check"></i> Ganada
+                                </button>
+                                <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus(${signal.id}, 'loss')">
+                                    <i class="fas fa-times"></i> Perdida
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Iniciar actualización de contadores para todas las señales
+        this.startTimeUpdates();
+    }
+
+    // =============================================
+    // MÉTODOS RESTANTES (sin cambios significativos)
+    // =============================================
+    
+    async updateOperationStatus(operationId, status) {
+        try {
+            console.log(`🔄 [APP] Actualizando operación ${operationId} a ${status}`);
+            
+            const response = await fetch(`${SERVER_URL}/api/signals/${operationId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: status,
+                    userId: this.currentUserId
+                })
+            });
+            
+            if (response.ok) {
+                this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
+                
+                // Actualizar la señal localmente inmediatamente
+                const signalIndex = this.signals.findIndex(s => s.id === operationId);
+                const operationIndex = this.operations.findIndex(o => o.id === operationId);
+                
+                if (signalIndex !== -1) {
+                    this.signals[signalIndex].status = status;
+                }
+                
+                if (operationIndex !== -1) {
+                    this.operations[operationIndex].status = status;
+                }
+                
+                // Re-renderizar inmediatamente
+                this.renderSignals();
+                this.updateStats();
+                
+                console.log(`✅ [APP] Operación ${operationId} actualizada a ${status}`);
+            } else {
+                throw new Error('Error actualizando estado');
+            }
+        } catch (error) {
+            console.error('Error actualizando estado:', error);
+            this.showNotification('Error al actualizar el estado', 'error');
+        }
+    }
+
+    startTimeUpdates() {
+        setInterval(() => {
+            this.signals.forEach(signal => {
+                if (signal.status === 'pending') {
+                    const expiresDate = new Date(signal.expires);
+                    const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
+                    const minutes = Math.floor(timeRemaining / 60);
+                    const seconds = timeRemaining % 60;
+                    
+                    const timeElement = document.getElementById(`time-${signal.id}`);
+                    if (timeElement) {
+                        timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    }
+                    
+                    if (timeRemaining <= 0 && signal.status === 'pending') {
+                        signal.status = 'expired';
+                        this.renderSignals();
+                    }
+                }
+            });
+        }, 1000);
+    }
+
+    showNotification(message, type = 'info') {
+        if (!this.notification) return;
+        
+        this.notification.textContent = message;
+        
+        if (type === 'success') {
+            this.notification.style.background = 'var(--profit)';
+        } else if (type === 'error') {
+            this.notification.style.background = 'var(--loss)';
+        } else if (type === 'vip') {
+            this.notification.style.background = 'var(--vip)';
+        } else {
+            this.notification.style.background = 'var(--primary)';
+        }
+        
+        this.notification.classList.add('show');
+        setTimeout(() => {
+            this.notification.classList.remove('show');
+        }, 3000);
+    }
+
+    hideAlert() {
+        if (this.signalAlert) {
+            this.signalAlert.classList.remove('show');
+        }
+    }
+
+    // ... (resto de métodos sin cambios)
+    
     async loadUsersFromSupabase() {
         try {
             const { data, error } = await supabase
@@ -697,10 +1079,6 @@ class SignalManager {
                         ${!isVip || (vipExpires && vipExpires <= now) ? 
                             `<button class="user-action-btn btn-profit" onclick="signalManager.makeVip('${user.telegram_id}')">Hacer VIP</button>` : 
                             `<button class="user-action-btn btn-loss" onclick="signalManager.removeVip('${user.telegram_id}')">Quitar VIP</button>`
-                        }
-                        ${isVip && vipExpires && vipExpires > now && expiresIn <= 5 ? 
-                            `<button class="user-action-btn btn-notify" onclick="signalManager.notifyVipExpiring('${user.telegram_id}')">Notificar (5 días)</button>` : 
-                            ''
                         }
                     </td>
                 </tr>
@@ -767,160 +1145,7 @@ class SignalManager {
             this.showNotification('Error al quitar VIP al usuario', 'error');
         }
     }
-    
-    async notifyVipExpiring(telegramId) {
-        this.showNotification(`Notificación enviada al usuario ${telegramId} sobre su VIP próximo a expirar.`, 'success');
-    }
-    
-    // =============================================
-    // SUSCRIPCIÓN EN TIEMPO REAL - COMPLETAMENTE CORREGIDA
-    // =============================================
-    
-    setupRealtimeSubscription() {
-        console.log('📡 [APP] Configurando suscripción en tiempo real MEJORADA');
-        
-        // Suscripción a nuevas señales - CON MÁS LOGS Y MANEJO DE ERRORES
-        const subscription = supabase
-            .channel('public:signals')
-            .on('postgres_changes', 
-                { 
-                    event: 'INSERT', 
-                    schema: 'public', 
-                    table: 'signals' 
-                }, 
-                (payload) => {
-                    console.log('🆕 [REALTIME] Nueva señal detectada:', payload.new);
-                    this.handleNewSignal(payload.new);
-                }
-            )
-            .on('postgres_changes', 
-                { 
-                    event: 'UPDATE', 
-                    schema: 'public', 
-                    table: 'signals' 
-                }, 
-                (payload) => {
-                    console.log('🔄 [REALTIME] Señal actualizada:', payload.new);
-                    this.handleUpdatedSignal(payload.new);
-                }
-            )
-            .subscribe((status) => {
-                console.log('📡 [REALTIME] Estado de suscripción:', status);
-                if (status === 'SUBSCRIBED') {
-                    console.log('✅ [REALTIME] Suscripción a señales ACTIVADA correctamente');
-                    this.showNotification('Conexión en tiempo real activada', 'success');
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error('❌ [REALTIME] Error en la suscripción');
-                    this.showNotification('Error en conexión en tiempo real', 'error');
-                } else if (status === 'TIMED_OUT') {
-                    console.error('❌ [REALTIME] Suscripción timeout');
-                    // Reintentar suscripción después de 5 segundos
-                    setTimeout(() => {
-                        console.log('🔄 [REALTIME] Reintentando suscripción...');
-                        this.setupRealtimeSubscription();
-                    }, 5000);
-                }
-            });
-            
-        return subscription;
-    }
-    
-    handleNewSignal(signalData) {
-        console.log('📨 [APP] Procesando nueva señal en tiempo real:', signalData);
-        
-        const signal = {
-            id: signalData.id,
-            asset: signalData.asset,
-            timeframe: signalData.timeframe,
-            direction: signalData.direction,
-            timestamp: new Date(signalData.created_at),
-            expires: new Date(signalData.expires_at),
-            status: signalData.status || 'pending',
-            isFree: signalData.is_free || false
-        };
-        
-        const canReceiveSignal = this.isVIP || signal.isFree;
-        
-        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree);
-        
-        if (canReceiveSignal) {
-            // Verificar si la señal ya existe para evitar duplicados
-            const signalExists = this.signals.some(s => s.id === signal.id);
-            
-            if (!signalExists) {
-                // Agregar señal al principio del array
-                this.signals.unshift(signal);
-                this.operations.unshift(signal);
-                
-                console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
-                
-                // Renderizar señales inmediatamente
-                this.renderSignals();
-                
-                // Mostrar notificación
-                this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
-                
-                // Mostrar alerta si está listo
-                if (this.isReady) {
-                    console.log('🔔 [APP] Mostrando alerta de señal');
-                    this.showAlert(signal);
-                }
-                
-                // Actualizar estadísticas
-                this.updateStats();
-                
-                console.log('✅ [APP] Señal procesada y mostrada al usuario en tiempo real');
-            } else {
-                console.log('ℹ️ [APP] Señal ya existe, ignorando duplicado');
-            }
-        } else {
-            console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
-            this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
-        }
-    }
-    
-    handleUpdatedSignal(signalData) {
-        console.log('🔄 [APP] Actualizando señal existente en tiempo real:', signalData.id);
-        
-        const signalIndex = this.signals.findIndex(s => s.id === signalData.id);
-        const operationIndex = this.operations.findIndex(o => o.id === signalData.id);
-        
-        if (signalIndex !== -1) {
-            this.signals[signalIndex].status = signalData.status;
-            console.log('✅ [APP] Señal actualizada en lista principal');
-        }
-        
-        if (operationIndex !== -1) {
-            this.operations[operationIndex].status = signalData.status;
-            console.log('✅ [APP] Señal actualizada en operaciones');
-        }
-        
-        // Re-renderizar señales para reflejar cambios
-        this.renderSignals();
-        this.updateStats();
-        
-        console.log('✅ [APP] Señal actualizada correctamente en tiempo real');
-    }
-    
-    showVipModal() {
-        if (this.vipModal) {
-            this.vipModal.classList.add('active');
-        }
-    }
-    
-    hideVipModal() {
-        if (this.vipModal) {
-            this.vipModal.classList.remove('active');
-        }
-    }
-    
-    showAdminPanel() {
-        const adminPanel = document.getElementById('adminPanel');
-        if (adminPanel) {
-            adminPanel.style.display = adminPanel.style.display === 'none' ? 'block' : 'none';
-        }
-    }
-    
+
     updateUserStatus() {
         if (!this.userStatus) return;
         
@@ -967,7 +1192,6 @@ class SignalManager {
                     signals: []
                 };
                 
-                // Guardar sesión en localStorage
                 this.saveToLocalStorage();
                 
                 if (this.startSession) this.startSession.disabled = true;
@@ -1019,8 +1243,6 @@ class SignalManager {
                 }
                 
                 this.currentSession = null;
-                
-                // Eliminar sesión de localStorage
                 this.saveToLocalStorage();
                 this.updateStats();
                 
@@ -1165,245 +1387,22 @@ class SignalManager {
         }
     }
     
-    // =============================================
-    // ACTUALIZACIÓN DE RESULTADOS - CORREGIDA
-    // =============================================
-    
-    async updateOperationStatus(operationId, status) {
-        try {
-            console.log(`🔄 [APP] Actualizando operación ${operationId} a ${status}`);
-            
-            const response = await fetch(`${SERVER_URL}/api/signals/${operationId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: status,
-                    userId: this.currentUserId
-                })
-            });
-            
-            if (response.ok) {
-                this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
-                
-                // Actualizar la señal localmente inmediatamente
-                const signalIndex = this.signals.findIndex(s => s.id === operationId);
-                const operationIndex = this.operations.findIndex(o => o.id === operationId);
-                
-                if (signalIndex !== -1) {
-                    this.signals[signalIndex].status = status;
-                }
-                
-                if (operationIndex !== -1) {
-                    this.operations[operationIndex].status = status;
-                }
-                
-                // Re-renderizar inmediatamente
-                this.renderSignals();
-                this.updateStats();
-                
-                console.log(`✅ [APP] Operación ${operationId} actualizada a ${status}`);
-            } else {
-                throw new Error('Error actualizando estado');
-            }
-        } catch (error) {
-            console.error('Error actualizando estado:', error);
-            this.showNotification('Error al actualizar el estado', 'error');
+    showVipModal() {
+        if (this.vipModal) {
+            this.vipModal.classList.add('active');
         }
     }
     
-    // =============================================
-    // RENDERIZADO DE SEÑALES - MEJORADO
-    // =============================================
-    
-    renderSignals() {
-        if (!this.signalsContainer) return;
-        
-        if(this.signals.length === 0) {
-            this.signalsContainer.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-satellite-dish"></i>
-                    <p>Esperando señales de trading...</p>
-                    <p>Las señales aparecerán aquí automáticamente</p>
-                </div>
-            `;
-            return;
+    hideVipModal() {
+        if (this.vipModal) {
+            this.vipModal.classList.remove('active');
         }
-        
-        this.signalsContainer.innerHTML = this.signals.map(signal => {
-            const expiresDate = new Date(signal.expires);
-            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-            const minutes = Math.floor(timeRemaining / 60);
-            const seconds = timeRemaining % 60;
-            const isExpired = timeRemaining <= 0;
-            
-            let statusClass = 'status-pending';
-            let statusText = 'PENDIENTE';
-            let statusIcon = '<i class="fas fa-clock"></i>';
-            let resultBadge = '';
-            
-            if (signal.status === 'profit') {
-                statusClass = 'status-profit';
-                statusText = 'GANADA';
-                statusIcon = '<i class="fas fa-check-circle"></i>';
-                resultBadge = '<div class="operation-result result-profit">PROFIT</div>';
-            } else if (signal.status === 'loss') {
-                statusClass = 'status-loss';
-                statusText = 'PERDIDA';
-                statusIcon = '<i class="fas fa-times-circle"></i>';
-                resultBadge = '<div class="operation-result result-loss">LOSS</div>';
-            } else if (isExpired && signal.status === 'pending') {
-                statusClass = 'status-pending';
-                statusText = 'EXPIRADA';
-                statusIcon = '<i class="fas fa-hourglass-end"></i>';
-            }
-            
-            return `
-                <div class="signal-card" data-signal-id="${signal.id}">
-                    ${resultBadge}
-                    <div class="signal-header">
-                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
-                        <div class="direction ${signal.direction}">
-                            <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
-                            <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
-                        </div>
-                    </div>
-                    <div class="signal-details">
-                        <div class="detail-item">
-                            <span class="detail-label">Duración</span>
-                            <span class="detail-value">${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Expira</span>
-                            <span class="detail-value">${expiresDate.toLocaleTimeString()}</span>
-                        </div>
-                    </div>
-                    ${!isExpired && signal.status === 'pending' ? `
-                        <div class="time-remaining" id="time-${signal.id}">
-                            <i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
-                        </div>
-                    ` : ''}
-                    <div class="signal-status">
-                        <div class="status-badge ${statusClass}">
-                            ${statusIcon} ${statusText}
-                        </div>
-                        ${this.isAdmin && isExpired && signal.status === 'pending' ? `
-                            <div class="admin-controls">
-                                <button class="admin-btn btn-profit" onclick="signalManager.updateOperationStatus(${signal.id}, 'profit')">
-                                    <i class="fas fa-check"></i> Ganada
-                                </button>
-                                <button class="admin-btn btn-loss" onclick="signalManager.updateOperationStatus(${signal.id}, 'loss')">
-                                    <i class="fas fa-times"></i> Perdida
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        // Iniciar actualización de contadores para todas las señales
-        this.startTimeUpdates();
     }
     
-    startTimeUpdates() {
-        // Actualizar todos los contadores cada segundo
-        setInterval(() => {
-            this.signals.forEach(signal => {
-                if (signal.status === 'pending') {
-                    const expiresDate = new Date(signal.expires);
-                    const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-                    const minutes = Math.floor(timeRemaining / 60);
-                    const seconds = timeRemaining % 60;
-                    
-                    const timeElement = document.getElementById(`time-${signal.id}`);
-                    if (timeElement) {
-                        timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                    }
-                    
-                    // Si la señal expiró, actualizar el estado
-                    if (timeRemaining <= 0 && signal.status === 'pending') {
-                        signal.status = 'expired';
-                        this.renderSignals();
-                    }
-                }
-            });
-        }, 1000);
-    }
-    
-    showNotification(message, type = 'info') {
-        if (!this.notification) return;
-        
-        this.notification.textContent = message;
-        
-        if (type === 'success') {
-            this.notification.style.background = 'var(--profit)';
-        } else if (type === 'error') {
-            this.notification.style.background = 'var(--loss)';
-        } else if (type === 'vip') {
-            this.notification.style.background = 'var(--vip)';
-        } else {
-            this.notification.style.background = 'var(--primary)';
-        }
-        
-        this.notification.classList.add('show');
-        setTimeout(() => {
-            this.notification.classList.remove('show');
-        }, 3000);
-    }
-    
-    showAlert(signal) {
-        if (!this.signalAlert) return;
-        
-        const alertAsset = document.getElementById('alertAsset');
-        const alertDirection = document.getElementById('alertDirection');
-        const alertTime = document.getElementById('alertTime');
-        
-        if (alertAsset) alertAsset.textContent = signal.asset;
-        
-        if (alertDirection) {
-            alertDirection.className = `direction ${signal.direction}`;
-            alertDirection.innerHTML = `
-                <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
-                <span>${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}</span>
-            `;
-        }
-        
-        if (alertTime) {
-            const expiresDate = new Date(signal.expires);
-            const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-            const minutes = Math.floor(timeRemaining / 60);
-            const seconds = timeRemaining % 60;
-            alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-        }
-        
-        this.signalAlert.classList.add('show');
-        
-        // Actualizar el tiempo en la alerta cada segundo
-        const alertInterval = setInterval(() => {
-            if (this.signalAlert.classList.contains('show')) {
-                const expiresDate = new Date(signal.expires);
-                const timeRemaining = Math.max(0, Math.floor((expiresDate - new Date()) / 1000));
-                const minutes = Math.floor(timeRemaining / 60);
-                const seconds = timeRemaining % 60;
-                
-                if (alertTime) {
-                    alertTime.textContent = `Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                }
-                
-                if (timeRemaining <= 0) {
-                    clearInterval(alertInterval);
-                }
-            } else {
-                clearInterval(alertInterval);
-            }
-        }, 1000);
-    }
-    
-    hideAlert() {
-        if (this.signalAlert) {
-            this.signalAlert.classList.remove('show');
+    showAdminPanel() {
+        const adminPanel = document.getElementById('adminPanel');
+        if (adminPanel) {
+            adminPanel.style.display = adminPanel.style.display === 'none' ? 'block' : 'none';
         }
     }
     
