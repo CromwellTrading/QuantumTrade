@@ -98,6 +98,88 @@ function createParticles() {
 }
 
 // =============================================
+// SISTEMA DE TÉRMINOS Y CONDICIONES
+// =============================================
+
+function initializeTermsAndConditions() {
+    const termsModal = document.getElementById('termsModal');
+    const acceptCheckbox = document.getElementById('acceptTerms');
+    const confirmBtn = document.getElementById('confirmTerms');
+    const declineBtn = document.getElementById('declineTerms');
+    
+    // Verificar si ya aceptó los términos
+    const termsAccepted = localStorage.getItem('quantum_terms_accepted');
+    
+    if (!termsAccepted) {
+        // Mostrar modal de términos
+        setTimeout(() => {
+            termsModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }, 1000);
+    }
+    
+    // Habilitar/deshabilitar botón de aceptar
+    if (acceptCheckbox && confirmBtn) {
+        acceptCheckbox.addEventListener('change', function() {
+            confirmBtn.disabled = !this.checked;
+        });
+    }
+    
+    // Manejar aceptación de términos
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (!acceptCheckbox.checked) return;
+            
+            localStorage.setItem('quantum_terms_accepted', 'true');
+            localStorage.setItem('quantum_terms_accepted_date', new Date().toISOString());
+            
+            termsModal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            
+            // Habilitar funcionalidades
+            if (signalManager) {
+                signalManager.enableFunctionalityAfterTermsAccepted();
+                signalManager.showNotification('Términos aceptados correctamente. ¡Bienvenido a Quantum Signal Trader!', 'success');
+            }
+        });
+    }
+    
+    // Manejar rechazo de términos
+    if (declineBtn) {
+        declineBtn.addEventListener('click', function() {
+            // Mostrar mensaje de despedida
+            const declineMessage = document.createElement('div');
+            declineMessage.className = 'terms-decline-message';
+            declineMessage.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-door-open" style="font-size: 3rem; color: var(--warning); margin-bottom: 20px;"></i>
+                    <h3 style="color: var(--warning); margin-bottom: 15px;">Términos Declinados</h3>
+                    <p style="color: rgba(255,255,255,0.8); margin-bottom: 25px;">
+                        Para utilizar Quantum Signal Trader es necesario aceptar los términos y condiciones.
+                    </p>
+                    <p style="color: rgba(255,255,255,0.6);">
+                        Puede cerrar esta pestaña o volver más tarde si cambia de opinión.
+                    </p>
+                </div>
+            `;
+            
+            termsModal.querySelector('.terms-body').innerHTML = '';
+            termsModal.querySelector('.terms-body').appendChild(declineMessage);
+            termsModal.querySelector('.terms-footer').style.display = 'none';
+        });
+    }
+}
+
+// Función para mostrar términos nuevamente (útil para admin)
+function showTermsAndConditions() {
+    const termsModal = document.getElementById('termsModal');
+    if (termsModal) {
+        termsModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// =============================================
 // CLASE SIGNAL MANAGER - ACTUALIZADA
 // =============================================
 
@@ -127,6 +209,9 @@ class SignalManager {
             this.updateStats();
             this.initChart();
             
+            // Verificar términos antes de permitir cualquier acción
+            this.checkTermsAcceptance();
+            
             this.loadUserData();
             this.loadInitialSignals();
             this.setupRealtimeSubscription();
@@ -137,6 +222,49 @@ class SignalManager {
         } catch (error) {
             console.error('❌ [APP] Error durante la inicialización de SignalManager:', error);
         }
+    }
+    
+    checkTermsAcceptance() {
+        const termsAccepted = localStorage.getItem('quantum_terms_accepted');
+        if (!termsAccepted) {
+            this.disableFunctionalityUntilTermsAccepted();
+        }
+    }
+    
+    disableFunctionalityUntilTermsAccepted() {
+        // Deshabilitar botones importantes
+        const elementsToDisable = [
+            this.sendSignalBtn,
+            this.readyBtn,
+            this.startSession,
+            this.notifyClients
+        ];
+        
+        elementsToDisable.forEach(element => {
+            if (element) {
+                element.style.opacity = '0.5';
+                element.style.pointerEvents = 'none';
+            }
+        });
+        
+        // Mostrar tooltip explicativo
+        this.showNotification('Debe aceptar los términos y condiciones para usar todas las funciones', 'warning');
+    }
+    
+    enableFunctionalityAfterTermsAccepted() {
+        const elementsToEnable = [
+            this.sendSignalBtn,
+            this.readyBtn,
+            this.startSession,
+            this.notifyClients
+        ];
+        
+        elementsToEnable.forEach(element => {
+            if (element) {
+                element.style.opacity = '1';
+                element.style.pointerEvents = 'auto';
+            }
+        });
     }
     
     async loadUserData() {
@@ -1705,6 +1833,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     createParticles();
+    
+    // Inicializar términos y condiciones
+    initializeTermsAndConditions();
     
     try {
         signalManager = new SignalManager();
