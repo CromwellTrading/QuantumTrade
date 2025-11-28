@@ -8,6 +8,7 @@
     --profit: #00ff9d;
     --loss: #ff0033;
     --warning: #ffcc00;
+    --expired: #ff9900;
     --dark: #0a0a1f;
     --darker: #050510;
     --panel: #13132e;
@@ -20,6 +21,7 @@
     --error-glow: 0 0 15px rgba(255, 0, 51, 0.8);
     --primary-glow: 0 0 15px rgba(0, 240, 255, 0.8);
     --vip-glow: 0 0 15px rgba(255, 204, 0, 0.8);
+    --expired-glow: 0 0 15px rgba(255, 153, 0, 0.8);
     --pulse-animation: pulse 2s infinite;
 }
 
@@ -476,6 +478,13 @@ button:hover {
     color: var(--warning);
     border: 1px solid var(--warning);
     box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+}
+
+.status-expired {
+    background: rgba(255, 153, 0, 0.15);
+    color: var(--expired);
+    border: 1px solid var(--expired);
+    box-shadow: var(--expired-glow);
 }
 
 .status-profit {
@@ -1118,57 +1127,6 @@ button:hover {
     border: 1px solid var(--text-secondary);
 }
 
-@media (max-width: 1024px) {
-    .grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    h1 {
-        font-size: 2rem;
-    }
-    
-    .signal-details {
-        grid-template-columns: 1fr;
-    }
-    
-    .signal-alert {
-        width: 90%;
-        padding: 25px;
-    }
-    
-    .header-controls {
-        flex-direction: column;
-        width: 100%;
-        margin-top: 15px;
-    }
-    
-    .header-btn {
-        width: 100%;
-    }
-    
-    .user-actions {
-        flex-direction: column;
-    }
-    
-    .search-container {
-        flex-direction: column;
-    }
-    
-    .user-id-display {
-        position: relative;
-        top: 0;
-        left: 0;
-        margin-bottom: 10px;
-        text-align: center;
-    }
-/* AÑADIR AL FINAL DEL ARCHIVO CSS EXISTENTE */
-
 /* ANIMACIONES MÁS RÁPIDAS */
 .signal-alert {
     transition: transform 0.1s ease !important;
@@ -1230,5 +1188,56 @@ button:active {
     
     .signal-alert .asset {
         font-size: 2rem !important;
+    }
+    
+    .header-controls {
+        flex-direction: column;
+        width: 100%;
+        margin-top: 15px;
+    }
+    
+    .header-btn {
+        width: 100%;
+    }
+    
+    .user-actions {
+        flex-direction: column;
+    }
+    
+    .search-container {
+        flex-direction: column;
+    }
+    
+    .user-id-display {
+        position: relative;
+        top: 0;
+        left: 0;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+}
+
+@media (max-width: 1024px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .signal-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .signal-alert {
+        width: 90%;
+        padding: 25px;
     }
 }
