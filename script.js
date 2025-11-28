@@ -98,7 +98,7 @@ function createParticles() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - COMPLETAMENTE CORREGIDA
+// CLASE SIGNAL MANAGER - ACTUALIZADA
 // =============================================
 
 class SignalManager {
@@ -117,6 +117,8 @@ class SignalManager {
         this.currentUserId = detectedUserId;
         this.userData = null;
         this.searchedUser = null;
+        
+        this.currentView = 'signals'; // Vista actual
         
         try {
             this.initializeDOMElements();
@@ -386,25 +388,25 @@ class SignalManager {
         
         if (this.showSignals) {
             this.showSignals.addEventListener('click', () => {
-                this.showSignalsView();
+                this.showView('signals');
             });
         }
         
         if (this.showStats) {
             this.showStats.addEventListener('click', () => {
-                this.showStatsView();
+                this.showView('stats');
             });
         }
         
         if (this.showUsers) {
             this.showUsers.addEventListener('click', () => {
-                this.showUsersView();
+                this.showView('users');
             });
         }
         
         if (this.showUserManagement) {
             this.showUserManagement.addEventListener('click', () => {
-                this.showUserManagementView();
+                this.showView('userManagement');
             });
         }
         
@@ -479,6 +481,57 @@ class SignalManager {
         });
 
         console.log('✅ [APP] Event listeners inicializados correctamente');
+    }
+
+    // NUEVO MÉTODO PARA CAMBIAR VISTAS
+    showView(viewName) {
+        // Ocultar todas las vistas
+        const views = ['signals', 'stats', 'users', 'userManagement'];
+        views.forEach(view => {
+            const container = document.getElementById(`${view}Container`) || document.getElementById(`${view}Panel`);
+            if (container) {
+                container.classList.remove('active');
+            }
+        });
+        
+        // Remover clase active de todos los botones
+        const buttons = [this.showSignals, this.showStats, this.showUsers, this.showUserManagement];
+        buttons.forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        
+        // Mostrar vista seleccionada
+        switch(viewName) {
+            case 'signals':
+                if (this.signalsContainer) {
+                    const signalsPanel = document.getElementById('signalsPanel');
+                    if (signalsPanel) signalsPanel.classList.add('active');
+                }
+                if (this.showSignals) this.showSignals.classList.add('active');
+                break;
+                
+            case 'stats':
+                if (this.statsContainer) this.statsContainer.classList.add('active');
+                if (this.showStats) this.showStats.classList.add('active');
+                break;
+                
+            case 'users':
+                if (this.usersContainer) this.usersContainer.classList.add('active');
+                if (this.showUsers) this.showUsers.classList.add('active');
+                break;
+                
+            case 'userManagement':
+                if (this.userManagementContainer) this.userManagementContainer.classList.add('active');
+                if (this.showUserManagement) this.showUserManagement.classList.add('active');
+                break;
+        }
+        
+        this.currentView = viewName;
+        
+        // Actualizar estadísticas si se muestra la vista de stats
+        if (viewName === 'stats') {
+            this.updateStats();
+        }
     }
 
     async searchUser() {
@@ -1387,73 +1440,21 @@ class SignalManager {
         }
     }
     
+    // MÉTODOS ACTUALIZADOS PARA CAMBIAR VISTAS
     showSignalsView() {
-        const signalsPanel = document.getElementById('signalsPanel');
-        const statsContainer = document.getElementById('statsContainer');
-        const usersContainer = document.getElementById('usersContainer');
-        const userManagementContainer = document.getElementById('userManagementContainer');
-        
-        if (signalsPanel) signalsPanel.classList.add('active');
-        if (statsContainer) statsContainer.classList.remove('active');
-        if (usersContainer) usersContainer.classList.remove('active');
-        if (userManagementContainer) userManagementContainer.classList.remove('active');
-        
-        if (this.showSignals) this.showSignals.classList.add('active');
-        if (this.showStats) this.showStats.classList.remove('active');
-        if (this.showUsers) this.showUsers.classList.remove('active');
-        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
+        this.showView('signals');
     }
     
     showStatsView() {
-        const signalsPanel = document.getElementById('signalsPanel');
-        const statsContainer = document.getElementById('statsContainer');
-        const usersContainer = document.getElementById('usersContainer');
-        const userManagementContainer = document.getElementById('userManagementContainer');
-        
-        if (signalsPanel) signalsPanel.classList.remove('active');
-        if (statsContainer) statsContainer.classList.add('active');
-        if (usersContainer) usersContainer.classList.remove('active');
-        if (userManagementContainer) userManagementContainer.classList.remove('active');
-        
-        if (this.showSignals) this.showSignals.classList.remove('active');
-        if (this.showStats) this.showStats.classList.add('active');
-        if (this.showUsers) this.showUsers.classList.remove('active');
-        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
-        this.updateStats();
+        this.showView('stats');
     }
     
     showUsersView() {
-        const signalsPanel = document.getElementById('signalsPanel');
-        const statsContainer = document.getElementById('statsContainer');
-        const usersContainer = document.getElementById('usersContainer');
-        const userManagementContainer = document.getElementById('userManagementContainer');
-        
-        if (signalsPanel) signalsPanel.classList.remove('active');
-        if (statsContainer) statsContainer.classList.remove('active');
-        if (usersContainer) usersContainer.classList.add('active');
-        if (userManagementContainer) userManagementContainer.classList.remove('active');
-        
-        if (this.showSignals) this.showSignals.classList.remove('active');
-        if (this.showStats) this.showStats.classList.remove('active');
-        if (this.showUsers) this.showUsers.classList.add('active');
-        if (this.showUserManagement) this.showUserManagement.classList.remove('active');
+        this.showView('users');
     }
     
     showUserManagementView() {
-        const signalsPanel = document.getElementById('signalsPanel');
-        const statsContainer = document.getElementById('statsContainer');
-        const usersContainer = document.getElementById('usersContainer');
-        const userManagementContainer = document.getElementById('userManagementContainer');
-        
-        if (signalsPanel) signalsPanel.classList.remove('active');
-        if (statsContainer) statsContainer.classList.remove('active');
-        if (usersContainer) usersContainer.classList.remove('active');
-        if (userManagementContainer) userManagementContainer.classList.add('active');
-        
-        if (this.showSignals) this.showSignals.classList.remove('active');
-        if (this.showStats) this.showStats.classList.remove('active');
-        if (this.showUsers) this.showUsers.classList.remove('active');
-        if (this.showUserManagement) this.showUserManagement.classList.add('active');
+        this.showView('userManagement');
     }
     
     updateStats(period = 'day') {
