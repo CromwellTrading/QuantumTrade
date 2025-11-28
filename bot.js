@@ -12,7 +12,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🤖 INICIANDO BOT ULTRA-RÁPIDO ===');
+console.log('=== 🤖 INICIANDO BOT CON SISTEMA DE RESULTADOS ===');
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -21,13 +21,13 @@ if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 // =============================================
-// INICIALIZACIÓN RÁPIDA
+// INICIALIZACIÓN
 // =============================================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
     polling: {
-        interval: 1000, // Más rápido
+        interval: 1000,
         timeout: 10,
         autoStart: true
     }
@@ -41,7 +41,7 @@ const userCache = new Map();
 const signalCache = new Map();
 
 // =============================================
-// FUNCIONES ULTRA-RÁPIDAS
+// FUNCIONES PRINCIPALES
 // =============================================
 
 function createMainKeyboard() {
@@ -70,7 +70,6 @@ async function sendFastMessage(chatId, message, options = {}) {
 }
 
 async function getUserFast(userId) {
-    // Usar cache para máxima velocidad
     if (userCache.has(userId)) {
         return userCache.get(userId);
     }
@@ -84,7 +83,7 @@ async function getUserFast(userId) {
 
         if (!error && user) {
             userCache.set(userId, user);
-            setTimeout(() => userCache.delete(userId), 30000); // Cache por 30 segundos
+            setTimeout(() => userCache.delete(userId), 30000);
         }
         
         return user;
@@ -102,7 +101,7 @@ bot.onText(/\/start/, async (msg) => {
     const userId = msg.from.id.toString();
     const userName = msg.from.first_name || 'Usuario';
 
-    // Guardar usuario en BD (async sin await para no bloquear)
+    // Guardar usuario en BD
     supabase.from('users').upsert({
         telegram_id: userId,
         username: msg.from.username,
@@ -139,7 +138,7 @@ bot.on('message', async (msg) => {
 });
 
 // =============================================
-// MANEJADORES OPTIMIZADOS
+// MANEJADORES DE COMANDOS
 // =============================================
 
 async function handleFastSignals(chatId, userId) {
@@ -160,6 +159,7 @@ async function handleFastSignals(chatId, userId) {
                 
                 message += `${arrow} *${signal.asset}*\n`;
                 message += `⏱ ${signal.timeframe}min | ${status}\n`;
+                message += `ID: ${signal.id}\n`;
                 message += `━━━━━━━━━━━━━━\n`;
             });
         } else {
@@ -203,24 +203,31 @@ async function handleFastHelp(chatId) {
 }
 
 // =============================================
-// SISTEMA DE NOTIFICACIONES ULTRA-RÁPIDO
+// SISTEMA DE NOTIFICACIONES CON ID
 // =============================================
 
-console.log('🔔 [BOT] Activando notificaciones ULTRA-RÁPIDAS...');
+console.log('🔔 [BOT] Activando notificaciones con sistema de ID...');
 
-// Suscripción a señales - ENVÍO INMEDIATO
+// Suscripción a señales
 const signalsChannel = supabase
     .channel('ultra-fast-bot-signals')
     .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'signals' }, 
         async (payload) => {
-            console.log('⚡ [BOT] Señal detectada - Enviando INMEDIATAMENTE');
-            await broadcastSignalUltraFast(payload.new);
+            console.log('⚡ [BOT] Señal detectada - Enviando con ID:', payload.new.id);
+            await broadcastSignalWithID(payload.new);
+        }
+    )
+    .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'signals' },
+        async (payload) => {
+            console.log('🔄 [BOT] Señal actualizada - Resultado:', payload.new.status);
+            await broadcastSignalResult(payload.new);
         }
     )
     .subscribe();
 
-async function broadcastSignalUltraFast(signal) {
+async function broadcastSignalWithID(signal) {
     try {
         // Obtener todos los usuarios rápidamente
         const { data: users } = await supabase
@@ -238,6 +245,8 @@ ${arrow} *${signal.asset}*
 ⏱ ${signal.timeframe} minutos
 ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
 
+*ID: ${signal.id}*
+
 *¡Actúa rápido!* ⚡
         `;
 
@@ -247,7 +256,7 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
 
         const recipients = signal.is_free ? [...vipUsers, ...freeUsers] : vipUsers;
 
-        console.log(`📨 [BOT] Enviando a ${recipients.length} usuarios`);
+        console.log(`📨 [BOT] Enviando señal ${signal.id} a ${recipients.length} usuarios`);
 
         // Enviar en paralelo para máxima velocidad
         const sendPromises = recipients.map(user => 
@@ -269,6 +278,150 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
         console.error('❌ [BOT] Error broadcast:', error);
     }
 }
+
+// NUEVA FUNCIÓN: Notificar resultados de señales
+async function broadcastSignalResult(signal) {
+    try {
+        // Solo notificar si la señal tiene un resultado (profit/loss)
+        if (signal.status !== 'profit' && signal.status !== 'loss') return;
+
+        const { data: users } = await supabase
+            .from('users')
+            .select('telegram_id, is_vip');
+
+        if (!users) return;
+
+        const resultEmoji = signal.status === 'profit' ? '💰' : '📉';
+        const resultText = signal.status === 'profit' ? 'PROFIT' : 'LOSS';
+        const resultColor = signal.status === 'profit' ? '🟢' : '🔴';
+
+        const message = `
+${resultColor} *RESULTADO DE SEÑAL* ${resultColor}
+
+📊 *${signal.asset}*
+🎯 Resultado: *${resultText}* ${resultEmoji}
+⏱ Duración: ${signal.timeframe} minutos
+
+*ID: ${signal.id}*
+
+${signal.status === 'profit' ? '¡Operación ganadora! 🎉' : 'Operación cerrada. Siguiente oportunidad 💪'}
+        `;
+
+        console.log(`📨 [BOT] Enviando resultado ${signal.status} para señal ${signal.id} a ${users.length} usuarios`);
+
+        // Enviar a todos los usuarios
+        const sendPromises = users.map(user => 
+            sendFastMessage(user.telegram_id, message).catch(() => null)
+        );
+
+        await Promise.all(sendPromises);
+
+    } catch (error) {
+        console.error('❌ [BOT] Error enviando resultado:', error);
+    }
+}
+
+// =============================================
+// COMANDOS DE ADMIN PARA RESULTADOS
+// =============================================
+
+// Comando para que el admin pueda marcar resultados
+bot.onText(/\/resultado (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    
+    // Verificar si es admin
+    if (userId !== ADMIN_ID) {
+        await sendFastMessage(chatId, '❌ No tienes permisos para usar este comando.');
+        return;
+    }
+
+    const params = match[1].split(' ');
+    if (params.length < 2) {
+        await sendFastMessage(chatId, '❌ Formato incorrecto. Usa: /resultado <ID> <profit/loss>');
+        return;
+    }
+
+    const signalId = params[0];
+    const result = params[1].toLowerCase();
+
+    if (result !== 'profit' && result !== 'loss') {
+        await sendFastMessage(chatId, '❌ Resultado debe ser "profit" o "loss"');
+        return;
+    }
+
+    try {
+        // Actualizar señal en Supabase
+        const { data, error } = await supabase
+            .from('signals')
+            .update({ status: result })
+            .eq('id', signalId)
+            .select();
+
+        if (error) {
+            throw error;
+        }
+
+        if (data && data.length > 0) {
+            await sendFastMessage(chatId, `✅ Señal ${signalId} marcada como ${result.toUpperCase()}`);
+            
+            // Notificar a todos los usuarios del resultado
+            await broadcastSignalResult(data[0]);
+        } else {
+            await sendFastMessage(chatId, '❌ No se encontró la señal con ese ID');
+        }
+
+    } catch (error) {
+        console.error('Error actualizando resultado:', error);
+        await sendFastMessage(chatId, '❌ Error actualizando el resultado');
+    }
+});
+
+// Comando para ver señales pendientes de resultado
+bot.onText(/\/pendientes/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    
+    // Verificar si es admin
+    if (userId !== ADMIN_ID) {
+        await sendFastMessage(chatId, '❌ No tienes permisos para usar este comando.');
+        return;
+    }
+
+    try {
+        const { data: signals, error } = await supabase
+            .from('signals')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        let message = `📋 *Señales Pendientes de Resultado*\n\n`;
+        
+        if (signals?.length > 0) {
+            signals.forEach(signal => {
+                const arrow = signal.direction === 'up' ? '🟢' : '🔴';
+                const expired = new Date(signal.expires_at) < new Date();
+                
+                message += `${arrow} *${signal.asset}*\n`;
+                message += `⏱ ${signal.timeframe}min | ID: ${signal.id}\n`;
+                message += `⏰ ${new Date(signal.created_at).toLocaleTimeString()}\n`;
+                message += `📊 ${expired ? 'EXPIRADA' : 'ACTIVA'}\n`;
+                message += `💡 Usa: /resultado ${signal.id} profit|loss\n`;
+                message += `━━━━━━━━━━━━━━\n`;
+            });
+        } else {
+            message += `No hay señales pendientes de resultado.`;
+        }
+
+        await sendFastMessage(chatId, message);
+        
+    } catch (error) {
+        console.error('Error obteniendo señales pendientes:', error);
+        await sendFastMessage(chatId, '❌ Error cargando señales pendientes.');
+    }
+});
 
 // =============================================
 // NOTIFICACIONES DE SESIÓN
@@ -321,9 +474,11 @@ async function broadcastSessionEnd() {
 // =============================================
 
 bot.getMe().then((me) => {
-    console.log('🎉 === BOT ULTRA-RÁPIDO OPERATIVO ===');
+    console.log('🎉 === BOT CON SISTEMA DE RESULTADOS OPERATIVO ===');
     console.log(`🤖 Bot: @${me.username}`);
-    console.log('⚡ Sistema listo - Señales en milisegundos');
+    console.log('📊 Sistema de IDs y resultados activado');
+    console.log('⚡ Comandos admin: /resultado <ID> <profit/loss>');
+    console.log('⚡ Comandos admin: /pendientes');
 });
 
 module.exports = bot;
