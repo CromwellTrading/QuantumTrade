@@ -16,7 +16,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE RESULTADOS ===');
+console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE RESULTADOS MEJORADO ===');
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -309,7 +309,7 @@ app.post('/api/users/remove-vip', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES CON SISTEMA DE RESULTADOS
+// ENDPOINTS DE SEÑALES CON SISTEMA DE RESULTADOS MEJORADO
 // =============================================
 
 // Endpoint para enviar señales (solo admin)
@@ -342,7 +342,9 @@ app.post('/api/signals', async (req, res) => {
                     direction: direction,
                     expires_at: expiresAt.toISOString(),
                     is_free: true,
-                    status: 'pending'
+                    status: 'pending',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 }
             ])
             .select();
@@ -362,7 +364,7 @@ app.post('/api/signals', async (req, res) => {
     }
 });
 
-// Endpoint para actualizar estado de una señal (solo admin) - MEJORADO
+// Endpoint para actualizar estado de una señal (solo admin) - MEJORADO CON EXPIRACIÓN AUTOMÁTICA
 app.put('/api/signals/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -375,15 +377,45 @@ app.put('/api/signals/:id', async (req, res) => {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
-        // En el endpoint PUT /api/signals/:id
-if (!['pending', 'expired', 'profit', 'loss'].includes(status)) {
-    return res.status(400).json({ error: 'Estado inválido. Use: pending, expired, profit o loss' });
-}
+        // Validar estados permitidos
+        if (!['pending', 'expired', 'profit', 'loss'].includes(status)) {
+            return res.status(400).json({ error: 'Estado inválido. Use: pending, expired, profit o loss' });
+        }
+
+        // Verificar que la señal existe
+        const { data: existingSignal, error: findError } = await supabase
+            .from('signals')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (findError || !existingSignal) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Señal no encontrada' 
+            });
+        }
+
+        // Si se está intentando marcar como expired, verificar si ya expiró
+        if (status === 'expired') {
+            const now = new Date();
+            const expiresAt = new Date(existingSignal.expires_at);
+            
+            if (now < expiresAt) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'No se puede marcar como expirada una señal que aún no ha expirado' 
+                });
+            }
+        }
 
         // Actualizar señal en Supabase
         const { data, error } = await supabase
             .from('signals')
-            .update({ status })
+            .update({ 
+                status: status,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', id)
             .select();
 
@@ -394,13 +426,13 @@ if (!['pending', 'expired', 'profit', 'loss'].includes(status)) {
             
             res.status(200).json({ 
                 success: true, 
-                data,
+                data: data[0],
                 message: `Estado actualizado a: ${status}`
             });
         } else {
             res.status(404).json({ 
                 success: false, 
-                error: 'Señal no encontrada'
+                error: 'Señal no encontrada después de actualizar'
             });
         }
     } catch (error) {
@@ -434,6 +466,78 @@ app.get('/api/signals/pending', async (req, res) => {
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('❌ [SERVER] Error obteniendo señales pendientes:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// NUEVO: Endpoint para obtener señales expiradas sin resultado
+app.get('/api/signals/expired-pending', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        
+        console.log(`📋 [SERVER] Obteniendo señales expiradas sin resultado - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const now = new Date().toISOString();
+
+        const { data, error } = await supabase
+            .from('signals')
+            .select('*')
+            .eq('status', 'pending')
+            .lt('expires_at', now)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log(`✅ [SERVER] ${data?.length || 0} señales expiradas sin resultado obtenidas`);
+        
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo señales expiradas:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// NUEVO: Endpoint para procesar expiraciones automáticas
+app.post('/api/signals/process-expired', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        console.log(`🔄 [SERVER] Procesando señales expiradas - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const now = new Date().toISOString();
+
+        // Actualizar todas las señales pendientes que han expirado
+        const { data, error } = await supabase
+            .from('signals')
+            .update({ 
+                status: 'expired',
+                updated_at: new Date().toISOString()
+            })
+            .eq('status', 'pending')
+            .lt('expires_at', now)
+            .select();
+
+        if (error) throw error;
+
+        console.log(`✅ [SERVER] ${data?.length || 0} señales marcadas como expiradas`);
+        
+        res.status(200).json({ 
+            success: true, 
+            data,
+            message: `${data?.length || 0} señales marcadas como expiradas`
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error procesando señales expiradas:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -534,13 +638,89 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
+// ENDPOINT DE ESTADÍSTICAS MEJORADO
+// =============================================
+
+app.get('/api/stats', async (req, res) => {
+    try {
+        const { userId, period = 'day' } = req.query;
+        
+        console.log(`📊 [SERVER] Obteniendo estadísticas - Periodo: ${period} - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        let startDate = new Date();
+        
+        if (period === 'day') {
+            startDate.setHours(0, 0, 0, 0);
+        } else if (period === 'week') {
+            startDate.setDate(startDate.getDate() - 7);
+        } else if (period === 'month') {
+            startDate.setMonth(startDate.getMonth() - 1);
+        }
+
+        const { data: signals, error } = await supabase
+            .from('signals')
+            .select('*')
+            .gte('created_at', startDate.toISOString())
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const stats = {
+            total: signals.length,
+            profit: signals.filter(s => s.status === 'profit').length,
+            loss: signals.filter(s => s.status === 'loss').length,
+            pending: signals.filter(s => s.status === 'pending').length,
+            expired: signals.filter(s => s.status === 'expired').length
+        };
+
+        console.log(`✅ [SERVER] Estadísticas obtenidas:`, stats);
+        
+        res.status(200).json({ 
+            success: true,
+            data: stats,
+            period: period
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo estadísticas:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
 // INICIO DEL SERVIDOR
 // =============================================
 
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`✅ [SERVER] Servidor web ejecutándose en puerto ${PORT}`);
-    console.log('🚀 [SERVER] Sistema de resultados activado');
+    console.log('🚀 [SERVER] Sistema de resultados mejorado activado');
     console.log(`🌐 [SERVER] URL: ${RENDER_URL}`);
+    console.log('👑 [SERVER] Admin ID configurado:', ADMIN_ID);
+    
+    // Procesar señales expiradas al iniciar el servidor
+    try {
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+            .from('signals')
+            .update({ 
+                status: 'expired',
+                updated_at: new Date().toISOString()
+            })
+            .eq('status', 'pending')
+            .lt('expires_at', now);
+
+        if (error) {
+            console.error('❌ [SERVER] Error procesando señales expiradas al inicio:', error);
+        } else {
+            console.log('✅ [SERVER] Señales expiradas procesadas al inicio del servidor');
+        }
+    } catch (error) {
+        console.error('❌ [SERVER] Error en proceso inicial de señales expiradas:', error);
+    }
 });
 
 // Keep-alive para prevenir suspensión
@@ -553,5 +733,31 @@ const keepAlive = async () => {
     }
 };
 
+// Procesar señales expiradas periódicamente
+const processExpiredSignals = async () => {
+    try {
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+            .from('signals')
+            .update({ 
+                status: 'expired',
+                updated_at: new Date().toISOString()
+            })
+            .eq('status', 'pending')
+            .lt('expires_at', now);
+
+        if (error) {
+            console.error('❌ [AUTO-EXPIRY] Error procesando señales expiradas:', error);
+        } else if (data) {
+            console.log(`✅ [AUTO-EXPIRY] ${data.length} señales procesadas automáticamente`);
+        }
+    } catch (error) {
+        console.error('❌ [AUTO-EXPIRY] Error en proceso automático:', error);
+    }
+};
+
 setInterval(keepAlive, 5 * 60 * 1000);
+setInterval(processExpiredSignals, 60 * 1000); // Procesar cada minuto
+
 console.log('✅ [SERVER] Sistema keep-alive configurado');
+console.log('✅ [SERVER] Sistema de expiración automática configurado');
