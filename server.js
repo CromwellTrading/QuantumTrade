@@ -15,8 +15,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
+const BOT_NOTIFICATION_URL = process.env.BOT_NOTIFICATION_URL || 'http://localhost:3001';
 
-console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE RESULTADOS MEJORADO ===');
+console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE NOTIFICACIONES MEJORADO ===');
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -56,7 +57,7 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
-        message: 'Quantum Signal Trader with Results System is running',
+        message: 'Quantum Signal Trader with Notifications System is running',
         timestamp: new Date().toISOString()
     });
 });
@@ -309,7 +310,7 @@ app.post('/api/users/remove-vip', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES CON SISTEMA DE RESULTADOS MEJORADO
+// ENDPOINTS DE SEÑALES CON SISTEMA MEJORADO
 // =============================================
 
 // Endpoint para enviar señales (solo admin)
@@ -332,7 +333,7 @@ app.post('/api/signals', async (req, res) => {
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + parseInt(timeframe));
 
-        // Insertar señal en Supabase
+        // Insertar señal en Supabase - CORRECCIÓN: Siempre como gratis (admin decide)
         const { data, error } = await supabase
             .from('signals')
             .insert([
@@ -341,7 +342,7 @@ app.post('/api/signals', async (req, res) => {
                     timeframe: parseInt(timeframe),
                     direction: direction,
                     expires_at: expiresAt.toISOString(),
-                    is_free: true,
+                    is_free: true, // El admin siempre envía señales como gratis
                     status: 'pending',
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -364,7 +365,7 @@ app.post('/api/signals', async (req, res) => {
     }
 });
 
-// Endpoint para actualizar estado de una señal (solo admin) - MEJORADO CON EXPIRACIÓN AUTOMÁTICA
+// Endpoint para actualizar estado de una señal (solo admin)
 app.put('/api/signals/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -394,19 +395,6 @@ app.put('/api/signals/:id', async (req, res) => {
                 success: false, 
                 error: 'Señal no encontrada' 
             });
-        }
-
-        // Si se está intentando marcar como expired, verificar si ya expiró
-        if (status === 'expired') {
-            const now = new Date();
-            const expiresAt = new Date(existingSignal.expires_at);
-            
-            if (now < expiresAt) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'No se puede marcar como expirada una señal que aún no ha expirado' 
-                });
-            }
         }
 
         // Actualizar señal en Supabase
@@ -441,7 +429,7 @@ app.put('/api/signals/:id', async (req, res) => {
     }
 });
 
-// NUEVO: Endpoint para obtener señales pendientes de resultado
+// Endpoint para obtener señales pendientes de resultado
 app.get('/api/signals/pending', async (req, res) => {
     try {
         const { userId } = req.query;
@@ -466,78 +454,6 @@ app.get('/api/signals/pending', async (req, res) => {
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('❌ [SERVER] Error obteniendo señales pendientes:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// NUEVO: Endpoint para obtener señales expiradas sin resultado
-app.get('/api/signals/expired-pending', async (req, res) => {
-    try {
-        const { userId } = req.query;
-        
-        console.log(`📋 [SERVER] Obteniendo señales expiradas sin resultado - Solicitado por: ${userId}`);
-
-        const isAdmin = await verifyAdmin(userId);
-        if (!isAdmin) {
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        const now = new Date().toISOString();
-
-        const { data, error } = await supabase
-            .from('signals')
-            .select('*')
-            .eq('status', 'pending')
-            .lt('expires_at', now)
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        console.log(`✅ [SERVER] ${data?.length || 0} señales expiradas sin resultado obtenidas`);
-        
-        res.status(200).json({ success: true, data });
-    } catch (error) {
-        console.error('❌ [SERVER] Error obteniendo señales expiradas:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// NUEVO: Endpoint para procesar expiraciones automáticas
-app.post('/api/signals/process-expired', async (req, res) => {
-    try {
-        const { userId } = req.body;
-        
-        console.log(`🔄 [SERVER] Procesando señales expiradas - Solicitado por: ${userId}`);
-
-        const isAdmin = await verifyAdmin(userId);
-        if (!isAdmin) {
-            return res.status(403).json({ error: 'No tienes permisos de administrador' });
-        }
-
-        const now = new Date().toISOString();
-
-        // Actualizar todas las señales pendientes que han expirado
-        const { data, error } = await supabase
-            .from('signals')
-            .update({ 
-                status: 'expired',
-                updated_at: new Date().toISOString()
-            })
-            .eq('status', 'pending')
-            .lt('expires_at', now)
-            .select();
-
-        if (error) throw error;
-
-        console.log(`✅ [SERVER] ${data?.length || 0} señales marcadas como expiradas`);
-        
-        res.status(200).json({ 
-            success: true, 
-            data,
-            message: `${data?.length || 0} señales marcadas como expiradas`
-        });
-    } catch (error) {
-        console.error('❌ [SERVER] Error procesando señales expiradas:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -638,6 +554,46 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
+// NUEVO ENDPOINT PARA NOTIFICACIONES DE TELEGRAM
+// =============================================
+
+app.post('/api/telegram/notify', async (req, res) => {
+    try {
+        const { message, type, userId } = req.body;
+        
+        console.log('📨 [SERVER] Notificación recibida desde webapp:', { type, userId });
+        
+        // Verificar si es admin
+        if (userId !== ADMIN_ID) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Solo el admin puede enviar notificaciones' 
+            });
+        }
+        
+        // Hacer una petición al bot para que envíe la notificación
+        const botResponse = await fetch(`${BOT_NOTIFICATION_URL}/api/telegram/notify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message, type, userId })
+        });
+        
+        const result = await botResponse.json();
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error('❌ [SERVER] Error en endpoint de notificación:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error interno del servidor' 
+        });
+    }
+});
+
+// =============================================
 // ENDPOINT DE ESTADÍSTICAS MEJORADO
 // =============================================
 
@@ -697,9 +653,10 @@ app.get('/api/stats', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`✅ [SERVER] Servidor web ejecutándose en puerto ${PORT}`);
-    console.log('🚀 [SERVER] Sistema de resultados mejorado activado');
+    console.log('🚀 [SERVER] Sistema de notificaciones mejorado activado');
     console.log(`🌐 [SERVER] URL: ${RENDER_URL}`);
     console.log('👑 [SERVER] Admin ID configurado:', ADMIN_ID);
+    console.log('🔗 [SERVER] Bot notification URL:', BOT_NOTIFICATION_URL);
     
     // Procesar señales expiradas al iniciar el servidor
     try {
