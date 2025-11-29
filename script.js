@@ -180,7 +180,7 @@ function showTermsAndConditions() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - ACTUALIZADA Y CORREGIDA
+// CLASE SIGNAL MANAGER - CORREGIDA Y MEJORADA
 // =============================================
 
 class SignalManager {
@@ -320,7 +320,6 @@ class SignalManager {
             if (error) throw error;
             
             if (data && data.length > 0) {
-                // CORRECCIÓN: Filtrar señales según tipo de usuario
                 this.signals = data.map(signal => ({
                     id: signal.id,
                     asset: signal.asset,
@@ -332,8 +331,8 @@ class SignalManager {
                     isFree: signal.is_free || false
                 }));
                 
-                // CORRECCIÓN: Solo mostrar señales que correspondan al usuario
-                this.operations = this.filterSignalsForUser([...this.signals]);
+                // CORRECCIÓN: Cargar operaciones según tipo de usuario
+                this.loadUserOperations();
                 this.renderSignals();
                 this.updateStats();
                 
@@ -346,23 +345,18 @@ class SignalManager {
         }
     }
     
-    // NUEVO MÉTODO: Filtrar señales según tipo de usuario
-    filterSignalsForUser(signals) {
+    // NUEVO MÉTODO: Cargar operaciones según tipo de usuario
+    loadUserOperations() {
         if (this.isAdmin || this.isVIP) {
-            return signals; // Admin y VIP ven todas las señales
-        }
-        
-        // Usuarios regulares: solo primera señal gratis por sesión
-        const freeSignals = signals.filter(signal => signal.isFree);
-        const vipSignals = signals.filter(signal => !signal.isFree);
-        
-        if (this.hasReceivedFreeSignal) {
-            // Si ya recibió la señal gratis, no mostrar más
-            return [];
+            // Admin y VIP ven todas las operaciones
+            this.operations = [...this.signals];
         } else {
-            // Mostrar solo la primera señal gratis
-            return freeSignals.length > 0 ? [freeSignals[0]] : [];
+            // Usuarios regulares: solo señales free que han recibido
+            this.operations = this.signals.filter(signal => 
+                signal.isFree && this.hasReceivedFreeSignal
+            );
         }
+        console.log('📊 [APP] Operaciones cargadas:', this.operations.length, 'para usuario', this.isVIP ? 'VIP' : 'Regular');
     }
     
     updateUI() {
@@ -514,7 +508,7 @@ class SignalManager {
         }
     }
     
-    // NUEVA FUNCIÓN: Enviar notificaciones al bot de Telegram
+    // FUNCIÓN: Enviar notificaciones al bot de Telegram
     async sendTelegramNotification(message, type = 'session') {
         try {
             console.log('📤 [TELEGRAM] Enviando notificación al bot:', message);
@@ -659,16 +653,24 @@ class SignalManager {
         console.log('✅ [APP] Event listeners inicializados correctamente');
     }
 
-    // NUEVO MÉTODO PARA CAMBIAR VISTAS
+    // MÉTODO MEJORADO PARA CAMBIAR VISTAS - CORREGIDO
     showView(viewName) {
-        // Ocultar todas las vistas
+        console.log('👁️ [APP] Cambiando a vista:', viewName);
+        
+        // Ocultar todas las vistas y paneles
         const views = ['signals', 'stats', 'users', 'userManagement'];
         views.forEach(view => {
             const container = document.getElementById(`${view}Container`) || document.getElementById(`${view}Panel`);
             if (container) {
                 container.classList.remove('active');
+                container.style.display = 'none';
             }
         });
+        
+        // Ocultar paneles adicionales
+        if (this.adminPanel) {
+            this.adminPanel.style.display = 'none';
+        }
         
         // Remover clase active de todos los botones
         const buttons = [this.showSignals, this.showStats, this.showUsers, this.showUserManagement];
@@ -681,23 +683,39 @@ class SignalManager {
             case 'signals':
                 if (this.signalsContainer) {
                     const signalsPanel = document.getElementById('signalsPanel');
-                    if (signalsPanel) signalsPanel.classList.add('active');
+                    if (signalsPanel) {
+                        signalsPanel.classList.add('active');
+                        signalsPanel.style.display = 'block';
+                    }
+                }
+                // Mostrar panel de admin si es admin
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'block';
                 }
                 if (this.showSignals) this.showSignals.classList.add('active');
                 break;
                 
             case 'stats':
-                if (this.statsContainer) this.statsContainer.classList.add('active');
+                if (this.statsContainer) {
+                    this.statsContainer.classList.add('active');
+                    this.statsContainer.style.display = 'block';
+                }
                 if (this.showStats) this.showStats.classList.add('active');
                 break;
                 
             case 'users':
-                if (this.usersContainer) this.usersContainer.classList.add('active');
+                if (this.usersContainer) {
+                    this.usersContainer.classList.add('active');
+                    this.usersContainer.style.display = 'block';
+                }
                 if (this.showUsers) this.showUsers.classList.add('active');
                 break;
                 
             case 'userManagement':
-                if (this.userManagementContainer) this.userManagementContainer.classList.add('active');
+                if (this.userManagementContainer) {
+                    this.userManagementContainer.classList.add('active');
+                    this.userManagementContainer.style.display = 'block';
+                }
                 if (this.showUserManagement) this.showUserManagement.classList.add('active');
                 break;
         }
@@ -1015,7 +1033,7 @@ class SignalManager {
         return subscription;
     }
     
-    // CORRECCIÓN: Manejo mejorado de nuevas señales
+    // CORRECCIÓN MEJORADA: Manejo de nuevas señales
     handleNewSignal(signalData) {
         console.log('📨 [APP] Procesando nueva señal en tiempo real:', signalData);
         
@@ -1040,7 +1058,15 @@ class SignalManager {
             
             if (!signalExists) {
                 this.signals.unshift(signal);
-                this.operations = this.filterSignalsForUser([...this.signals]);
+                
+                // CORRECCIÓN: Agregar a operaciones según tipo de usuario
+                if (this.isAdmin || this.isVIP) {
+                    // Admin y VIP: todas las señales
+                    this.operations.unshift(signal);
+                } else if (signal.isFree && !this.hasReceivedFreeSignal) {
+                    // Usuario regular: solo primera señal free
+                    this.operations.unshift(signal);
+                }
                 
                 console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
                 
@@ -1059,6 +1085,7 @@ class SignalManager {
                 if (signal.isFree && !this.isVIP) {
                     this.hasReceivedFreeSignal = true;
                     this.saveToLocalStorage();
+                    console.log('✅ [APP] Usuario regular marcado como que recibió señal free');
                 }
                 
                 console.log('✅ [APP] Señal procesada y mostrada al usuario en tiempo real');
@@ -1066,14 +1093,14 @@ class SignalManager {
                 console.log('ℹ️ [APP] Señal ya existe, ignorando duplicado');
             }
         } else {
-            console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
-            if (!signal.isFree) {
+            console.log('ℹ️ [APP] Señal no disponible para este usuario');
+            if (!signal.isFree && !this.isVIP) {
                 this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
             }
         }
     }
     
-    // NUEVO MÉTODO: Verificar si usuario puede recibir señal
+    // MÉTODO: Verificar si usuario puede recibir señal
     canUserReceiveSignal(signal) {
         if (this.isAdmin || this.isVIP) {
             return true; // Admin y VIP reciben todas las señales
@@ -1392,10 +1419,6 @@ class SignalManager {
             
             if (response.ok) {
                 const result = await response.json();
-                // CORRECCIÓN: Solo marcar como recibida señal gratis si es admin enviando
-                if (this.isAdmin) {
-                    this.hasReceivedFreeSignal = true;
-                }
                 asset.value = '';
                 
                 this.showNotification('Señal enviada correctamente', 'success');
@@ -1467,7 +1490,20 @@ class SignalManager {
         if (!this.signalsContainer) return;
         
         // CORRECCIÓN: Filtrar señales para mostrar solo las que corresponden al usuario
-        const signalsToShow = this.filterSignalsForUser(this.signals);
+        let signalsToShow = [];
+        
+        if (this.isAdmin || this.isVIP) {
+            // Admin y VIP ven todas las señales
+            signalsToShow = this.signals;
+        } else {
+            // Usuarios regulares: solo señales free
+            signalsToShow = this.signals.filter(signal => signal.isFree);
+            
+            // Si ya recibió señal free, mostrar solo esa
+            if (this.hasReceivedFreeSignal && signalsToShow.length > 0) {
+                signalsToShow = [signalsToShow[0]]; // Solo la primera señal free
+            }
+        }
         
         if(signalsToShow.length === 0) {
             this.signalsContainer.innerHTML = `
@@ -1569,7 +1605,7 @@ class SignalManager {
         this.startTimeUpdates();
     }
 
-    // Nuevo método para actualizar señales a expiradas
+    // Método para actualizar señales a expiradas
     async updateSignalToExpired(signalId) {
         try {
             console.log(`🔄 [APP] Actualizando señal ${signalId} a expirada en servidor`);
@@ -1740,18 +1776,21 @@ class SignalManager {
         this.showView('userManagement');
     }
     
+    // CORRECCIÓN MEJORADA: Función de estadísticas
     updateStats(period = 'day') {
         const now = new Date();
         let filteredOperations = [];
         
         if (period === 'day') {
+            // Solo operaciones de hoy
             filteredOperations = this.operations.filter(op => {
                 const opDate = new Date(op.timestamp);
                 return opDate.toDateString() === now.toDateString();
             });
         } else if (period === 'week') {
+            // Operaciones de los últimos 7 días
             const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay());
+            startOfWeek.setDate(now.getDate() - 7);
             startOfWeek.setHours(0, 0, 0, 0);
             
             filteredOperations = this.operations.filter(op => {
@@ -1759,13 +1798,18 @@ class SignalManager {
                 return opDate >= startOfWeek;
             });
         } else if (period === 'month') {
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            // Operaciones de los últimos 30 días
+            const startOfMonth = new Date(now);
+            startOfMonth.setDate(now.getDate() - 30);
+            startOfMonth.setHours(0, 0, 0, 0);
             
             filteredOperations = this.operations.filter(op => {
                 const opDate = new Date(op.timestamp);
                 return opDate >= startOfMonth;
             });
         }
+        
+        console.log(`📊 [STATS] Periodo: ${period}, Operaciones filtradas: ${filteredOperations.length}`);
         
         const winOperations = filteredOperations.filter(op => op.status === 'profit');
         const lossOperations = filteredOperations.filter(op => op.status === 'loss');
@@ -1779,35 +1823,46 @@ class SignalManager {
         if (this.totalCount) this.totalCount.textContent = totalOperations;
         
         if (this.operationsTable) {
-            this.operationsTable.innerHTML = filteredOperations.map(op => {
-                let statusClass = 'status-pending';
-                let statusText = 'PENDIENTE';
-                let statusIcon = '<i class="fas fa-clock"></i>';
-                
-                if (op.status === 'profit') {
-                    statusClass = 'status-profit';
-                    statusText = 'GANADA';
-                    statusIcon = '<i class="fas fa-check-circle"></i>';
-                } else if (op.status === 'loss') {
-                    statusClass = 'status-loss';
-                    statusText = 'PERDIDA';
-                    statusIcon = '<i class="fas fa-times-circle"></i>';
-                }
-                
-                return `
+            if (filteredOperations.length === 0) {
+                this.operationsTable.innerHTML = `
                     <tr>
-                        <td>${op.asset}</td>
-                        <td>
-                            <span class="direction ${op.direction}">
-                                ${op.direction === 'up' ? 'ALZA' : 'BAJA'}
-                            </span>
+                        <td colspan="5" class="no-operations">
+                            <i class="fas fa-inbox"></i>
+                            <p>No hay operaciones en este período</p>
                         </td>
-                        <td>${op.timeframe} min</td>
-                        <td><span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span></td>
-                        <td>${new Date(op.timestamp).toLocaleString()}</td>
                     </tr>
                 `;
-            }).join('');
+            } else {
+                this.operationsTable.innerHTML = filteredOperations.map(op => {
+                    let statusClass = 'status-pending';
+                    let statusText = 'PENDIENTE';
+                    let statusIcon = '<i class="fas fa-clock"></i>';
+                    
+                    if (op.status === 'profit') {
+                        statusClass = 'status-profit';
+                        statusText = 'GANADA';
+                        statusIcon = '<i class="fas fa-check-circle"></i>';
+                    } else if (op.status === 'loss') {
+                        statusClass = 'status-loss';
+                        statusText = 'PERDIDA';
+                        statusIcon = '<i class="fas fa-times-circle"></i>';
+                    }
+                    
+                    return `
+                        <tr>
+                            <td>${op.asset}</td>
+                            <td>
+                                <span class="direction ${op.direction}">
+                                    ${op.direction === 'up' ? 'ALZA' : 'BAJA'}
+                                </span>
+                            </td>
+                            <td>${op.timeframe} min</td>
+                            <td><span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span></td>
+                            <td>${new Date(op.timestamp).toLocaleString()}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
         }
         
         this.updateChart(winCount, lossCount, totalOperations);
@@ -1876,7 +1931,8 @@ class SignalManager {
             sessions: this.sessions,
             currentSession: this.currentSession,
             isVIP: this.isVIP,
-            hasReceivedFreeSignal: this.hasReceivedFreeSignal
+            hasReceivedFreeSignal: this.hasReceivedFreeSignal,
+            operations: this.operations // GUARDAR OPERACIONES DEL USUARIO
         };
         localStorage.setItem('quantumTraderData', JSON.stringify(data));
     }
@@ -1888,6 +1944,7 @@ class SignalManager {
             this.currentSession = data.currentSession || null;
             this.isVIP = data.isVIP !== undefined ? data.isVIP : false;
             this.hasReceivedFreeSignal = data.hasReceivedFreeSignal || false;
+            this.operations = data.operations || []; // CARGAR OPERACIONES DEL USUARIO
             
             if (this.currentSession) {
                 this.currentSession.startTime = new Date(this.currentSession.startTime);
