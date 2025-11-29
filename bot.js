@@ -146,7 +146,8 @@ bot.onText(/\/start/, async (msg) => {
         telegram_id: userId,
         username: msg.from.username,
         first_name: msg.from.first_name,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        free_signals_used: 0 // Inicializar contador de señales free
     }).then(() => console.log(`✅ [BOT] Usuario ${userId} guardado`));
 
     const welcomeMessage = `🤖 *Quantum Signal Trader Pro*\n\n¡Hola *${userName}*! 👋\n\n*Tu ID:* \`${userId}\`\n\n🎯 *Sistema Profesional de Señales*:\n• 🤖 Bot automatizado\n• ⚡ Señales en tiempo real\n• 💰 Opciones binarias\n• 📊 Plataforma web integrada\n\n📈 *Horarios de Sesiones*:\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *La primera señal de cada sesión es GRATIS*`;
@@ -270,12 +271,12 @@ async function handleFastPlatform(chatId) {
 }
 
 // =============================================
-// SISTEMA DE NOTIFICACIONES CON ID
+// SISTEMA DE NOTIFICACIONES CON ID - CORREGIDO
 // =============================================
 
 console.log('🔔 [BOT] Activando notificaciones con sistema de ID...');
 
-// Suscripción a señales - CORREGIDO PARA EVITAR DUPLICADOS
+// Suscripción a señales - CORREGIDO PARA ENVÍO DE SEÑALES FREE
 const signalsChannel = supabase
     .channel('ultra-fast-bot-signals')
     .on('postgres_changes', 
@@ -289,23 +290,29 @@ const signalsChannel = supabase
         { event: 'UPDATE', schema: 'public', table: 'signals' },
         async (payload) => {
             console.log('🔄 [BOT] Señal actualizada - Resultado:', payload.new.status);
-            // SOLO enviar resultado si cambió a profit/loss y NO es una actualización de expiración
+            // SOLO enviar resultado si cambió a profit/loss
             if ((payload.new.status === 'profit' || payload.new.status === 'loss') && 
-                payload.old.status === 'pending') {
+                payload.old.status !== payload.new.status) {
                 await broadcastSignalResult(payload.new);
             }
         }
     )
     .subscribe();
 
+// CORRECCIÓN CRÍTICA: Función mejorada para enviar señales FREE y VIP
 async function broadcastSignalWithID(signal) {
     try {
-        // Obtener todos los usuarios rápidamente
-        const { data: users } = await supabase
+        console.log(`📨 [BOT] Procesando señal ${signal.id} - FREE: ${signal.is_free}`);
+        
+        // Obtener todos los usuarios
+        const { data: users, error } = await supabase
             .from('users')
             .select('telegram_id, is_vip, free_signals_used');
         
-        if (!users) return;
+        if (error || !users) {
+            console.error('❌ [BOT] Error obteniendo usuarios:', error);
+            return;
+        }
 
         const arrow = signal.direction === 'up' ? '🟢' : '🔴';
         const message = `
@@ -321,56 +328,72 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
 *¡Actúa rápido!* ⚡
         `;
 
-        // CORRECCIÓN: Lógica mejorada para envío de señales
-        const vipUsers = users.filter(user => user.is_vip);
-        const freeUsers = users.filter(user => !user.is_vip && user.free_signals_used === 0);
-
+        // CORRECCIÓN MEJORADA: Lógica de envío de señales
         let recipients = [];
-        
+        let freeUsersToUpdate = [];
+
         if (signal.is_free) {
-            // Señal gratis: enviar a VIPs y usuarios que no han usado su señal gratis
+            // Señal FREE: enviar a VIPs + usuarios FREE que no han usado su señal
+            const vipUsers = users.filter(user => user.is_vip);
+            const freeUsers = users.filter(user => !user.is_vip && user.free_signals_used === 0);
+            
             recipients = [...vipUsers, ...freeUsers];
+            freeUsersToUpdate = freeUsers; // Marcar estos usuarios como que usaron su señal FREE
+            
+            console.log(`📨 [BOT] Señal FREE - VIPs: ${vipUsers.length}, FREE Users: ${freeUsers.length}`);
+            
         } else {
             // Señal VIP: solo enviar a usuarios VIP
-            recipients = vipUsers;
+            recipients = users.filter(user => user.is_vip);
+            console.log(`📨 [BOT] Señal VIP - VIPs: ${recipients.length}`);
         }
 
-        console.log(`📨 [BOT] Enviando señal ${signal.id} a ${recipients.length} usuarios (VIP: ${vipUsers.length}, Free: ${freeUsers.length})`);
+        console.log(`📨 [BOT] Enviando señal ${signal.id} a ${recipients.length} usuarios`);
 
-        // Enviar en paralelo para máxima velocidad
+        // Enviar mensajes en paralelo
         const sendPromises = recipients.map(user => 
             sendFastMessage(user.telegram_id, message).catch(() => null)
         );
 
         await Promise.all(sendPromises);
 
-        // Actualizar contador de señales gratuitas SOLO para usuarios regulares que recibieron señal gratis
-        if (signal.is_free && freeUsers.length > 0) {
-            const freeUserIds = freeUsers.map(u => u.telegram_id);
-            await supabase
+        // CORRECCIÓN: Actualizar contador de señales FREE SOLO para usuarios regulares
+        if (signal.is_free && freeUsersToUpdate.length > 0) {
+            const freeUserIds = freeUsersToUpdate.map(u => u.telegram_id);
+            const { error: updateError } = await supabase
                 .from('users')
                 .update({ free_signals_used: 1 })
                 .in('telegram_id', freeUserIds);
                 
-            console.log(`✅ [BOT] ${freeUserIds.length} usuarios marcados como que usaron su señal gratis`);
+            if (updateError) {
+                console.error('❌ [BOT] Error actualizando free_signals_used:', updateError);
+            } else {
+                console.log(`✅ [BOT] ${freeUserIds.length} usuarios marcados como que usaron su señal FREE`);
+            }
         }
 
     } catch (error) {
-        console.error('❌ [BOT] Error broadcast:', error);
+        console.error('❌ [BOT] Error en broadcastSignalWithID:', error);
     }
 }
 
-// NUEVA FUNCIÓN: Notificar resultados de señales - CORREGIDA PARA EVITAR DUPLICADOS
+// CORRECCIÓN: Función mejorada para resultados de señales
 async function broadcastSignalResult(signal) {
     try {
+        console.log(`📊 [BOT] Enviando resultado de señal ${signal.id} - ${signal.status}`);
+        
         // Solo notificar si la señal tiene un resultado (profit/loss)
         if (signal.status !== 'profit' && signal.status !== 'loss') return;
 
-        const { data: users } = await supabase
+        // Obtener todos los usuarios
+        const { data: users, error } = await supabase
             .from('users')
-            .select('telegram_id, is_vip');
+            .select('telegram_id');
 
-        if (!users) return;
+        if (error || !users) {
+            console.error('❌ [BOT] Error obteniendo usuarios para resultados:', error);
+            return;
+        }
 
         const resultEmoji = signal.status === 'profit' ? '💰' : '📉';
         const resultText = signal.status === 'profit' ? 'PROFIT' : 'LOSS';
@@ -397,6 +420,8 @@ ${signal.status === 'profit' ? '¡Operación ganadora! 🎉' : 'Operación cerra
 
         await Promise.all(sendPromises);
 
+        console.log(`✅ [BOT] Resultado de señal ${signal.id} enviado correctamente`);
+
     } catch (error) {
         console.error('❌ [BOT] Error enviando resultado:', error);
     }
@@ -419,6 +444,22 @@ app.post('/api/telegram/notify', async (req, res) => {
                 success: false, 
                 error: 'Solo el admin puede enviar notificaciones' 
             });
+        }
+        
+        // CORRECCIÓN: Resetear free_signals_used cuando inicia sesión
+        if (type === 'session_start') {
+            console.log('🔄 [BOT] Reseteando free_signals_used para todos los usuarios');
+            
+            const { error: resetError } = await supabase
+                .from('users')
+                .update({ free_signals_used: 0 })
+                .neq('telegram_id', ADMIN_ID); // No resetear al admin
+                
+            if (resetError) {
+                console.error('❌ [BOT] Error reseteando free_signals_used:', resetError);
+            } else {
+                console.log('✅ [BOT] free_signals_used reseteado para todos los usuarios');
+            }
         }
         
         // Obtener todos los usuarios
@@ -571,10 +612,34 @@ bot.onText(/\/pendientes/, async (msg) => {
 });
 
 // =============================================
-// NOTIFICACIONES DE SESIÓN
+// COMANDO PARA RESETEAR SEÑALES FREE (Solo admin)
 // =============================================
 
-// Estas notificaciones ahora se manejan a través del endpoint /api/telegram/notify desde la webapp
+bot.onText(/\/reset_free/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    
+    // Verificar si es admin
+    if (userId !== ADMIN_ID) {
+        await sendFastMessage(chatId, '❌ No tienes permisos para usar este comando.');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ free_signals_used: 0 })
+            .neq('telegram_id', ADMIN_ID);
+
+        if (error) throw error;
+
+        await sendFastMessage(chatId, '✅ free_signals_used reseteado para todos los usuarios');
+        
+    } catch (error) {
+        console.error('Error reseteando free_signals_used:', error);
+        await sendFastMessage(chatId, '❌ Error reseteando free_signals_used');
+    }
+});
 
 // =============================================
 // INICIALIZACIÓN COMPLETADA
@@ -586,9 +651,12 @@ bot.getMe().then((me) => {
     console.log('📊 Sistema de IDs y resultados activado');
     console.log('⚡ Comandos admin: /resultado <ID> <profit/loss>');
     console.log('⚡ Comandos admin: /pendientes');
+    console.log('⚡ Comando admin: /reset_free');
     console.log('🔔 Endpoint notificaciones activo en puerto:', NOTIFICATION_PORT);
     console.log('🕙 Horarios: 10AM y 10PM');
     console.log('🎁 Primera señal gratis por sesión');
+    console.log('✅ Señales FREE enviadas a usuarios regulares');
+    console.log('✅ Resultados enviados en formato texto');
 });
 
 module.exports = bot;
