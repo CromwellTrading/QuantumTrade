@@ -17,7 +17,7 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 const BOT_NOTIFICATION_URL = process.env.BOT_NOTIFICATION_URL || 'http://localhost:3001';
 
-console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA DE NOTIFICACIONES MEJORADO ===');
+console.log('=== 🚀 INICIANDO SERVIDOR CON SISTEMA COMPLETO ===');
 
 // Verificar configuración
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -63,7 +63,37 @@ app.get('/health', (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE USUARIO
+// FUNCIONES AUXILIARES
+// =============================================
+
+// Middleware para verificar admin
+async function verifyAdmin(userId) {
+    const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
+    
+    if (isAdminByID) {
+        return true;
+    }
+    
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('is_admin')
+            .eq('telegram_id', userId)
+            .single();
+
+        if (error || !user) {
+            return false;
+        }
+
+        return user.is_admin;
+    } catch (error) {
+        console.error('❌ [SERVER] Error verificando admin:', error);
+        return false;
+    }
+}
+
+// =============================================
+// ENDPOINTS DE USUARIO - COMPLETOS
 // =============================================
 
 app.get('/api/user/:userId', async (req, res) => {
@@ -92,6 +122,7 @@ app.get('/api/user/:userId', async (req, res) => {
                     vip_expires_at: isAdminByID ? new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString() : null,
                     username: null,
                     first_name: null,
+                    free_signals_used: 0, // ✅ INICIALIZAR EN 0
                     created_at: new Date().toISOString()
                 };
                 
@@ -111,7 +142,8 @@ app.get('/api/user/:userId', async (req, res) => {
             is_vip: finalIsVip,
             vip_expires_at: user.vip_expires_at,
             username: user.username,
-            first_name: user.first_name
+            first_name: user.first_name,
+            free_signals_used: user.free_signals_used || 0 // ✅ INCLUIR EN RESPUESTA
         };
         
         res.json({ success: true, data: userData });
@@ -122,34 +154,8 @@ app.get('/api/user/:userId', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE ADMINISTRACIÓN
+// ENDPOINTS DE ADMINISTRACIÓN - COMPLETOS
 // =============================================
-
-// Middleware para verificar admin
-async function verifyAdmin(userId) {
-    const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
-    
-    if (isAdminByID) {
-        return true;
-    }
-    
-    try {
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('is_admin')
-            .eq('telegram_id', userId)
-            .single();
-
-        if (error || !user) {
-            return false;
-        }
-
-        return user.is_admin;
-    } catch (error) {
-        console.error('❌ [SERVER] Error verificando admin:', error);
-        return false;
-    }
-}
 
 // Endpoint para obtener todos los usuarios
 app.get('/api/users', async (req, res) => {
@@ -243,6 +249,7 @@ app.post('/api/users/vip', async (req, res) => {
                     telegram_id: telegramId,
                     is_vip: true,
                     vip_expires_at: vipExpiresAt.toISOString(),
+                    free_signals_used: 0,
                     created_at: new Date().toISOString()
                 })
                 .select();
@@ -310,7 +317,97 @@ app.post('/api/users/remove-vip', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES CON SISTEMA MEJORADO
+// ENDPOINTS PARA free_signals_used - NUEVOS
+// =============================================
+
+// Endpoint para actualizar free_signals_used
+app.post('/api/users/update-free-signals', async (req, res) => {
+    try {
+        const { telegramId, freeSignalsUsed } = req.body;
+
+        console.log(`🔄 [SERVER] Actualizando free_signals_used para ${telegramId} a ${freeSignalsUsed}`);
+
+        // Verificar si el usuario existe
+        const { data: existingUser, error: findError } = await supabase
+            .from('users')
+            .select('telegram_id')
+            .eq('telegram_id', telegramId)
+            .single();
+
+        let result;
+        if (findError && findError.code === 'PGRST116') {
+            // Usuario no existe, crear uno nuevo
+            result = await supabase
+                .from('users')
+                .insert({
+                    telegram_id: telegramId,
+                    free_signals_used: freeSignalsUsed,
+                    created_at: new Date().toISOString()
+                })
+                .select();
+        } else {
+            // Usuario existe, actualizar
+            result = await supabase
+                .from('users')
+                .update({ 
+                    free_signals_used: freeSignalsUsed
+                })
+                .eq('telegram_id', telegramId)
+                .select();
+        }
+
+        if (result.error) throw result.error;
+
+        console.log(`✅ [SERVER] free_signals_used actualizado para ${telegramId}: ${freeSignalsUsed}`);
+        
+        res.status(200).json({ 
+            success: true, 
+            data: result.data,
+            message: `free_signals_used actualizado a ${freeSignalsUsed}`
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error actualizando free_signals_used:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para resetear free_signals_used (Solo admin)
+app.post('/api/users/reset-free-signals', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        console.log(`🔄 [SERVER] Reseteando free_signals_used para todos los usuarios - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        const { data, error } = await supabase
+            .from('users')
+            .update({ 
+                free_signals_used: 0
+            })
+            .neq('telegram_id', ADMIN_ID) // No resetear al admin
+            .select();
+
+        if (error) throw error;
+
+        console.log(`✅ [SERVER] free_signals_used reseteado para todos los usuarios`);
+        
+        res.status(200).json({ 
+            success: true, 
+            data,
+            message: 'free_signals_used reseteado para todos los usuarios'
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error reseteando free_signals_used:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINTS DE SEÑALES - COMPLETOS
 // =============================================
 
 // Endpoint para enviar señales (solo admin)
@@ -333,7 +430,7 @@ app.post('/api/signals', async (req, res) => {
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + parseInt(timeframe));
 
-        // Insertar señal en Supabase - CORRECCIÓN: Siempre como gratis (admin decide)
+        // Insertar señal en Supabase
         const { data, error } = await supabase
             .from('signals')
             .insert([
@@ -481,7 +578,7 @@ app.get('/api/signals', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SESIONES Y NOTIFICACIONES
+// ENDPOINTS DE SESIONES Y NOTIFICACIONES - COMPLETOS
 // =============================================
 
 app.post('/api/notify', async (req, res) => {
@@ -554,7 +651,7 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
-// NUEVO ENDPOINT PARA NOTIFICACIONES DE TELEGRAM
+// ENDPOINT PARA NOTIFICACIONES DE TELEGRAM - COMPLETO
 // =============================================
 
 app.post('/api/telegram/notify', async (req, res) => {
@@ -594,7 +691,7 @@ app.post('/api/telegram/notify', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINT DE ESTADÍSTICAS MEJORADO
+// ENDPOINT DE ESTADÍSTICAS - COMPLETO
 // =============================================
 
 app.get('/api/stats', async (req, res) => {
@@ -653,7 +750,7 @@ app.get('/api/stats', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`✅ [SERVER] Servidor web ejecutándose en puerto ${PORT}`);
-    console.log('🚀 [SERVER] Sistema de notificaciones mejorado activado');
+    console.log('🚀 [SERVER] Sistema completo activado');
     console.log(`🌐 [SERVER] URL: ${RENDER_URL}`);
     console.log('👑 [SERVER] Admin ID configurado:', ADMIN_ID);
     console.log('🔗 [SERVER] Bot notification URL:', BOT_NOTIFICATION_URL);
