@@ -13,7 +13,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🤖 INICIANDO BOT MEJORADO ===');
+console.log('=== 🤖 INICIANDO BOT COMPLETO ===');
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -133,7 +133,7 @@ async function getUserFast(userId) {
 }
 
 // =============================================
-// MANEJADORES PRINCIPALES
+// MANEJADORES PRINCIPALES - COMPLETOS
 // =============================================
 
 bot.onText(/\/start/, async (msg) => {
@@ -146,8 +146,8 @@ bot.onText(/\/start/, async (msg) => {
         telegram_id: userId,
         username: msg.from.username,
         first_name: msg.from.first_name,
-        created_at: new Date().toISOString(),
-        free_signals_used: 0 // Inicializar contador de señales free
+        free_signals_used: 0, // Inicializar contador de señales free
+        created_at: new Date().toISOString()
     }).then(() => console.log(`✅ [BOT] Usuario ${userId} guardado`));
 
     const welcomeMessage = `🤖 *Quantum Signal Trader Pro*\n\n¡Hola *${userName}*! 👋\n\n*Tu ID:* \`${userId}\`\n\n🎯 *Sistema Profesional de Señales*:\n• 🤖 Bot automatizado\n• ⚡ Señales en tiempo real\n• 💰 Opciones binarias\n• 📊 Plataforma web integrada\n\n📈 *Horarios de Sesiones*:\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *La primera señal de cada sesión es GRATIS*`;
@@ -191,7 +191,7 @@ bot.on('message', async (msg) => {
 });
 
 // =============================================
-// MANEJADORES DE COMANDOS MEJORADOS
+// MANEJADORES DE COMANDOS MEJORADOS - COMPLETOS
 // =============================================
 
 async function handleFastSignals(chatId, userId) {
@@ -271,7 +271,7 @@ async function handleFastPlatform(chatId) {
 }
 
 // =============================================
-// SISTEMA DE NOTIFICACIONES CON ID - CORREGIDO
+// SISTEMA DE NOTIFICACIONES CON ID - CORREGIDO Y COMPLETO
 // =============================================
 
 console.log('🔔 [BOT] Activando notificaciones con sistema de ID...');
@@ -299,7 +299,7 @@ const signalsChannel = supabase
     )
     .subscribe();
 
-// CORRECCIÓN CRÍTICA: Función mejorada para enviar señales FREE y VIP
+// FUNCIÓN MEJORADA PARA ENVÍO DE SEÑALES
 async function broadcastSignalWithID(signal) {
     try {
         console.log(`📨 [BOT] Procesando señal ${signal.id} - FREE: ${signal.is_free}`);
@@ -328,17 +328,17 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
 *¡Actúa rápido!* ⚡
         `;
 
-        // CORRECCIÓN MEJORADA: Lógica de envío de señales
+        // Lógica de envío de señales
         let recipients = [];
         let freeUsersToUpdate = [];
 
         if (signal.is_free) {
             // Señal FREE: enviar a VIPs + usuarios FREE que no han usado su señal
             const vipUsers = users.filter(user => user.is_vip);
-            const freeUsers = users.filter(user => !user.is_vip && user.free_signals_used === 0);
+            const freeUsers = users.filter(user => !user.is_vip && (user.free_signals_used === 0 || !user.free_signals_used));
             
             recipients = [...vipUsers, ...freeUsers];
-            freeUsersToUpdate = freeUsers; // Marcar estos usuarios como que usaron su señal FREE
+            freeUsersToUpdate = freeUsers;
             
             console.log(`📨 [BOT] Señal FREE - VIPs: ${vipUsers.length}, FREE Users: ${freeUsers.length}`);
             
@@ -357,19 +357,31 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
 
         await Promise.all(sendPromises);
 
-        // CORRECCIÓN: Actualizar contador de señales FREE SOLO para usuarios regulares
+        // ✅ ACTUALIZAR free_signals_used EN EL SERVIDOR
         if (signal.is_free && freeUsersToUpdate.length > 0) {
-            const freeUserIds = freeUsersToUpdate.map(u => u.telegram_id);
-            const { error: updateError } = await supabase
-                .from('users')
-                .update({ free_signals_used: 1 })
-                .in('telegram_id', freeUserIds);
-                
-            if (updateError) {
-                console.error('❌ [BOT] Error actualizando free_signals_used:', updateError);
-            } else {
-                console.log(`✅ [BOT] ${freeUserIds.length} usuarios marcados como que usaron su señal FREE`);
-            }
+            const updatePromises = freeUsersToUpdate.map(async (user) => {
+                try {
+                    const response = await fetch(`${RENDER_URL}/api/users/update-free-signals`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: user.telegram_id,
+                            freeSignalsUsed: 1
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        console.error(`❌ [BOT] Error actualizando free_signals_used para ${user.telegram_id}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ [BOT] Error en actualización para ${user.telegram_id}:`, error);
+                }
+            });
+
+            await Promise.all(updatePromises);
+            console.log(`✅ [BOT] ${freeUsersToUpdate.length} usuarios actualizados con free_signals_used = 1`);
         }
 
     } catch (error) {
@@ -377,7 +389,7 @@ ${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
     }
 }
 
-// CORRECCIÓN: Función mejorada para resultados de señales
+// FUNCIÓN MEJORADA PARA RESULTADOS DE SEÑALES
 async function broadcastSignalResult(signal) {
     try {
         console.log(`📊 [BOT] Enviando resultado de señal ${signal.id} - ${signal.status}`);
@@ -428,7 +440,7 @@ ${signal.status === 'profit' ? '¡Operación ganadora! 🎉' : 'Operación cerra
 }
 
 // =============================================
-// ENDPOINT PARA NOTIFICACIONES DESDE LA WEBAPP
+// ENDPOINT PARA NOTIFICACIONES DESDE LA WEBAPP - COMPLETO
 // =============================================
 
 // Endpoint para recibir notificaciones desde la webapp
@@ -446,19 +458,28 @@ app.post('/api/telegram/notify', async (req, res) => {
             });
         }
         
-        // CORRECCIÓN: Resetear free_signals_used cuando inicia sesión
+        // ✅ RESETEAR free_signals_used CUANDO INICIA SESIÓN
         if (type === 'session_start') {
             console.log('🔄 [BOT] Reseteando free_signals_used para todos los usuarios');
             
-            const { error: resetError } = await supabase
-                .from('users')
-                .update({ free_signals_used: 0 })
-                .neq('telegram_id', ADMIN_ID); // No resetear al admin
+            try {
+                const response = await fetch(`${RENDER_URL}/api/users/reset-free-signals`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: ADMIN_ID
+                    })
+                });
                 
-            if (resetError) {
-                console.error('❌ [BOT] Error reseteando free_signals_used:', resetError);
-            } else {
-                console.log('✅ [BOT] free_signals_used reseteado para todos los usuarios');
+                if (response.ok) {
+                    console.log('✅ [BOT] free_signals_used reseteado exitosamente');
+                } else {
+                    console.error('❌ [BOT] Error en respuesta del servidor al resetear free_signals_used');
+                }
+            } catch (error) {
+                console.error('❌ [BOT] Error reseteando free_signals_used:', error);
             }
         }
         
@@ -510,7 +531,7 @@ app.listen(NOTIFICATION_PORT, () => {
 });
 
 // =============================================
-// COMANDOS DE ADMIN PARA RESULTADOS
+// COMANDOS DE ADMIN PARA RESULTADOS - COMPLETOS
 // =============================================
 
 // Comando para que el admin pueda marcar resultados
@@ -626,14 +647,21 @@ bot.onText(/\/reset_free/, async (msg) => {
     }
 
     try {
-        const { error } = await supabase
-            .from('users')
-            .update({ free_signals_used: 0 })
-            .neq('telegram_id', ADMIN_ID);
+        const response = await fetch(`${RENDER_URL}/api/users/reset-free-signals`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: ADMIN_ID
+            })
+        });
 
-        if (error) throw error;
-
-        await sendFastMessage(chatId, '✅ free_signals_used reseteado para todos los usuarios');
+        if (response.ok) {
+            await sendFastMessage(chatId, '✅ free_signals_used reseteado para todos los usuarios');
+        } else {
+            await sendFastMessage(chatId, '❌ Error reseteando free_signals_used');
+        }
         
     } catch (error) {
         console.error('Error reseteando free_signals_used:', error);
@@ -646,7 +674,7 @@ bot.onText(/\/reset_free/, async (msg) => {
 // =============================================
 
 bot.getMe().then((me) => {
-    console.log('🎉 === BOT MEJORADO OPERATIVO ===');
+    console.log('🎉 === BOT COMPLETO OPERATIVO ===');
     console.log(`🤖 Bot: @${me.username}`);
     console.log('📊 Sistema de IDs y resultados activado');
     console.log('⚡ Comandos admin: /resultado <ID> <profit/loss>');
