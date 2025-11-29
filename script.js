@@ -180,7 +180,7 @@ function showTermsAndConditions() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - ACTUALIZADA
+// CLASE SIGNAL MANAGER - ACTUALIZADA Y CORREGIDA
 // =============================================
 
 class SignalManager {
@@ -320,6 +320,7 @@ class SignalManager {
             if (error) throw error;
             
             if (data && data.length > 0) {
+                // CORRECCIÓN: Filtrar señales según tipo de usuario
                 this.signals = data.map(signal => ({
                     id: signal.id,
                     asset: signal.asset,
@@ -331,7 +332,8 @@ class SignalManager {
                     isFree: signal.is_free || false
                 }));
                 
-                this.operations = [...this.signals];
+                // CORRECCIÓN: Solo mostrar señales que correspondan al usuario
+                this.operations = this.filterSignalsForUser([...this.signals]);
                 this.renderSignals();
                 this.updateStats();
                 
@@ -341,6 +343,25 @@ class SignalManager {
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando señales iniciales:', error);
+        }
+    }
+    
+    // NUEVO MÉTODO: Filtrar señales según tipo de usuario
+    filterSignalsForUser(signals) {
+        if (this.isAdmin || this.isVIP) {
+            return signals; // Admin y VIP ven todas las señales
+        }
+        
+        // Usuarios regulares: solo primera señal gratis por sesión
+        const freeSignals = signals.filter(signal => signal.isFree);
+        const vipSignals = signals.filter(signal => !signal.isFree);
+        
+        if (this.hasReceivedFreeSignal) {
+            // Si ya recibió la señal gratis, no mostrar más
+            return [];
+        } else {
+            // Mostrar solo la primera señal gratis
+            return freeSignals.length > 0 ? [freeSignals[0]] : [];
         }
     }
     
@@ -490,6 +511,33 @@ class SignalManager {
                 this.statusText.textContent = message;
                 this.connectionStatus.style.background = 'rgba(255, 0, 51, 0.1)';
             }
+        }
+    }
+    
+    // NUEVA FUNCIÓN: Enviar notificaciones al bot de Telegram
+    async sendTelegramNotification(message, type = 'session') {
+        try {
+            console.log('📤 [TELEGRAM] Enviando notificación al bot:', message);
+            
+            const response = await fetch(`${SERVER_URL}/api/telegram/notify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    type: type,
+                    userId: this.currentUserId
+                })
+            });
+
+            if (response.ok) {
+                console.log('✅ [TELEGRAM] Notificación enviada correctamente');
+            } else {
+                console.error('❌ [TELEGRAM] Error enviando notificación:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [TELEGRAM] Error enviando notificación al bot:', error);
         }
     }
     
@@ -967,6 +1015,7 @@ class SignalManager {
         return subscription;
     }
     
+    // CORRECCIÓN: Manejo mejorado de nuevas señales
     handleNewSignal(signalData) {
         console.log('📨 [APP] Procesando nueva señal en tiempo real:', signalData);
         
@@ -981,16 +1030,17 @@ class SignalManager {
             isFree: signalData.is_free || false
         };
         
-        const canReceiveSignal = this.isVIP || signal.isFree;
+        // CORRECCIÓN CRÍTICA: Verificar si el usuario puede recibir esta señal
+        const canReceiveSignal = this.canUserReceiveSignal(signal);
         
-        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree);
+        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree, 'HasReceivedFree:', this.hasReceivedFreeSignal);
         
         if (canReceiveSignal) {
             const signalExists = this.signals.some(s => s.id === signal.id);
             
             if (!signalExists) {
                 this.signals.unshift(signal);
-                this.operations.unshift(signal);
+                this.operations = this.filterSignalsForUser([...this.signals]);
                 
                 console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
                 
@@ -1005,14 +1055,36 @@ class SignalManager {
                 
                 this.updateStats();
                 
+                // CORRECCIÓN: Marcar que ya recibió señal gratis si corresponde
+                if (signal.isFree && !this.isVIP) {
+                    this.hasReceivedFreeSignal = true;
+                    this.saveToLocalStorage();
+                }
+                
                 console.log('✅ [APP] Señal procesada y mostrada al usuario en tiempo real');
             } else {
                 console.log('ℹ️ [APP] Señal ya existe, ignorando duplicado');
             }
         } else {
             console.log('ℹ️ [APP] Señal VIP ignorada (usuario no VIP)');
-            this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
+            if (!signal.isFree) {
+                this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
+            }
         }
+    }
+    
+    // NUEVO MÉTODO: Verificar si usuario puede recibir señal
+    canUserReceiveSignal(signal) {
+        if (this.isAdmin || this.isVIP) {
+            return true; // Admin y VIP reciben todas las señales
+        }
+        
+        // Usuarios regulares: solo primera señal gratis por sesión
+        if (signal.isFree && !this.hasReceivedFreeSignal) {
+            return true;
+        }
+        
+        return false;
     }
     
     handleUpdatedSignal(signalData) {
@@ -1093,6 +1165,7 @@ class SignalManager {
             });
             
             if (response.ok) {
+                // CORRECCIÓN: Resetear estado de señal gratis al iniciar sesión
                 this.hasReceivedFreeSignal = false;
                 
                 this.currentSession = {
@@ -1115,6 +1188,10 @@ class SignalManager {
                 }
                 
                 this.showNotification('Sesión de trading iniciada', 'success');
+                
+                // ENVIAR INICIO DE SESIÓN AL BOT
+                const startMessage = `🚀 *SESIÓN INICIADA* 🚀\n\n¡La sesión de trading ha comenzado! Prepárate para las señales. ⚡\n\n🎁 *Recuerda:* La primera señal es GRATIS`;
+                await this.sendTelegramNotification(startMessage, 'session_start');
                 
                 this.showSessionAlert('Sesión Iniciada', 'La sesión de trading ha comenzado. ¡Buena suerte!');
                 
@@ -1162,6 +1239,10 @@ class SignalManager {
                 
                 this.showNotification('Sesión de trading finalizada', 'info');
                 
+                // ENVIAR FIN DE SESIÓN AL BOT
+                const endMessage = `🏁 *SESIÓN FINALIZADA* 🏁\n\nLa sesión de trading ha terminado. ¡Gracias por participar!\n\n📅 *Próxima Sesión:*\n🕙 10:00 AM | 10:00 PM`;
+                await this.sendTelegramNotification(endMessage, 'session_end');
+                
                 this.showSessionAlert('Sesión Finalizada', 'La sesión de trading ha terminado. ¡Gracias por participar!');
                 
             } else {
@@ -1195,6 +1276,10 @@ class SignalManager {
             
             if (response.ok) {
                 this.showNotification('Notificación enviada a los clientes', 'success');
+                
+                // ENVIAR ALERTA DE 10 MINUTOS AL BOT
+                const alertMessage = `⏰ *ALERTA DE SESIÓN* ⏰\n\nLa sesión de trading comenzará en 10 minutos. ¡Prepárate! 🚀\n\n📅 Próximas señales en: 10:00 AM\n🎁 Primera señal GRATIS`;
+                await this.sendTelegramNotification(alertMessage, '10_minutes');
                 
                 this.showSessionAlert('Sesión en 10 Minutos', 'La sesión de trading comenzará en 10 minutos. ¡Prepárate!');
                 
@@ -1307,7 +1392,10 @@ class SignalManager {
             
             if (response.ok) {
                 const result = await response.json();
-                this.hasReceivedFreeSignal = true;
+                // CORRECCIÓN: Solo marcar como recibida señal gratis si es admin enviando
+                if (this.isAdmin) {
+                    this.hasReceivedFreeSignal = true;
+                }
                 asset.value = '';
                 
                 this.showNotification('Señal enviada correctamente', 'success');
@@ -1378,18 +1466,22 @@ class SignalManager {
     renderSignals() {
         if (!this.signalsContainer) return;
         
-        if(this.signals.length === 0) {
+        // CORRECCIÓN: Filtrar señales para mostrar solo las que corresponden al usuario
+        const signalsToShow = this.filterSignalsForUser(this.signals);
+        
+        if(signalsToShow.length === 0) {
             this.signalsContainer.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-satellite-dish"></i>
                     <p>Esperando señales de trading...</p>
                     <p>Las señales aparecerán aquí automáticamente</p>
+                    ${!this.isVIP && this.hasReceivedFreeSignal ? '<p class="vip-prompt">💎 Actualiza a VIP para recibir todas las señales</p>' : ''}
                 </div>
             `;
             return;
         }
         
-        this.signalsContainer.innerHTML = this.signals.map(signal => {
+        this.signalsContainer.innerHTML = signalsToShow.map(signal => {
             const expiresDate = new Date(signal.expires);
             const now = new Date();
             const timeRemaining = Math.max(0, Math.floor((expiresDate - now) / 1000));
@@ -1434,7 +1526,7 @@ class SignalManager {
                 <div class="signal-card" data-signal-id="${signal.id}">
                     ${resultBadge}
                     <div class="signal-header">
-                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="vip-badge">GRATIS</span>' : ''}</div>
+                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="free-badge">GRATIS</span>' : '<span class="vip-badge">VIP</span>'}</div>
                         <div class="direction ${signal.direction}">
                             <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
                             <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
