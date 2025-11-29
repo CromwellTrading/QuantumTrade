@@ -180,7 +180,7 @@ function showTermsAndConditions() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - CORREGIDA Y MEJORADA
+// CLASE SIGNAL MANAGER - ACTUALIZADA CON LÍMITES MENSUALES
 // =============================================
 
 class SignalManager {
@@ -201,6 +201,13 @@ class SignalManager {
         this.searchedUser = null;
         
         this.currentView = 'signals'; // Vista actual
+        
+        // NUEVO: Límites mensuales
+        this.MONTHLY_SIGNAL_LIMITS = {
+            admin: 600,   // 20 señales/día × 30 días
+            vip: 600,     // 20 señales/día × 30 días  
+            regular: 60   // 2 señales/día × 30 días (solo free)
+        };
         
         try {
             this.initializeDOMElements();
@@ -295,7 +302,10 @@ class SignalManager {
                 this.isAdmin = Boolean(result.data.is_admin);
                 this.isVIP = Boolean(result.data.is_vip);
                 
-                console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP);
+                // ✅ USAR free_signals_used DEL SERVIDOR
+                this.hasReceivedFreeSignal = Boolean(result.data.free_signals_used) && result.data.free_signals_used > 0;
+                
+                console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP, 'FreeSignalUsed:', this.hasReceivedFreeSignal);
                 
             } else {
                 console.error('❌ [APP] Error en respuesta del servidor:', result);
@@ -311,11 +321,24 @@ class SignalManager {
         try {
             console.log('📡 [APP] Cargando señales iniciales desde Supabase');
             
+            // NUEVO: Determinar límite según tipo de usuario
+            let signalLimit;
+            if (this.isAdmin) {
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.admin; // 600 señales
+                console.log('👑 [APP] Cargando señales para ADMIN - Límite:', signalLimit);
+            } else if (this.isVIP) {
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.vip; // 600 señales
+                console.log('💎 [APP] Cargando señales para VIP - Límite:', signalLimit);
+            } else {
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.regular; // 60 señales
+                console.log('👤 [APP] Cargando señales para REGULAR - Límite:', signalLimit);
+            }
+            
             const { data, error } = await supabase
                 .from('signals')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(signalLimit);
             
             if (error) throw error;
             
@@ -337,6 +360,7 @@ class SignalManager {
                 this.updateStats();
                 
                 console.log('✅ [APP] Señales iniciales cargadas:', this.signals.length);
+                console.log('📊 [APP] Operaciones cargadas:', this.operations.length);
             } else {
                 console.log('ℹ️ [APP] No hay señales en la base de datos');
             }
@@ -345,18 +369,18 @@ class SignalManager {
         }
     }
     
-    // NUEVO MÉTODO: Cargar operaciones según tipo de usuario
+    // MÉTODO: Cargar operaciones según tipo de usuario
     loadUserOperations() {
         if (this.isAdmin || this.isVIP) {
-            // Admin y VIP ven todas las operaciones
+            // Admin y VIP ven todas las operaciones (hasta el límite mensual)
             this.operations = [...this.signals];
+            console.log('👑 [APP] Cargando TODAS las operaciones para Admin/VIP:', this.operations.length);
         } else {
-            // Usuarios regulares: solo señales free que han recibido
-            this.operations = this.signals.filter(signal => 
-                signal.isFree && this.hasReceivedFreeSignal
-            );
+            // Usuarios regulares: solo señales free (hasta 60 mensuales)
+            const freeSignals = this.signals.filter(signal => signal.isFree);
+            this.operations = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
+            console.log('👤 [APP] Cargando operaciones FREE para usuario regular:', this.operations.length);
         }
-        console.log('📊 [APP] Operaciones cargadas:', this.operations.length, 'para usuario', this.isVIP ? 'VIP' : 'Regular');
     }
     
     updateUI() {
@@ -1057,16 +1081,8 @@ class SignalManager {
             const signalExists = this.signals.some(s => s.id === signal.id);
             
             if (!signalExists) {
-                this.signals.unshift(signal);
-                
-                // CORRECCIÓN: Agregar a operaciones según tipo de usuario
-                if (this.isAdmin || this.isVIP) {
-                    // Admin y VIP: todas las señales
-                    this.operations.unshift(signal);
-                } else if (signal.isFree && !this.hasReceivedFreeSignal) {
-                    // Usuario regular: solo primera señal free
-                    this.operations.unshift(signal);
-                }
+                // NUEVO: Aplicar límites mensuales al agregar señales
+                this.addSignalWithLimits(signal);
                 
                 console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
                 
@@ -1098,6 +1114,37 @@ class SignalManager {
                 this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
             }
         }
+    }
+
+    // NUEVO MÉTODO: Agregar señal aplicando límites mensuales
+    addSignalWithLimits(signal) {
+        // Agregar señal al principio del array
+        this.signals.unshift(signal);
+        
+        // Aplicar límites según tipo de usuario
+        if (this.isAdmin || this.isVIP) {
+            // Admin y VIP: máximo 600 señales
+            if (this.signals.length > this.MONTHLY_SIGNAL_LIMITS.admin) {
+                this.signals = this.signals.slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
+                console.log(`📊 [APP] Límite mensual alcanzado para Admin/VIP. Señales recortadas a: ${this.MONTHLY_SIGNAL_LIMITS.admin}`);
+            }
+        } else {
+            // Regulares: máximo 60 señales free
+            const freeSignals = this.signals.filter(s => s.isFree);
+            if (freeSignals.length > this.MONTHLY_SIGNAL_LIMITS.regular) {
+                // Mantener solo las señales free más recientes
+                const recentFreeSignals = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
+                // Combinar con señales no free (si las hay) y mantener el orden
+                const nonFreeSignals = this.signals.filter(s => !s.isFree);
+                this.signals = [...recentFreeSignals, ...nonFreeSignals]
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                    .slice(0, this.MONTHLY_SIGNAL_LIMITS.regular + nonFreeSignals.length);
+                console.log(`📊 [APP] Límite mensual alcanzado para Regular. Señales free recortadas a: ${this.MONTHLY_SIGNAL_LIMITS.regular}`);
+            }
+        }
+        
+        // Actualizar operaciones después de aplicar límites
+        this.loadUserOperations();
     }
     
     // MÉTODO: Verificar si usuario puede recibir señal
@@ -1162,18 +1209,21 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--vip);">
                     <i class="fas fa-crown"></i> Estado: <span class="vip-badge">USUARIO VIP</span> - Recibiendo todas las señales
+                    <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.vip} señales</small>
                 </div>
             `;
         } else if (this.isAdmin) {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--primary);">
                     <i class="fas fa-user-shield"></i> Estado: <span style="color: var(--primary); font-weight: bold;">ADMINISTRADOR</span> - Acceso completo al sistema
+                    <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.admin} señales</small>
                 </div>
             `;
         } else {
             this.userStatus.innerHTML = `
                 <div class="session-info">
                     <i class="fas fa-user"></i> Estado: Usuario Regular - Solo primera señal gratuita por sesión
+                    <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.regular} señales free</small>
                 </div>
             `;
         }
@@ -1493,16 +1543,12 @@ class SignalManager {
         let signalsToShow = [];
         
         if (this.isAdmin || this.isVIP) {
-            // Admin y VIP ven todas las señales
-            signalsToShow = this.signals;
+            // Admin y VIP ven todas las señales (hasta el límite)
+            signalsToShow = this.signals.slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
         } else {
-            // Usuarios regulares: solo señales free
-            signalsToShow = this.signals.filter(signal => signal.isFree);
-            
-            // Si ya recibió señal free, mostrar solo esa
-            if (this.hasReceivedFreeSignal && signalsToShow.length > 0) {
-                signalsToShow = [signalsToShow[0]]; // Solo la primera señal free
-            }
+            // Usuarios regulares: solo señales free (hasta el límite)
+            const freeSignals = this.signals.filter(signal => signal.isFree);
+            signalsToShow = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
         }
         
         if(signalsToShow.length === 0) {
@@ -1776,20 +1822,29 @@ class SignalManager {
         this.showView('userManagement');
     }
     
-    // CORRECCIÓN MEJORADA: Función de estadísticas
+    // CORRECCIÓN COMPLETA: Función de estadísticas
     updateStats(period = 'day') {
+        console.log(`📊 [STATS] Actualizando estadísticas para periodo: ${period}`);
+        
         const now = new Date();
         let filteredOperations = [];
         
+        // CORRECCIÓN: Filtrar operaciones por período correctamente
         if (period === 'day') {
             // Solo operaciones de hoy
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            
             filteredOperations = this.operations.filter(op => {
                 const opDate = new Date(op.timestamp);
-                return opDate.toDateString() === now.toDateString();
+                return opDate >= startOfDay;
             });
+            
+            console.log(`📊 [STATS] Hoy - Operaciones encontradas: ${filteredOperations.length}`);
+            
         } else if (period === 'week') {
             // Operaciones de los últimos 7 días
-            const startOfWeek = new Date(now);
+            const startOfWeek = new Date();
             startOfWeek.setDate(now.getDate() - 7);
             startOfWeek.setHours(0, 0, 0, 0);
             
@@ -1797,9 +1852,12 @@ class SignalManager {
                 const opDate = new Date(op.timestamp);
                 return opDate >= startOfWeek;
             });
+            
+            console.log(`📊 [STATS] Esta semana - Operaciones encontradas: ${filteredOperations.length}`);
+            
         } else if (period === 'month') {
             // Operaciones de los últimos 30 días
-            const startOfMonth = new Date(now);
+            const startOfMonth = new Date();
             startOfMonth.setDate(now.getDate() - 30);
             startOfMonth.setHours(0, 0, 0, 0);
             
@@ -1807,9 +1865,12 @@ class SignalManager {
                 const opDate = new Date(op.timestamp);
                 return opDate >= startOfMonth;
             });
+            
+            console.log(`📊 [STATS] Este mes - Operaciones encontradas: ${filteredOperations.length}`);
         }
         
-        console.log(`📊 [STATS] Periodo: ${period}, Operaciones filtradas: ${filteredOperations.length}`);
+        console.log(`📊 [STATS] Total de operaciones en memoria: ${this.operations.length}`);
+        console.log(`📊 [STATS] Operaciones filtradas para ${period}:`, filteredOperations);
         
         const winOperations = filteredOperations.filter(op => op.status === 'profit');
         const lossOperations = filteredOperations.filter(op => op.status === 'loss');
@@ -1846,6 +1907,10 @@ class SignalManager {
                         statusClass = 'status-loss';
                         statusText = 'PERDIDA';
                         statusIcon = '<i class="fas fa-times-circle"></i>';
+                    } else if (op.status === 'expired') {
+                        statusClass = 'status-expired';
+                        statusText = 'EXPIRADA';
+                        statusIcon = '<i class="fas fa-hourglass-end"></i>';
                     }
                     
                     return `
