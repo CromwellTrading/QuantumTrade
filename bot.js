@@ -13,7 +13,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 
-console.log('=== 🤖 INICIANDO BOT COMPLETO ===');
+console.log('=== 🤖 INICIANDO BOT CORREGIDO ===');
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -40,11 +40,13 @@ app.use(express.json());
 const NOTIFICATION_PORT = process.env.NOTIFICATION_PORT || 3001;
 
 // =============================================
-// CACHE PARA MÁXIMA VELOCIDAD
+// CACHE Y SISTEMA DE DEDUPLICACIÓN
 // =============================================
 
 const userCache = new Map();
 const signalCache = new Map();
+const processedSignals = new Set(); // ✅ NUEVO: Para evitar duplicados
+const processedResults = new Set(); // ✅ NUEVO: Para evitar resultados duplicados
 
 // =============================================
 // FUNCIONES PRINCIPALES
@@ -271,33 +273,109 @@ async function handleFastPlatform(chatId) {
 }
 
 // =============================================
-// SISTEMA DE NOTIFICACIONES CON ID - CORREGIDO Y COMPLETO
+// SISTEMA DE NOTIFICACIONES CORREGIDO - SIN DUPLICADOS
 // =============================================
 
-console.log('🔔 [BOT] Activando notificaciones con sistema de ID...');
+console.log('🔔 [BOT] Activando notificaciones con sistema anti-duplicados...');
 
-// Suscripción a señales - CORREGIDO PARA ENVÍO DE SEÑALES FREE
-const signalsChannel = supabase
-    .channel('ultra-fast-bot-signals')
-    .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'signals' }, 
-        async (payload) => {
-            console.log('⚡ [BOT] Señal detectada - Enviando con ID:', payload.new.id);
-            await broadcastSignalWithID(payload.new);
-        }
-    )
-    .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'signals' },
-        async (payload) => {
-            console.log('🔄 [BOT] Señal actualizada - Resultado:', payload.new.status);
-            // SOLO enviar resultado si cambió a profit/loss
-            if ((payload.new.status === 'profit' || payload.new.status === 'loss') && 
-                payload.old.status !== payload.new.status) {
+// ✅ CORRECCIÓN: Suscripción única con manejo de duplicados
+let signalsSubscription = null;
+
+function setupRealtimeSubscription() {
+    // ✅ Evitar múltiples suscripciones
+    if (signalsSubscription) {
+        console.log('🔄 [BOT] Suscripción ya activa, cerrando anterior...');
+        signalsSubscription.unsubscribe();
+    }
+
+    signalsSubscription = supabase
+        .channel('bot-signals-single-channel') // ✅ Nombre único
+        .on('postgres_changes', 
+            { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'signals' 
+            }, 
+            async (payload) => {
+                console.log('⚡ [BOT] Nueva señal detectada:', payload.new.id);
+                
+                // ✅ Verificar si ya procesamos esta señal
+                if (processedSignals.has(payload.new.id)) {
+                    console.log(`✅ [BOT] Señal ${payload.new.id} ya procesada, omitiendo.`);
+                    return;
+                }
+                
+                // ✅ Marcar como procesada
+                processedSignals.add(payload.new.id);
+                
+                await broadcastSignalWithID(payload.new);
+            }
+        )
+        .on('postgres_changes',
+            { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'signals' 
+            },
+            async (payload) => {
+                console.log('🔄 [BOT] Señal actualizada:', payload.new.id, 'Estado:', payload.new.status);
+                
+                // ✅ SOLO procesar si cambió a profit/loss Y no es duplicado
+                const isResultChange = (payload.new.status === 'profit' || payload.new.status === 'loss') && 
+                                     payload.old.status !== payload.new.status;
+                
+                if (!isResultChange) {
+                    console.log(`ℹ️ [BOT] Cambio no relevante para señal ${payload.new.id}, omitiendo.`);
+                    return;
+                }
+                
+                // ✅ Verificar si ya procesamos este resultado
+                const resultKey = `${payload.new.id}_${payload.new.status}`;
+                if (processedResults.has(resultKey)) {
+                    console.log(`✅ [BOT] Resultado ${resultKey} ya procesado, omitiendo.`);
+                    return;
+                }
+                
+                // ✅ Marcar como procesado
+                processedResults.add(resultKey);
+                
                 await broadcastSignalResult(payload.new);
             }
-        }
-    )
-    .subscribe();
+        )
+        .subscribe((status) => {
+            console.log('📡 [BOT] Estado de suscripción:', status);
+            if (status === 'SUBSCRIBED') {
+                console.log('✅ [BOT] Suscripción ÚNICA activada correctamente');
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error('❌ [BOT] Error en la suscripción');
+                // ✅ Reintentar después de 5 segundos
+                setTimeout(() => {
+                    console.log('🔄 [BOT] Reintentando suscripción...');
+                    setupRealtimeSubscription();
+                }, 5000);
+            } else if (status === 'TIMED_OUT') {
+                console.error('❌ [BOT] Suscripción timeout');
+                setTimeout(() => {
+                    console.log('🔄 [BOT] Reintentando suscripción...');
+                    setupRealtimeSubscription();
+                }, 5000);
+            }
+        });
+}
+
+// ✅ Inicializar suscripción
+setupRealtimeSubscription();
+
+// ✅ Limpiar cache de procesados cada hora para evitar crecimiento excesivo
+setInterval(() => {
+    console.log('🧹 [BOT] Limpiando cache de señales procesadas...');
+    const now = Date.now();
+    
+    // Mantener solo las señales de las últimas 24 horas
+    processedSignals.clear();
+    processedResults.clear();
+    
+}, 60 * 60 * 1000); // Cada hora
 
 // FUNCIÓN MEJORADA PARA ENVÍO DE SEÑALES
 async function broadcastSignalWithID(signal) {
@@ -674,17 +752,18 @@ bot.onText(/\/reset_free/, async (msg) => {
 // =============================================
 
 bot.getMe().then((me) => {
-    console.log('🎉 === BOT COMPLETO OPERATIVO ===');
+    console.log('🎉 === BOT CORREGIDO OPERATIVO ===');
     console.log(`🤖 Bot: @${me.username}`);
-    console.log('📊 Sistema de IDs y resultados activado');
+    console.log('📊 Sistema anti-duplicados activado');
+    console.log('✅ Una sola suscripción activa');
+    console.log('✅ Cache de señales procesadas');
+    console.log('✅ Filtrado de eventos irrelevantes');
     console.log('⚡ Comandos admin: /resultado <ID> <profit/loss>');
     console.log('⚡ Comandos admin: /pendientes');
     console.log('⚡ Comando admin: /reset_free');
     console.log('🔔 Endpoint notificaciones activo en puerto:', NOTIFICATION_PORT);
     console.log('🕙 Horarios: 10AM y 10PM');
     console.log('🎁 Primera señal gratis por sesión');
-    console.log('✅ Señales FREE enviadas a usuarios regulares');
-    console.log('✅ Resultados enviados en formato texto');
 });
 
 module.exports = bot;
