@@ -81,7 +81,7 @@ function createVIPKeyboard(userId) {
             inline_keyboard: [[
                 { 
                     text: '💎 SOLICITAR ACCESO VIP', 
-                    url: `https://t.me/share/url?url=Hola!%20Quiero%20acceder%20al%20plan%20VIP%20de%20Quantum%20Signal%20Trader.%20Mi%20ID%20es:%20${userId}`
+                    url: `https://t.me/Quantum_PaymentBot`
                 }
             ]]
         }
