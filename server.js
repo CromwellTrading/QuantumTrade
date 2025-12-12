@@ -93,7 +93,7 @@ async function verifyAdmin(userId) {
 }
 
 // =============================================
-// ENDPOINTS DE USUARIO - COMPLETOS
+// ENDPOINTS DE USUARIO
 // =============================================
 
 app.get('/api/user/:userId', async (req, res) => {
@@ -122,7 +122,8 @@ app.get('/api/user/:userId', async (req, res) => {
                     vip_expires_at: isAdminByID ? new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString() : null,
                     username: null,
                     first_name: null,
-                    free_signals_used: 0, // ✅ INICIALIZAR EN 0
+                    preferred_broker: 'olymptrade',
+                    free_signals_used: 0,
                     created_at: new Date().toISOString()
                 };
                 
@@ -143,7 +144,8 @@ app.get('/api/user/:userId', async (req, res) => {
             vip_expires_at: user.vip_expires_at,
             username: user.username,
             first_name: user.first_name,
-            free_signals_used: user.free_signals_used || 0 // ✅ INCLUIR EN RESPUESTA
+            preferred_broker: user.preferred_broker || 'olymptrade',
+            free_signals_used: user.free_signals_used || 0
         };
         
         res.json({ success: true, data: userData });
@@ -154,7 +156,7 @@ app.get('/api/user/:userId', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE ADMINISTRACIÓN - COMPLETOS
+// ENDPOINTS DE ADMINISTRACIÓN
 // =============================================
 
 // Endpoint para obtener todos los usuarios
@@ -249,6 +251,7 @@ app.post('/api/users/vip', async (req, res) => {
                     telegram_id: telegramId,
                     is_vip: true,
                     vip_expires_at: vipExpiresAt.toISOString(),
+                    preferred_broker: 'olymptrade',
                     free_signals_used: 0,
                     created_at: new Date().toISOString()
                 })
@@ -317,7 +320,7 @@ app.post('/api/users/remove-vip', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS PARA free_signals_used - NUEVOS
+// ENDPOINTS PARA free_signals_used
 // =============================================
 
 // Endpoint para actualizar free_signals_used
@@ -342,6 +345,7 @@ app.post('/api/users/update-free-signals', async (req, res) => {
                 .insert({
                     telegram_id: telegramId,
                     free_signals_used: freeSignalsUsed,
+                    preferred_broker: 'olymptrade',
                     created_at: new Date().toISOString()
                 })
                 .select();
@@ -407,23 +411,340 @@ app.post('/api/users/reset-free-signals', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES - COMPLETOS
+// ENDPOINTS PARA BROKERS - NUEVOS
 // =============================================
 
-// Endpoint para enviar señales (solo admin)
-app.post('/api/signals', async (req, res) => {
+// Endpoint para obtener brokers disponibles
+app.get('/api/brokers', async (req, res) => {
     try {
-        const { asset, timeframe, direction, userId } = req.body;
+        const brokers = [
+            {
+                id: 'olymptrade',
+                name: 'Olymptrade',
+                description: 'Plataforma regulada internacionalmente',
+                min_deposit: 10,
+                currency: 'USD',
+                affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
+                active: true
+            },
+            {
+                id: 'quotex',
+                name: 'Quotex',
+                description: 'Plataforma moderna con múltiples activos',
+                min_deposit: 10,
+                currency: 'USD',
+                affiliate_link: 'https://qxbroker.com/es/promo/partner/108107566?qa=signals',
+                active: true
+            }
+        ];
+        
+        res.status(200).json({ success: true, data: brokers });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo brokers:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
-        console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min - Solicitado por: ${userId}`);
+// Endpoint para actualizar broker preferido del usuario
+app.post('/api/users/update-broker', async (req, res) => {
+    try {
+        const { telegramId, broker } = req.body;
+
+        console.log(`🔄 [SERVER] Actualizando broker a ${broker} para usuario: ${telegramId}`);
+
+        // Validar broker
+        if (!['olymptrade', 'quotex'].includes(broker)) {
+            return res.status(400).json({ error: 'Broker inválido. Use: olimptrade o quotex' });
+        }
+
+        // Verificar si el usuario existe
+        const { data: existingUser, error: findError } = await supabase
+            .from('users')
+            .select('telegram_id')
+            .eq('telegram_id', telegramId)
+            .single();
+
+        let result;
+        if (findError && findError.code === 'PGRST116') {
+            // Usuario no existe, crear uno nuevo
+            result = await supabase
+                .from('users')
+                .insert({
+                    telegram_id: telegramId,
+                    preferred_broker: broker,
+                    created_at: new Date().toISOString()
+                })
+                .select();
+        } else {
+            // Usuario existe, actualizar
+            result = await supabase
+                .from('users')
+                .update({ 
+                    preferred_broker: broker,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('telegram_id', telegramId)
+                .select();
+        }
+
+        if (result.error) throw result.error;
+
+        console.log(`✅ [SERVER] Broker actualizado para ${telegramId}: ${broker}`);
+        
+        res.status(200).json({ 
+            success: true, 
+            data: result.data,
+            message: `Broker actualizado a: ${broker}`
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error actualizando broker:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINT PARA "MOSTRAR ACTIVO" (Alerta Previa) - NUEVO
+// =============================================
+
+app.post('/api/signals/preview', async (req, res) => {
+    try {
+        const { asset, broker, userId } = req.body;
+
+        console.log(`👁️ [SERVER] Mostrando activo previo: ${asset} para broker: ${broker} - Solicitado por: ${userId}`);
 
         const isAdmin = await verifyAdmin(userId);
         if (!isAdmin) {
             return res.status(403).json({ error: 'No tienes permisos de administrador' });
         }
 
-        if (!asset || !timeframe || !direction) {
+        if (!asset || !broker) {
             return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
+        // Validar broker
+        if (!['olymptrade', 'quotex'].includes(broker)) {
+            return res.status(400).json({ error: 'Broker inválido' });
+        }
+
+        // Enviar notificación al bot para que la distribuya
+        const botResponse = await fetch(`${BOT_NOTIFICATION_URL}/api/telegram/preview-asset`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                asset, 
+                broker, 
+                userId: ADMIN_ID 
+            })
+        });
+
+        const result = await botResponse.json();
+
+        if (result.success) {
+            res.status(200).json({ 
+                success: true,
+                message: `Alerta de activo enviada a VIPs de ${broker}: ${asset}`
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: result.error || 'Error enviando alerta de activo' 
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ [SERVER] Error mostrando activo previo:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINTS DE REFERIDOS - NUEVOS
+// =============================================
+
+// Endpoint para obtener referidos de un usuario
+app.get('/api/referrals/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`👥 [SERVER] Obteniendo referidos para usuario: ${userId}`);
+
+        // Obtener referidos directos
+        const { data: referrals, error: referralsError } = await supabase
+            .from('referrals')
+            .select('referred_id, created_at')
+            .eq('referrer_id', userId);
+
+        if (referralsError) throw referralsError;
+
+        // Obtener información de los referidos
+        let referidosInfo = [];
+        if (referrals && referrals.length > 0) {
+            const referredIds = referrals.map(r => r.referred_id);
+            
+            const { data: users, error: usersError } = await supabase
+                .from('users')
+                .select('telegram_id, username, first_name, is_vip, created_at')
+                .in('telegram_id', referredIds);
+
+            if (usersError) throw usersError;
+
+            // Combinar información
+            referidosInfo = referrals.map(ref => {
+                const user = users?.find(u => u.telegram_id === ref.referred_id);
+                return {
+                    telegram_id: ref.referred_id,
+                    username: user?.username,
+                    first_name: user?.first_name,
+                    is_vip: user?.is_vip || false,
+                    referred_at: ref.created_at
+                };
+            });
+        }
+
+        // Calcular estadísticas
+        const total = referidosInfo.length;
+        const vip = referidosInfo.filter(r => r.is_vip).length;
+        
+        // Calcular descuento (10% por cada referido VIP, máximo 50%)
+        const discount = Math.min(vip * 10, 50);
+        
+        // Calcular bonificaciones
+        let bonus = '';
+        if (vip >= 20) {
+            bonus = '20 USDT GRATIS';
+        } else if (vip >= 10) {
+            bonus = 'MES GRATIS';
+        }
+
+        res.status(200).json({ 
+            success: true,
+            data: {
+                referrals: referidosInfo,
+                stats: {
+                    total: total,
+                    vip: vip,
+                    regular: total - vip
+                },
+                discount: discount,
+                bonus: bonus,
+                next_month_free: vip >= 10
+            }
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error obteniendo referidos:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para registrar un referido
+app.post('/api/referrals/register', async (req, res) => {
+    try {
+        const { referrerId, referredId } = req.body;
+
+        console.log(`📝 [SERVER] Registrando referido: ${referredId} por referidor: ${referrerId}`);
+
+        if (!referrerId || !referredId) {
+            return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
+        // Verificar que no sea auto-referido
+        if (referrerId === referredId) {
+            return res.status(400).json({ error: 'No puedes referirte a ti mismo' });
+        }
+
+        // Insertar referido
+        const { data, error } = await supabase
+            .from('referrals')
+            .insert([
+                {
+                    referrer_id: referrerId,
+                    referred_id: referredId
+                }
+            ])
+            .select();
+
+        if (error) {
+            // Si ya existe, no es error
+            if (error.code === '23505') { // Violación de constraint único
+                return res.status(200).json({ 
+                    success: true, 
+                    message: 'Referido ya registrado' 
+                });
+            }
+            throw error;
+        }
+
+        // Actualizar campo referred_by en usuario
+        await supabase
+            .from('users')
+            .update({ referred_by: referrerId })
+            .eq('telegram_id', referredId)
+            .is('referred_by', null);
+
+        console.log(`✅ [SERVER] Referido registrado: ${referredId} por ${referrerId}`);
+
+        res.status(200).json({ 
+            success: true,
+            message: 'Referido registrado exitosamente'
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error registrando referido:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint para generar enlace de referido
+app.get('/api/referrals/link/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`🔗 [SERVER] Generando enlace de referido para: ${userId}`);
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Falta ID de usuario' });
+        }
+
+        const referralLink = `https://t.me/QuantumQvabot?start=ref_${userId}`;
+        
+        res.status(200).json({ 
+            success: true,
+            data: {
+                referral_link: referralLink,
+                user_id: userId
+            },
+            message: 'Enlace de referido generado exitosamente'
+        });
+    } catch (error) {
+        console.error('❌ [SERVER] Error generando enlace de referido:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// ENDPOINTS DE SEÑALES - MODIFICADOS PARA BROKER
+// =============================================
+
+// Endpoint para enviar señales (solo admin)
+app.post('/api/signals', async (req, res) => {
+    try {
+        const { asset, timeframe, direction, userId, broker = 'olymptrade', is_free = false } = req.body;
+
+        console.log(`📡 [SERVER] Enviando señal: ${asset} ${direction} ${timeframe}min - Broker: ${broker} - Solicitado por: ${userId}`);
+
+        const isAdmin = await verifyAdmin(userId);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'No tienes permisos de administrador' });
+        }
+
+        if (!asset || !timeframe || !direction || !broker) {
+            return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
+        // Validar broker
+        if (!['olymptrade', 'quotex'].includes(broker)) {
+            return res.status(400).json({ error: 'Broker inválido. Use: olimptrade o quotex' });
         }
 
         // Calcular fecha de expiración
@@ -439,10 +760,10 @@ app.post('/api/signals', async (req, res) => {
                     timeframe: parseInt(timeframe),
                     direction: direction,
                     expires_at: expiresAt.toISOString(),
-                    is_free: true, // El admin siempre envía señales como gratis
+                    is_free: is_free,
+                    broker: broker,
                     status: 'pending',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    created_at: new Date().toISOString()
                 }
             ])
             .select();
@@ -578,7 +899,7 @@ app.get('/api/signals', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SESIONES Y NOTIFICACIONES - COMPLETOS
+// ENDPOINTS DE SESIONES Y NOTIFICACIONES
 // =============================================
 
 app.post('/api/notify', async (req, res) => {
@@ -651,7 +972,7 @@ app.post('/api/sessions/end', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINT PARA NOTIFICACIONES DE TELEGRAM - COMPLETO
+// ENDPOINT PARA NOTIFICACIONES DE TELEGRAM
 // =============================================
 
 app.post('/api/telegram/notify', async (req, res) => {
@@ -691,7 +1012,7 @@ app.post('/api/telegram/notify', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINT DE ESTADÍSTICAS - COMPLETO
+// ENDPOINT DE ESTADÍSTICAS
 // =============================================
 
 app.get('/api/stats', async (req, res) => {
@@ -761,8 +1082,7 @@ app.listen(PORT, '0.0.0.0', async () => {
         const { data, error } = await supabase
             .from('signals')
             .update({ 
-                status: 'expired',
-                updated_at: new Date().toISOString()
+                status: 'expired'
             })
             .eq('status', 'pending')
             .lt('expires_at', now);
@@ -794,8 +1114,7 @@ const processExpiredSignals = async () => {
         const { data, error } = await supabase
             .from('signals')
             .update({ 
-                status: 'expired',
-                updated_at: new Date().toISOString()
+                status: 'expired'
             })
             .eq('status', 'pending')
             .lt('expires_at', now);
@@ -803,7 +1122,7 @@ const processExpiredSignals = async () => {
         if (error) {
             console.error('❌ [AUTO-EXPIRY] Error procesando señales expiradas:', error);
         } else if (data) {
-            console.log(`✅ [AUTO-EXPIRY] ${data.length} señales procesadas automáticamente`);
+            console.log(`✅ [AUTO-EXPIRY] Señales procesadas automáticamente`);
         }
     } catch (error) {
         console.error('❌ [AUTO-EXPIRY] Error en proceso automático:', error);
