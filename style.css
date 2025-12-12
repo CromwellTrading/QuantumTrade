@@ -2269,3 +2269,369 @@ button:active {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--accent);
 }
+
+    /* Agregar al final del archivo style.css */
+
+/* ============================================= */
+/* ESTILOS PARA BROKERS Y REFERIDOS - COMPLETOS */
+/* ============================================= */
+
+/* Panel de brokers */
+.brokers-panel {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.broker-info {
+    background: rgba(57, 73, 171, 0.1);
+    border: 1px solid rgba(57, 73, 171, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.broker-info p {
+    margin: 8px 0;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.current-broker-display {
+    background: linear-gradient(90deg, rgba(57, 73, 171, 0.1), rgba(0, 150, 136, 0.1));
+    border: 1px solid rgba(57, 73, 171, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    text-align: center;
+}
+
+.current-broker-display .broker-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #3949ab;
+    margin-bottom: 5px;
+}
+
+.current-broker-display .broker-status {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.broker-selection {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.broker-select {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(57, 73, 171, 0.5);
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.broker-links {
+    margin-top: 25px;
+}
+
+.broker-links h4 {
+    color: var(--primary);
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.broker-link-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.broker-link-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border-color: rgba(57, 73, 171, 0.5);
+}
+
+.broker-link-card h5 {
+    color: white;
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.broker-link-card p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 15px 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.broker-link-btn {
+    display: inline-block;
+    background: linear-gradient(90deg, #3949ab, #5c6bc0);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-align: center;
+    width: 100%;
+}
+
+.broker-link-btn:hover {
+    background: linear-gradient(90deg, #5c6bc0, #7986cb);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(57, 73, 171, 0.4);
+}
+
+/* Panel de referidos */
+.referrals-panel {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.referrals-info {
+    background: rgba(142, 36, 170, 0.1);
+    border: 1px solid rgba(142, 36, 170, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.referrals-info p {
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.referrals-actions {
+    text-align: center;
+    margin: 25px 0;
+}
+
+.referral-link-display {
+    margin: 25px 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.referral-link-container {
+    text-align: center;
+}
+
+.referral-link-container p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+
+.referral-link {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(142, 36, 170, 0.5);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    font-family: monospace;
+    color: var(--accent);
+    word-break: break-all;
+    font-size: 0.9rem;
+}
+
+.btn-copy, .btn-share {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 5px;
+}
+
+.btn-copy {
+    background: linear-gradient(90deg, #2196f3, #42a5f5);
+}
+
+.btn-copy:hover {
+    background: linear-gradient(90deg, #42a5f5, #64b5f6);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+}
+
+.btn-share {
+    background: linear-gradient(90deg, #4caf50, #66bb6a);
+}
+
+.btn-share:hover {
+    background: linear-gradient(90deg, #66bb6a, #81c784);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.referrals-stats .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 25px 0;
+}
+
+.referrals-stats .stat-card {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.referrals-stats .stat-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(142, 36, 170, 0.5);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.referrals-stats .stat-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.referrals-stats .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.bonus-alert {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+    animation: pulse 2s infinite;
+    background: rgba(0, 255, 157, 0.1);
+    border: 1px solid rgba(0, 255, 157, 0.3);
+}
+
+.bonus-alert i {
+    font-size: 1.5rem;
+    color: var(--profit);
+}
+
+.bonus-alert span {
+    color: var(--profit);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.referrals-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.referrals-table thead {
+    background: rgba(142, 36, 170, 0.3);
+}
+
+.referrals-table th {
+    padding: 12px 15px;
+    text-align: left;
+    color: var(--vip);
+    font-weight: 600;
+    border-bottom: 2px solid rgba(142, 36, 170, 0.5);
+}
+
+.referrals-table td {
+    padding: 12px 15px;
+    color: rgba(255, 255, 255, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.referrals-table tbody tr:hover {
+    background: rgba(142, 36, 170, 0.1);
+}
+
+.referrals-table .status-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-vip {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.5);
+}
+
+.status-regular {
+    background: rgba(33, 150, 243, 0.2);
+    color: #2196f3;
+    border: 1px solid rgba(33, 150, 243, 0.5);
+}
+
+/* Alerta de activo previo */
+#adminAssetPreview {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+#adminAssetPreview h4 {
+    color: var(--warning);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-note {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+/* Checkbox para señal free */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(0, 150, 136, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 150, 136, 0.3);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
