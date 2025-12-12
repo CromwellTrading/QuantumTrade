@@ -23,6 +23,8 @@
                 <button class="header-btn" id="showStats"><i class="fas fa-chart-bar"></i> Estadísticas</button>
                 <button class="header-btn" id="showUsers" style="display: none;"><i class="fas fa-users"></i> Usuarios</button>
                 <button class="header-btn" id="showUserManagement" style="display: none;"><i class="fas fa-users-cog"></i> Gestionar Usuarios</button>
+                <button class="header-btn" id="showBrokers" style="display: none;"><i class="fas fa-building"></i> Broker</button>
+                <button class="header-btn" id="showReferrals"><i class="fas fa-users"></i> Referidos</button>
                 <button class="header-btn vip" id="vipAccess"><i class="fas fa-crown"></i> VIP</button>
                 <button class="header-btn" id="adminBtn" style="display: none;"><i class="fas fa-user-shield"></i> Admin</button>
             </div>
@@ -46,6 +48,7 @@
                 <label for="asset"><i class="fas fa-chart-line"></i> Activo</label>
                 <input type="text" id="asset" placeholder="Ej: EUR/USD, BTC/USD, etc.">
             </div>
+            
             <div class="form-group">
                 <label for="timeframe"><i class="fas fa-clock"></i> Tiempo</label>
                 <select id="timeframe">
@@ -57,6 +60,7 @@
                     <option value="60">1 hora</option>
                 </select>
             </div>
+            
             <div class="form-group">
                 <label for="direction"><i class="fas fa-arrows-alt-v"></i> Dirección</label>
                 <select id="direction">
@@ -64,6 +68,24 @@
                     <option value="down">BAJA (PUT)</option>
                 </select>
             </div>
+            
+            <!-- NUEVO: Selección de Broker para la señal -->
+            <div class="form-group">
+                <label for="brokerSelect"><i class="fas fa-building"></i> Broker</label>
+                <select id="brokerSelect">
+                    <option value="olymptrade">Olymptrade</option>
+                    <option value="quotex">Quotex</option>
+                </select>
+            </div>
+            
+            <!-- NUEVO: Checkbox para señal gratis -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="isFreeCheckbox">
+                <label for="isFreeCheckbox" class="checkbox-label">
+                    <i class="fas fa-gift"></i> Señal Gratuita (Solo para usuarios sin VIP)
+                </label>
+            </div>
+            
             <button id="sendSignal"><i class="fas fa-paper-plane"></i> ENVIAR SEÑAL</button>
             
             <!-- Controles de Sesión -->
@@ -71,8 +93,25 @@
                 <button id="startSession" class="admin-btn btn-profit"><i class="fas fa-play"></i> Iniciar Sesión</button>
                 <button id="endSession" class="admin-btn btn-loss" disabled><i class="fas fa-stop"></i> Finalizar Sesión</button>
             </div>
+            
             <div class="admin-controls">
                 <button id="notifyClients" class="admin-btn btn-notify"><i class="fas fa-bell"></i> Avisar al Cliente (10 min)</button>
+            </div>
+            
+            <!-- NUEVO: Alerta de activo previo (solo admin) -->
+            <div id="adminAssetPreview">
+                <h4><i class="fas fa-eye"></i> Alerta de Activo Previo (Solo VIPs)</h4>
+                <p class="admin-note">Envía una alerta a los usuarios VIP del broker seleccionado sobre el próximo activo a operar.</p>
+                <div class="form-group">
+                    <input type="text" id="previewAsset" placeholder="Ej: EUR/USD">
+                </div>
+                <div class="form-group">
+                    <select id="previewBroker">
+                        <option value="olymptrade">Olymptrade</option>
+                        <option value="quotex">Quotex</option>
+                    </select>
+                </div>
+                <button id="previewAssetBtn"><i class="fas fa-bullhorn"></i> Enviar Alerta de Activo</button>
             </div>
         </div>
         
@@ -197,6 +236,114 @@
                 </div>
             </div>
         </div>
+        
+        <!-- NUEVO: Panel de Brokers -->
+        <div class="brokers-container" id="brokersContainer">
+            <div class="panel brokers-panel">
+                <h3><i class="fas fa-building"></i> Selección de Broker</h3>
+                <div class="broker-info">
+                    <p>Selecciona tu broker preferido. Solo recibirás señales para el broker que elijas.</p>
+                    <p>Cambia de broker en cualquier momento según tus preferencias.</p>
+                </div>
+                
+                <div class="current-broker-display">
+                    <div class="broker-name" id="currentBrokerName">Cargando...</div>
+                    <div class="broker-status" id="currentBrokerStatus">Estado actual</div>
+                </div>
+                
+                <div class="broker-selection">
+                    <label for="userBrokerSelect"><i class="fas fa-exchange-alt"></i> Cambiar Broker</label>
+                    <select id="userBrokerSelect" class="broker-select">
+                        <option value="olymptrade">Olymptrade - Plataforma Regulada</option>
+                        <option value="quotex">Quotex - Plataforma Moderna</option>
+                    </select>
+                    <button id="updateBrokerBtn" class="btn-primary">Actualizar Broker</button>
+                </div>
+                
+                <div class="broker-links">
+                    <h4><i class="fas fa-link"></i> Enlaces de Registro</h4>
+                    <div class="broker-link-card" id="olymptradeCard">
+                        <h5><i class="fas fa-external-link-alt"></i> Olymptrade</h5>
+                        <p>Plataforma regulada internacionalmente con múltiples activos y opciones.</p>
+                        <a href="https://olymptrade.com/pages/referral/?rf=108107566" target="_blank" class="broker-link-btn">Registrarse en Olymptrade</a>
+                    </div>
+                    <div class="broker-link-card" id="quotexCard">
+                        <h5><i class="fas fa-external-link-alt"></i> Quotex</h5>
+                        <p>Plataforma moderna con gráficos avanzados y múltiples activos.</p>
+                        <a href="https://qxbroker.com/es/promo/partner/108107566?qa=signals" target="_blank" class="broker-link-btn">Registrarse en Quotex</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- NUEVO: Panel de Referidos -->
+        <div class="referrals-container" id="referralsContainer">
+            <div class="panel referrals-panel">
+                <h3><i class="fas fa-users"></i> Sistema de Referidos</h3>
+                <div class="referrals-info">
+                    <p>Invita a tus amigos a unirse a Quantum Signal Trader y gana beneficios.</p>
+                    <p>Por cada referido que se convierta en VIP, obtienes un 10% de descuento en tu próxima renovación (máximo 50%).</p>
+                </div>
+                
+                <div class="referrals-actions">
+                    <button id="generateReferralLinkBtn" class="btn-primary">
+                        <i class="fas fa-link"></i> Generar Mi Enlace de Referido
+                    </button>
+                </div>
+                
+                <div class="referral-link-display" id="referralLinkDisplay" style="display: none;">
+                    <div class="referral-link-container">
+                        <p>Tu enlace de referido:</p>
+                        <div class="referral-link" id="referralLinkText">https://t.me/QuantumQvabot?start=ref_123456</div>
+                        <button id="copyReferralLinkBtn" class="btn-copy">
+                            <i class="fas fa-copy"></i> Copiar Enlace
+                        </button>
+                        <button id="shareReferralLinkBtn" class="btn-share">
+                            <i class="fas fa-share-alt"></i> Compartir
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="referrals-stats">
+                    <h4><i class="fas fa-chart-pie"></i> Estadísticas de Referidos</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Referidos</div>
+                            <div class="stat-value" id="totalReferrals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Referidos VIP</div>
+                            <div class="stat-value" id="vipReferrals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Descuento Acumulado</div>
+                            <div class="stat-value" id="referralDiscount">0%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bonus-alert" id="bonusAlert" style="display: none;">
+                    <i class="fas fa-gift"></i>
+                    <span id="bonusText">¡Felicidades! Has ganado un bono.</span>
+                </div>
+                
+                <div class="referrals-list">
+                    <h4><i class="fas fa-list"></i> Mis Referidos</h4>
+                    <table class="referrals-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referralsTableBody">
+                            <!-- Los referidos se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     
     <div class="notification" id="notification">
@@ -242,106 +389,106 @@
             </button>
         </div>
     </div>
-    <!-- Agregar esto en tu index.html antes del cierre del body -->
-<div id="termsModal" class="modal">
-    <div class="modal-content terms-content">
-        <div class="terms-header">
-            <h2><i class="fas fa-scale-balanced"></i> TÉRMINOS Y CONDICIONES</h2>
-            <p class="terms-subtitle">Quantum Signal Trader - Última actualización: Enero 2024</p>
-        </div>
-        
-        <div class="terms-body">
-            <div class="terms-section">
-                <h3><i class="fas fa-exclamation-triangle"></i> DECLARACIÓN DE RESPONSABILIDAD</h3>
-                <p>Al utilizar Quantum Signal Trader, usted acepta expresamente los siguientes términos y condiciones:</p>
+    
+    <div id="termsModal" class="modal">
+        <div class="modal-content terms-content">
+            <div class="terms-header">
+                <h2><i class="fas fa-scale-balanced"></i> TÉRMINOS Y CONDICIONES</h2>
+                <p class="terms-subtitle">Quantum Signal Trader - Última actualización: Enero 2024</p>
+            </div>
+            
+            <div class="terms-body">
+                <div class="terms-section">
+                    <h3><i class="fas fa-exclamation-triangle"></i> DECLARACIÓN DE RESPONSABILIDAD</h3>
+                    <p>Al utilizar Quantum Signal Trader, usted acepta expresamente los siguientes términos y condiciones:</p>
+                    
+                    <div class="terms-list">
+                        <div class="term-item">
+                            <h4>1. Responsabilidad del Usuario</h4>
+                            <p>El usuario reconoce y acepta que el uso de Quantum Signal Trader es bajo su exclusiva responsabilidad. No nos hacemos responsables del uso indebido, incorrecto o inapropiado que pueda realizar con las señales proporcionadas.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>2. Gestión de Capital</h4>
+                            <p>El usuario es el único responsable de la gestión de su capital y del monto invertido en cada operación. Quantum Signal Trader solo proporciona señales de dirección (CALL/PUT), activo y timeframe, mas no recomendaciones sobre montos específicos a invertir.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>3. Pérdidas y Ganancias</h4>
+                            <p>No nos hacemos responsables de las pérdidas económicas que puedan derivarse del uso de las señales. Asimismo, no reclamamos derecho alguno sobre las ganancias obtenidas por el usuario. El trading conlleva riesgos significativos y puede resultar en la pérdida total del capital invertido.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>4. Naturaleza de las Señales</h4>
+                            <p>Las señales proporcionadas son meramente informativas y no constituyen asesoramiento financiero, recomendación de inversión u oferta de compra/venta. El usuario debe realizar su propio análisis y considerar su situación financiera personal antes de operar.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>5. Exactitud de las Señales</h4>
+                            <p>Aunque nos esforzamos por proporcionar señales precisas, no garantizamos la exactitud, integridad o oportunidad de la información proporcionada. El rendimiento pasado no es indicador de resultados futuros.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>6. Conocimiento del Mercado</h4>
+                            <p>El usuario declara poseer el conocimiento necesario sobre los mercados financieros y los instrumentos con los que opera. En caso contrario, se recomienda buscar asesoramiento profesional antes de utilizar este servicio.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>7. Edad y Capacidad Legal</h4>
+                            <p>El usuario declara ser mayor de edad y tener plena capacidad legal para operar en los mercados financieros según las leyes de su jurisdicción.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>8. Cumplimiento Normativo</h4>
+                            <p>Es responsabilidad del usuario verificar que el uso de esta aplicación cumple con las leyes y regulaciones de su país de residencia.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>9. Modificaciones del Servicio</h4>
+                            <p>Nos reservamos el derecho de modificar, suspender o discontinuar el servicio en cualquier momento, sin previo aviso.</p>
+                        </div>
+                        
+                        <div class="term-item">
+                            <h4>10. Aceptación de Riesgos</h4>
+                            <p>El usuario reconoce que el trading es una actividad de alto riesgo y acepta que puede perder parte o la totalidad de su capital invertido. Solo debe operar con capital que esté dispuesto a perder.</p>
+                        </div>
+                    </div>
+                </div>
                 
-                <div class="terms-list">
-                    <div class="term-item">
-                        <h4>1. Responsabilidad del Usuario</h4>
-                        <p>El usuario reconoce y acepta que el uso de Quantum Signal Trader es bajo su exclusiva responsabilidad. No nos hacemos responsables del uso indebido, incorrecto o inapropiado que pueda realizar con las señales proporcionadas.</p>
+                <div class="terms-warning">
+                    <div class="warning-icon">
+                        <i class="fas fa-radiation"></i>
                     </div>
-                    
-                    <div class="term-item">
-                        <h4>2. Gestión de Capital</h4>
-                        <p>El usuario es el único responsable de la gestión de su capital y del monto invertido en cada operación. Quantum Signal Trader solo proporciona señales de dirección (CALL/PUT), activo y timeframe, mas no recomendaciones sobre montos específicos a invertir.</p>
+                    <div class="warning-content">
+                        <h4>ADVERTENCIA IMPORTANTE</h4>
+                        <p>El trading con opciones binarias, Forex y CFD conlleva un alto nivel de riesgo y puede no ser adecuado para todos los inversores. Existe la posibilidad de que sufra una pérdida igual o superior a su inversión inicial. No invierta dinero que no pueda permitirse perder.</p>
+                        <p>Antes de decidir operar, debe asegurarse de entender los riesgos involucrados y considerar su nivel de experiencia, sus objetivos de inversión y buscar asesoramiento financiero independiente si es necesario.</p>
                     </div>
-                    
-                    <div class="term-item">
-                        <h4>3. Pérdidas y Ganancias</h4>
-                        <p>No nos hacemos responsables de las pérdidas económicas que puedan derivarse del uso de las señales. Asimismo, no reclamamos derecho alguno sobre las ganancias obtenidas por el usuario. El trading conlleva riesgos significativos y puede resultar en la pérdida total del capital invertido.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>4. Naturaleza de las Señales</h4>
-                        <p>Las señales proporcionadas son meramente informativas y no constituyen asesoramiento financiero, recomendación de inversión u oferta de compra/venta. El usuario debe realizar su propio análisis y considerar su situación financiera personal antes de operar.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>5. Exactitud de las Señales</h4>
-                        <p>Aunque nos esforzamos por proporcionar señales precisas, no garantizamos la exactitud, integridad o oportunidad de la información proporcionada. El rendimiento pasado no es indicador de resultados futuros.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>6. Conocimiento del Mercado</h4>
-                        <p>El usuario declara poseer el conocimiento necesario sobre los mercados financieros y los instrumentos con los que opera. En caso contrario, se recomienda buscar asesoramiento profesional antes de utilizar este servicio.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>7. Edad y Capacidad Legal</h4>
-                        <p>El usuario declara ser mayor de edad y tener plena capacidad legal para operar en los mercados financieros según las leyes de su jurisdicción.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>8. Cumplimiento Normativo</h4>
-                        <p>Es responsabilidad del usuario verificar que el uso de esta aplicación cumple con las leyes y regulaciones de su país de residencia.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>9. Modificaciones del Servicio</h4>
-                        <p>Nos reservamos el derecho de modificar, suspender o discontinuar el servicio en cualquier momento, sin previo aviso.</p>
-                    </div>
-                    
-                    <div class="term-item">
-                        <h4>10. Aceptación de Riesgos</h4>
-                        <p>El usuario reconoce que el trading es una actividad de alto riesgo y acepta que puede perder parte o la totalidad de su capital invertido. Solo debe operar con capital que esté dispuesto a perder.</p>
-                    </div>
+                </div>
+                
+                <div class="terms-acceptance">
+                    <label class="accept-checkbox">
+                        <input type="checkbox" id="acceptTerms">
+                        <span class="checkmark"></span>
+                        <span class="accept-text">
+                            He leído, comprendido y acepto todos los términos y condiciones anteriores. 
+                            Entiendo los riesgos involucrados y soy plenamente responsable de mis 
+                            decisiones de trading.
+                        </span>
+                    </label>
                 </div>
             </div>
             
-            <div class="terms-warning">
-                <div class="warning-icon">
-                    <i class="fas fa-radiation"></i>
-                </div>
-                <div class="warning-content">
-                    <h4>ADVERTENCIA IMPORTANTE</h4>
-                    <p>El trading con opciones binarias, Forex y CFD conlleva un alto nivel de riesgo y puede no ser adecuado para todos los inversores. Existe la posibilidad de que sufra una pérdida igual o superior a su inversión inicial. No invierta dinero que no pueda permitirse perder.</p>
-                    <p>Antes de decidir operar, debe asegurarse de entender los riesgos involucrados y considerar su nivel de experiencia, sus objetivos de inversión y buscar asesoramiento financiero independiente si es necesario.</p>
-                </div>
+            <div class="terms-footer">
+                <button id="confirmTerms" class="btn-primary" disabled>
+                    <i class="fas fa-check-circle"></i> ACEPTAR Y CONTINUAR
+                </button>
+                <button id="declineTerms" class="btn-secondary">
+                    <i class="fas fa-times-circle"></i> RECHAZAR Y SALIR
+                </button>
             </div>
-            
-            <div class="terms-acceptance">
-                <label class="accept-checkbox">
-                    <input type="checkbox" id="acceptTerms">
-                    <span class="checkmark"></span>
-                    <span class="accept-text">
-                        He leído, comprendido y acepto todos los términos y condiciones anteriores. 
-                        Entiendo los riesgos involucrados y soy plenamente responsable de mis 
-                        decisiones de trading.
-                    </span>
-                </label>
-            </div>
-        </div>
-        
-        <div class="terms-footer">
-            <button id="confirmTerms" class="btn-primary" disabled>
-                <i class="fas fa-check-circle"></i> ACEPTAR Y CONTINUAR
-            </button>
-            <button id="declineTerms" class="btn-secondary">
-                <i class="fas fa-times-circle"></i> RECHAZAR Y SALIR
-            </button>
         </div>
     </div>
-</div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
