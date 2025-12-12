@@ -711,6 +711,535 @@ bot.onText(/\/pendientes/, async (msg) => {
 });
 
 // =============================================
+// CONFIGURACIÓN DE BROKERS
+// =============================================
+
+const BROKERS = {
+    olimptrade: {
+        name: 'Olymptrade',
+        affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
+        description: 'Plataforma regulada internacionalmente'
+    },
+    quotex: {
+        name: 'Quotex',
+        affiliate_link: 'https://qxbroker.com/es/promo/partner/108107566?qa=signals',
+        description: 'Plataforma moderna con múltiples activos'
+    }
+};
+
+// =============================================
+// MANEJADOR PARA BROKERS - NUEVO
+// =============================================
+
+bot.onText(/\/broker/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    
+    const keyboard = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { 
+                        text: '🏢 OLYMPTRADE', 
+                        callback_data: 'broker_olymptrade'
+                    },
+                    { 
+                        text: '📊 QUOTEX', 
+                        callback_data: 'broker_quotex'
+                    }
+                ],
+                [
+                    { 
+                        text: 'ℹ️ Ver mi broker actual', 
+                        callback_data: 'view_current_broker'
+                    }
+                ]
+            ]
+        }
+    };
+    
+    const message = `🏢 *SELECCIÓN DE BROKER*\n\nElige tu broker preferido para recibir señales:\n\n` +
+                   `• *Olymptrade*: Plataforma regulada internacionalmente\n` +
+                   `• *Quotex*: Plataforma moderna con múltiples activos\n\n` +
+                   `*Nota:* Solo recibirás señales para el broker que selecciones.`;
+    
+    await sendFastMessage(chatId, message, keyboard);
+});
+
+// Manejador para callback queries de brokers
+bot.on('callback_query', async (callbackQuery) => {
+    const chatId = callbackQuery.message.chat.id;
+    const userId = callbackQuery.from.id.toString();
+    const data = callbackQuery.data;
+    
+    if (data.startsWith('broker_')) {
+        const broker = data.replace('broker_', '');
+        
+        if (BROKERS[broker]) {
+            try {
+                // Actualizar broker en la base de datos
+                const { error } = await supabase
+                    .from('users')
+                    .update({ 
+                        preferred_broker: broker,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('telegram_id', userId);
+                
+                if (error) throw error;
+                
+                const brokerInfo = BROKERS[broker];
+                const message = `✅ *Broker actualizado correctamente*\n\n` +
+                               `Ahora recibirás señales para *${brokerInfo.name}*\n\n` +
+                               `🔗 *Enlace de registro:* ${brokerInfo.affiliate_link}\n` +
+                               `📝 *Descripción:* ${brokerInfo.description}\n\n` +
+                               `*Nota:* Las señales serán específicas para este broker.`;
+                
+                await bot.answerCallbackQuery(callbackQuery.id);
+                await sendFastMessage(chatId, message);
+                
+            } catch (error) {
+                console.error('❌ [BOT] Error actualizando broker:', error);
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al actualizar el broker' });
+            }
+        }
+    } else if (data === 'view_current_broker') {
+        try {
+            const { data: user, error } = await supabase
+                .from('users')
+                .select('preferred_broker')
+                .eq('telegram_id', userId)
+                .single();
+            
+            if (error || !user) {
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al obtener información' });
+                return;
+            }
+            
+            const currentBroker = user.preferred_broker || 'olymptrade';
+            const brokerInfo = BROKERS[currentBroker];
+            
+            const message = `🏢 *TU BROKER ACTUAL*\n\n` +
+                           `• *Broker:* ${brokerInfo.name}\n` +
+                           `• *Estado:* ✅ Activado\n` +
+                           `• *Descripción:* ${brokerInfo.description}\n\n` +
+                           `*Nota:* Recibes señales específicas para ${brokerInfo.name}`;
+            
+            await bot.answerCallbackQuery(callbackQuery.id);
+            await sendFastMessage(chatId, message);
+            
+        } catch (error) {
+            console.error('❌ [BOT] Error obteniendo broker actual:', error);
+            await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al obtener broker actual' });
+        }
+    }
+});
+
+// =============================================
+// SISTEMA DE REFERIDOS EN EL BOT - NUEVO
+// =============================================
+
+bot.onText(/\/referidos/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    
+    try {
+        // Obtener información de referidos del servidor
+        const response = await fetch(`${RENDER_URL}/api/referrals/${userId}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            await sendFastMessage(chatId, '❌ Error al cargar información de referidos. Intenta nuevamente.');
+            return;
+        }
+        
+        const { stats, discount, bonus, next_month_free } = result.data;
+        const referralLink = `https://t.me/QuantumQvabot?start=ref_${userId}`;
+        
+        let message = `👥 *SISTEMA DE REFERIDOS*\n\n`;
+        message += `*Tu enlace de referido:*\n\`${referralLink}\`\n\n`;
+        message += `*Estadísticas:*\n`;
+        message += `• 📊 Total referidos: ${stats.total}\n`;
+        message += `• 💎 Referidos VIP: ${stats.vip}\n`;
+        message += `• 👤 Referidos regulares: ${stats.regular}\n`;
+        message += `• 🔥 Activos (últimos 30 días): ${stats.active}\n\n`;
+        
+        message += `*Beneficios acumulados:*\n`;
+        message += `• 🎫 Descuento del ${discount}% para el próximo mes\n`;
+        
+        if (next_month_free) {
+            message += `• 🎁 *¡PRÓXIMO MES GRATIS!* (10+ referidos VIP)\n`;
+        }
+        
+        if (bonus) {
+            message += `• 💰 *BONO:* ${bonus}\n`;
+        }
+        
+        message += `\n*¿Cómo funciona?*\n`;
+        message += `1. Comparte tu enlace con amigos\n`;
+        message += `2. Cuando se registren con tu enlace, se convierten en tus referidos\n`;
+        message += `3. Por cada referido VIP: +10% de descuento (máx 50%)\n`;
+        message += `4. Con 10 referidos VIP: próximo mes GRATIS\n`;
+        message += `5. Con 20 referidos VIP: 20 USDT de bono\n`;
+        
+        const keyboard = {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { 
+                            text: '📤 Compartir enlace', 
+                            url: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=¡Únete a Quantum Signal Trader! Señales de trading profesionales para opciones binarias. Regístrate con mi enlace:`
+                        }
+                    ],
+                    [
+                        { 
+                            text: '🔄 Actualizar estadísticas', 
+                            callback_data: 'refresh_referrals'
+                        }
+                    ]
+                ]
+            }
+        };
+        
+        await sendFastMessage(chatId, message, keyboard);
+        
+    } catch (error) {
+        console.error('❌ [BOT] Error en comando /referidos:', error);
+        await sendFastMessage(chatId, '❌ Error al cargar información de referidos. Intenta nuevamente.');
+    }
+});
+
+// Manejador para inicio con enlace de referido
+bot.onText(/\/start ref_(.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id.toString();
+    const referrerId = match[1];
+    const userName = msg.from.first_name || 'Usuario';
+    
+    // Guardar usuario en BD
+    await supabase.from('users').upsert({
+        telegram_id: userId,
+        username: msg.from.username,
+        first_name: msg.from.first_name,
+        preferred_broker: 'olymptrade',
+        free_signals_used: 0,
+        created_at: new Date().toISOString()
+    });
+    
+    // Registrar referido
+    try {
+        await fetch(`${RENDER_URL}/api/referrals`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                referrerId: referrerId,
+                referredId: userId
+            })
+        });
+        
+        console.log(`✅ [BOT] Referido registrado: ${userId} por ${referrerId}`);
+        
+        // Notificar al referidor
+        const referrerMessage = `🎉 *¡NUEVO REFERIDO!*\n\n` +
+                              `• 👤 Usuario: ${userName}\n` +
+                              `• 🆔 ID: \`${userId}\`\n` +
+                              `• 📅 Fecha: ${new Date().toLocaleString()}\n\n` +
+                              `¡Gracias por compartir Quantum Signal Trader!`;
+        
+        await sendFastMessage(referrerId, referrerMessage);
+        
+    } catch (error) {
+        console.error('❌ [BOT] Error registrando referido:', error);
+    }
+    
+    const welcomeMessage = `🤖 *Quantum Signal Trader Pro*\n\n` +
+                          `¡Hola *${userName}*! 👋\n\n` +
+                          `*Registrado por referido de:* \`${referrerId}\`\n\n` +
+                          `🎯 *Sistema Profesional de Señales*:\n` +
+                          `• 🤖 Bot automatizado\n` +
+                          `• ⚡ Señales en tiempo real\n` +
+                          `• 💰 Opciones binarias\n` +
+                          `• 📊 Plataforma web integrada\n\n` +
+                          `📈 *Horarios de Sesiones*:\n` +
+                          `🕙 10:00 AM - Sesión Matutina\n` +
+                          `🕙 10:00 PM - Sesión Nocturna\n\n` +
+                          `🎁 *La primera señal de cada sesión es GRATIS*`;
+    
+    await sendFastMessage(chatId, welcomeMessage, createMainKeyboard());
+});
+
+// =============================================
+// ENDPOINT PARA ALERTAS DE ACTIVO PREVIO - NUEVO
+// =============================================
+
+app.post('/api/telegram/preview-asset', async (req, res) => {
+    try {
+        const { asset, broker, userId } = req.body;
+        
+        console.log('👁️ [BOT] Alerta de activo previo recibida:', { asset, broker, userId });
+        
+        // Verificar si es admin
+        if (userId !== ADMIN_ID) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Solo el admin puede enviar alertas de activo' 
+            });
+        }
+        
+        // Obtener usuarios VIP con el broker especificado
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('telegram_id, is_vip, preferred_broker')
+            .eq('is_vip', true)
+            .eq('preferred_broker', broker);
+            
+        if (error) {
+            throw error;
+        }
+        
+        if (!users || users.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'No hay usuarios VIP con este broker' 
+            });
+        }
+        
+        console.log(`👁️ [BOT] Enviando alerta de activo a ${users.length} usuarios VIP de ${broker}`);
+        
+        const message = `👁️ *ALERTA DE ACTIVO* 👁️\n\n` +
+                       `*Próxima señal para ${broker.toUpperCase()}*\n\n` +
+                       `📊 *Activo:* ${asset}\n` +
+                       `⏰ *Tiempo estimado:* 1-2 minutos\n\n` +
+                       `*Prepárate para operar este activo!* ⚡\n` +
+                       `Mantente atento a la señal...`;
+        
+        // Enviar a todos los usuarios VIP con este broker
+        const sendPromises = users.map(user => 
+            sendFastMessage(user.telegram_id, message).catch(error => {
+                console.error(`❌ [BOT] Error enviando a ${user.telegram_id}:`, error.message);
+                return null;
+            })
+        );
+        
+        await Promise.all(sendPromises);
+        
+        res.json({ 
+            success: true, 
+            message: `Alerta de activo enviada a ${users.length} usuarios VIP de ${broker}` 
+        });
+        
+    } catch (error) {
+        console.error('❌ [BOT] Error en endpoint de alerta de activo:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error interno del servidor' 
+        });
+    }
+});
+
+// =============================================
+// ENDPOINT PARA NOTIFICACIONES DE REFERIDOS - NUEVO
+// =============================================
+
+app.post('/api/telegram/notify-referral', async (req, res) => {
+    try {
+        const { referrerId, referredId, isVip } = req.body;
+        
+        console.log('👥 [BOT] Notificación de referido recibida:', { referrerId, referredId, isVip });
+        
+        if (isVip) {
+            const message = `🎉 *¡REFERIDO VIP!*\n\n` +
+                          `Uno de tus referidos se ha convertido en VIP 🎊\n\n` +
+                          `• 🆔 ID del referido: \`${referredId}\`\n` +
+                          `• 💎 Estado: Usuario VIP\n` +
+                          `• 🎁 Beneficio: +10% de descuento acumulado\n\n` +
+                          `¡Gracias por recomendar Quantum Signal Trader!`;
+            
+            await sendFastMessage(referrerId, message);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'Notificación de referido enviada' 
+        });
+        
+    } catch (error) {
+        console.error('❌ [BOT] Error en endpoint de notificación de referido:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error interno del servidor' 
+        });
+    }
+});
+
+// =============================================
+// MODIFICACIÓN DE BROADCASTSIGNALWITHID PARA BROKERS
+// =============================================
+
+async function broadcastSignalWithID(signal) {
+    try {
+        console.log(`📨 [BOT] Procesando señal ${signal.id} - FREE: ${signal.is_free} - BROKER: ${signal.broker}`);
+        
+        // Obtener todos los usuarios
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('telegram_id, is_vip, free_signals_used, preferred_broker');
+        
+        if (error || !users) {
+            console.error('❌ [BOT] Error obteniendo usuarios:', error);
+            return;
+        }
+
+        const arrow = signal.direction === 'up' ? '🟢' : '🔴';
+        const brokerName = signal.broker === 'olymptrade' ? 'Olymptrade' : 'Quotex';
+        const message = `
+🎯 *SEÑAL DETECTADA* 🎯
+
+${arrow} *${signal.asset}*
+📈 ${signal.direction === 'up' ? 'ALZA (CALL)' : 'BAJA (PUT)'}
+⏱ ${signal.timeframe} minutos
+${signal.is_free ? '🎯 GRATIS' : '💎 VIP'}
+🏢 *Broker:* ${brokerName}
+
+*ID: ${signal.id}*
+
+*¡Actúa rápido!* ⚡
+        `;
+
+        // Lógica de envío de señales
+        let recipients = [];
+        let freeUsersToUpdate = [];
+
+        if (signal.is_free) {
+            // Señal FREE: enviar a usuarios NO VIP con el mismo broker y que no hayan usado su señal gratis
+            const freeUsers = users.filter(user => 
+                !user.is_vip && 
+                (user.preferred_broker === signal.broker) && 
+                (user.free_signals_used === 0 || !user.free_signals_used)
+            );
+            
+            recipients = freeUsers;
+            freeUsersToUpdate = freeUsers;
+            
+            console.log(`📨 [BOT] Señal FREE - FREE Users (mismo broker): ${freeUsers.length}`);
+            
+        } else {
+            // Señal VIP: solo enviar a usuarios VIP con el mismo broker
+            recipients = users.filter(user => 
+                user.is_vip && 
+                user.preferred_broker === signal.broker
+            );
+            console.log(`📨 [BOT] Señal VIP - VIPs (mismo broker): ${recipients.length}`);
+        }
+
+        console.log(`📨 [BOT] Enviando señal ${signal.id} a ${recipients.length} usuarios`);
+
+        // Enviar mensajes en paralelo
+        const sendPromises = recipients.map(user => 
+            sendFastMessage(user.telegram_id, message).catch(() => null)
+        );
+
+        await Promise.all(sendPromises);
+
+        // ✅ ACTUALIZAR free_signals_used EN EL SERVIDOR
+        if (signal.is_free && freeUsersToUpdate.length > 0) {
+            const updatePromises = freeUsersToUpdate.map(async (user) => {
+                try {
+                    const response = await fetch(`${RENDER_URL}/api/users/update-free-signals`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegramId: user.telegram_id,
+                            freeSignalsUsed: 1
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        console.error(`❌ [BOT] Error actualizando free_signals_used para ${user.telegram_id}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ [BOT] Error en actualización para ${user.telegram_id}:`, error);
+                }
+            });
+
+            await Promise.all(updatePromises);
+            console.log(`✅ [BOT] ${freeUsersToUpdate.length} usuarios actualizados con free_signals_used = 1`);
+        }
+
+    } catch (error) {
+        console.error('❌ [BOT] Error en broadcastSignalWithID:', error);
+    }
+}
+
+// =============================================
+// ACTUALIZAR TECLADO PRINCIPAL CON REFERIDOS
+// =============================================
+
+function createMainKeyboard() {
+    return {
+        reply_markup: {
+            resize_keyboard: true,
+            keyboard: [
+                [{ text: '📈 SEÑALES' }, { text: '💎 VIP' }],
+                [{ text: '🌐 WEBAPP' }, { text: '👥 REFERIDOS' }],
+                [{ text: '🏢 BROKER' }, { text: '❓ AYUDA' }],
+                [{ text: 'ℹ️ INFORMACIÓN' }, { text: '📊 PLATAFORMA' }]
+            ]
+        }
+    };
+}
+
+// =============================================
+// ACTUALIZAR MANEJADOR DE MENSAJES PARA REFERIDOS
+// =============================================
+
+bot.on('message', async (msg) => {
+    if (msg.text?.startsWith('/')) return;
+    
+    const chatId = msg.chat.id;
+    const messageText = msg.text;
+    const userId = msg.from.id.toString();
+
+    switch (messageText) {
+        case '📈 SEÑALES':
+            await handleFastSignals(chatId, userId);
+            break;
+        case '💎 VIP':
+            await handleFastVIP(chatId, userId);
+            break;
+        case '🌐 WEBAPP':
+            await handleFastWebApp(chatId, userId);
+            break;
+        case '👥 REFERIDOS':
+            // Llamar al comando /referidos
+            await bot.processUpdate({
+                message: msg,
+                update_id: Date.now()
+            });
+            break;
+        case '🏢 BROKER':
+            // Llamar al comando /broker
+            await bot.processUpdate({
+                message: msg,
+                update_id: Date.now()
+            });
+            break;
+        case '❓ AYUDA':
+            await handleFastHelp(chatId);
+            break;
+        case 'ℹ️ INFORMACIÓN':
+            await handleFastInfo(chatId);
+            break;
+        case '📊 PLATAFORMA':
+            await handleFastPlatform(chatId);
+            break;
+    }
+});
+// =============================================
 // COMANDO PARA RESETEAR SEÑALES FREE (Solo admin)
 // =============================================
 
