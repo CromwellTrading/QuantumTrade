@@ -164,7 +164,7 @@ function initializeTermsAndConditions() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - ACTUALIZADA
+// CLASE SIGNAL MANAGER - COMPLETA Y CORREGIDA
 // =============================================
 
 class SignalManager {
@@ -339,7 +339,7 @@ class SignalManager {
                     expires: new Date(signal.expires_at),
                     status: signal.status || 'pending',
                     isFree: signal.is_free || false,
-                    broker: signal.broker || 'olymptrade' // NUEVO: broker
+                    broker: signal.broker || 'olymptrade'
                 }));
                 
                 this.loadUserOperations();
@@ -367,7 +367,7 @@ class SignalManager {
         }
     }
     
-    // NUEVO: Cargar brokers
+    // IMPLEMENTADO: Cargar brokers
     async loadBrokers() {
         try {
             const response = await fetch(`${SERVER_URL}/api/brokers`);
@@ -376,13 +376,14 @@ class SignalManager {
             if (result.success) {
                 this.brokers = result.data;
                 this.renderBrokerSelection();
+                this.updateCurrentBrokerDisplay();
             }
         } catch (error) {
             console.error('❌ [APP] Error cargando brokers:', error);
         }
     }
     
-    // NUEVO: Cargar referidos
+    // IMPLEMENTADO: Cargar referidos
     async loadReferrals() {
         try {
             const response = await fetch(`${SERVER_URL}/api/referrals/${this.currentUserId}`);
@@ -397,7 +398,7 @@ class SignalManager {
         }
     }
     
-    // NUEVO: Actualizar broker del usuario
+    // IMPLEMENTADO: Actualizar broker del usuario
     async updateUserBroker(broker) {
         try {
             const response = await fetch(`${SERVER_URL}/api/users/update-broker`, {
@@ -413,8 +414,13 @@ class SignalManager {
             
             if (result.success) {
                 this.showNotification(`Broker actualizado a: ${broker}`, 'success');
-                this.userData.preferred_broker = broker;
+                if (this.userData) {
+                    this.userData.preferred_broker = broker;
+                }
                 this.updateUI();
+                this.updateCurrentBrokerDisplay();
+            } else {
+                this.showNotification(result.error || 'Error actualizando broker', 'error');
             }
         } catch (error) {
             console.error('❌ [APP] Error actualizando broker:', error);
@@ -422,7 +428,26 @@ class SignalManager {
         }
     }
     
-    // NUEVO: Enviar alerta de activo previo (solo admin)
+    // IMPLEMENTADO: Actualizar visualización del broker actual
+    updateCurrentBrokerDisplay() {
+        const currentBrokerName = document.getElementById('currentBrokerName');
+        const currentBrokerStatus = document.getElementById('currentBrokerStatus');
+        const userBrokerSelect = document.getElementById('userBrokerSelect');
+        
+        if (this.userData && currentBrokerName && currentBrokerStatus) {
+            const broker = this.userData.preferred_broker || 'olymptrade';
+            const brokerName = broker === 'olymptrade' ? 'Olymptrade' : 'Quotex';
+            
+            currentBrokerName.textContent = brokerName;
+            currentBrokerStatus.textContent = `Recibiendo señales para ${brokerName}`;
+            
+            if (userBrokerSelect) {
+                userBrokerSelect.value = broker;
+            }
+        }
+    }
+    
+    // IMPLEMENTADO: Enviar alerta de activo previo (solo admin)
     async sendAssetPreview() {
         if (!this.isAdmin) return;
         
@@ -449,6 +474,7 @@ class SignalManager {
             
             if (result.success) {
                 this.showNotification(result.message, 'success');
+                document.getElementById('previewAsset').value = '';
             } else {
                 this.showNotification(result.error, 'error');
             }
@@ -458,7 +484,7 @@ class SignalManager {
         }
     }
     
-    // NUEVO: Generar enlace de referido
+    // IMPLEMENTADO: Generar enlace de referido
     async generateReferralLink() {
         try {
             const response = await fetch(`${SERVER_URL}/api/referrals/link/${this.currentUserId}`);
@@ -470,12 +496,16 @@ class SignalManager {
             }
         } catch (error) {
             console.error('❌ [APP] Error generando enlace:', error);
+            this.showNotification('Error generando enlace', 'error');
         }
     }
     
-    // NUEVO: Copiar enlace de referido al portapapeles
+    // IMPLEMENTADO: Copiar enlace de referido al portapapeles
     async copyReferralLink() {
-        if (!this.referralLink) return;
+        if (!this.referralLink) {
+            await this.generateReferralLink();
+            return;
+        }
         
         try {
             await navigator.clipboard.writeText(this.referralLink);
@@ -483,6 +513,129 @@ class SignalManager {
         } catch (error) {
             console.error('❌ [APP] Error copiando enlace:', error);
             this.showNotification('Error copiando enlace', 'error');
+        }
+    }
+    
+    // IMPLEMENTADO: Compartir enlace de referido
+    async shareReferralLink() {
+        if (!this.referralLink) {
+            await this.generateReferralLink();
+            return;
+        }
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Quantum Signal Trader',
+                    text: '¡Únete a Quantum Signal Trader! Señales de trading profesionales para opciones binarias.',
+                    url: this.referralLink,
+                });
+            } catch (error) {
+                console.error('❌ [APP] Error compartiendo:', error);
+                await this.copyReferralLink();
+            }
+        } else {
+            await this.copyReferralLink();
+        }
+    }
+    
+    // IMPLEMENTADO: Mostrar enlace de referido
+    showReferralLink() {
+        const referralLinkDisplay = document.getElementById('referralLinkDisplay');
+        const referralLinkText = document.getElementById('referralLinkText');
+        const generateReferralLinkBtn = document.getElementById('generateReferralLinkBtn');
+        
+        if (referralLinkDisplay && referralLinkText) {
+            referralLinkText.textContent = this.referralLink;
+            referralLinkDisplay.style.display = 'block';
+            
+            if (generateReferralLinkBtn) {
+                generateReferralLinkBtn.textContent = 'Regenerar Enlace';
+                generateReferralLinkBtn.innerHTML = '<i class="fas fa-redo"></i> Regenerar Enlace';
+            }
+        }
+    }
+    
+    // IMPLEMENTADO: Mostrar broker selection
+    renderBrokerSelection() {
+        // Broker para señales (admin)
+        const brokerSelect = document.getElementById('brokerSelect');
+        if (brokerSelect && this.brokers.length > 0) {
+            brokerSelect.innerHTML = '';
+            this.brokers.forEach(broker => {
+                const option = document.createElement('option');
+                option.value = broker.id;
+                option.textContent = broker.name;
+                brokerSelect.appendChild(option);
+            });
+        }
+        
+        // Broker para usuario (panel de brokers)
+        const userBrokerSelect = document.getElementById('userBrokerSelect');
+        if (userBrokerSelect && this.brokers.length > 0) {
+            userBrokerSelect.innerHTML = '';
+            this.brokers.forEach(broker => {
+                const option = document.createElement('option');
+                option.value = broker.id;
+                option.textContent = broker.name;
+                userBrokerSelect.appendChild(option);
+            });
+            
+            // Seleccionar el broker actual del usuario
+            if (this.userData?.preferred_broker) {
+                userBrokerSelect.value = this.userData.preferred_broker;
+            }
+        }
+    }
+    
+    // IMPLEMENTADO: Mostrar referidos
+    renderReferrals() {
+        if (!this.userReferrals) return;
+        
+        const totalReferrals = document.getElementById('totalReferrals');
+        const vipReferrals = document.getElementById('vipReferrals');
+        const referralDiscount = document.getElementById('referralDiscount');
+        const bonusAlert = document.getElementById('bonusAlert');
+        const bonusText = document.getElementById('bonusText');
+        const referralsTableBody = document.getElementById('referralsTableBody');
+        
+        // Actualizar estadísticas
+        if (totalReferrals && vipReferrals && referralDiscount) {
+            totalReferrals.textContent = this.userReferrals.stats?.total || 0;
+            vipReferrals.textContent = this.userReferrals.stats?.vip || 0;
+            referralDiscount.textContent = `${this.userReferrals.discount || 0}%`;
+        }
+        
+        // Mostrar bonificación
+        if (bonusAlert && bonusText) {
+            if (this.userReferrals.bonus) {
+                bonusText.textContent = this.userReferrals.bonus;
+                bonusAlert.style.display = 'flex';
+            } else {
+                bonusAlert.style.display = 'none';
+            }
+        }
+        
+        // Actualizar tabla de referidos
+        if (referralsTableBody && this.userReferrals.referrals) {
+            if (this.userReferrals.referrals.length === 0) {
+                referralsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="3" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            <i class="fas fa-users-slash"></i>
+                            <p>No tienes referidos todavía</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                referralsTableBody.innerHTML = this.userReferrals.referrals.map(ref => `
+                    <tr>
+                        <td>${ref.first_name || ref.username || ref.telegram_id}</td>
+                        <td><span class="status-badge ${ref.is_vip ? 'status-vip' : 'status-regular'}">${ref.is_vip ? 'VIP' : 'Regular'}</span></td>
+                        <td>${new Date(ref.referred_at).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+            }
         }
     }
     
@@ -511,6 +664,7 @@ class SignalManager {
 
         this.updateUserStatus();
         
+        // Mostrar/ocultar elementos según privilegios
         if (this.isAdmin) {
             if (this.adminBtn) {
                 this.adminBtn.style.display = 'block';
@@ -523,10 +677,10 @@ class SignalManager {
             if (this.showUserManagement) {
                 this.showUserManagement.style.display = 'block';
             }
-            if (this.showBrokers) { // NUEVO
+            if (this.showBrokers) {
                 this.showBrokers.style.display = 'block';
             }
-            if (this.showReferrals) { // NUEVO
+            if (this.showReferrals) {
                 this.showReferrals.style.display = 'block';
             }
             this.loadUsersFromSupabase();
@@ -540,10 +694,10 @@ class SignalManager {
             if (this.showUserManagement) {
                 this.showUserManagement.style.display = 'none';
             }
-            if (this.showBrokers) { // NUEVO
-                this.showBrokers.style.display = 'none';
+            if (this.showBrokers) {
+                this.showBrokers.style.display = 'block'; // Broker visible para todos
             }
-            if (this.showReferrals) { // NUEVO
+            if (this.showReferrals) {
                 this.showReferrals.style.display = 'block'; // Referidos visible para todos
             }
             if (this.adminPanel) {
@@ -560,11 +714,15 @@ class SignalManager {
                 this.vipAccess.classList.remove('active');
             }
         }
+        
+        // Actualizar display del broker
+        this.updateCurrentBrokerDisplay();
     }
 
     initializeDOMElements() {
         console.log('🏗️ [APP] Inicializando elementos DOM');
         
+        // Elementos existentes
         this.sendSignalBtn = document.getElementById('sendSignal');
         this.signalsContainer = document.getElementById('signalsContainer');
         this.notification = document.getElementById('notification');
@@ -575,15 +733,15 @@ class SignalManager {
         this.showStats = document.getElementById('showStats');
         this.showUsers = document.getElementById('showUsers');
         this.showUserManagement = document.getElementById('showUserManagement');
-        this.showBrokers = document.getElementById('showBrokers'); // NUEVO
-        this.showReferrals = document.getElementById('showReferrals'); // NUEVO
+        this.showBrokers = document.getElementById('showBrokers');
+        this.showReferrals = document.getElementById('showReferrals');
         this.vipAccess = document.getElementById('vipAccess');
         this.adminBtn = document.getElementById('adminBtn');
         this.statsContainer = document.getElementById('statsContainer');
         this.usersContainer = document.getElementById('usersContainer');
         this.userManagementContainer = document.getElementById('userManagementContainer');
-        this.brokersContainer = document.getElementById('brokersContainer'); // NUEVO
-        this.referralsContainer = document.getElementById('referralsContainer'); // NUEVO
+        this.brokersContainer = document.getElementById('brokersContainer');
+        this.referralsContainer = document.getElementById('referralsContainer');
         this.sessionInfo = document.getElementById('sessionInfo');
         this.userStatus = document.getElementById('userStatus');
         this.startSession = document.getElementById('startSession');
@@ -609,13 +767,22 @@ class SignalManager {
         this.assetInput = document.getElementById('asset');
         this.timeframeSelect = document.getElementById('timeframe');
         this.directionSelect = document.getElementById('direction');
-        this.brokerSelect = document.getElementById('brokerSelect'); // NUEVO
-        this.isFreeCheckbox = document.getElementById('isFreeCheckbox'); // NUEVO
+        this.brokerSelect = document.getElementById('brokerSelect');
+        this.isFreeCheckbox = document.getElementById('isFreeCheckbox');
         
-        // NUEVOS: Elementos para alerta de activo previo
+        // NUEVOS: Elementos para brokers
         this.previewAsset = document.getElementById('previewAsset');
         this.previewBroker = document.getElementById('previewBroker');
         this.previewAssetBtn = document.getElementById('previewAssetBtn');
+        this.updateBrokerBtn = document.getElementById('updateBrokerBtn');
+        this.userBrokerSelect = document.getElementById('userBrokerSelect');
+        
+        // NUEVOS: Elementos para referidos
+        this.generateReferralLinkBtn = document.getElementById('generateReferralLinkBtn');
+        this.copyReferralLinkBtn = document.getElementById('copyReferralLinkBtn');
+        this.shareReferralLinkBtn = document.getElementById('shareReferralLinkBtn');
+        this.referralLinkDisplay = document.getElementById('referralLinkDisplay');
+        this.referralLinkText = document.getElementById('referralLinkText');
         
         this.isReady = false;
         
@@ -805,17 +972,41 @@ class SignalManager {
             });
         }
         
-        // NUEVO: Listener para cambiar broker
-        if (this.brokerSelect) {
-            this.brokerSelect.addEventListener('change', (e) => {
-                this.updateUserBroker(e.target.value);
-            });
-        }
-        
         // NUEVO: Listener para alerta de activo previo
         if (this.previewAssetBtn) {
             this.previewAssetBtn.addEventListener('click', () => {
                 this.sendAssetPreview();
+            });
+        }
+        
+        // NUEVO: Listener para actualizar broker
+        if (this.updateBrokerBtn) {
+            this.updateBrokerBtn.addEventListener('click', () => {
+                const broker = this.userBrokerSelect?.value;
+                if (broker) {
+                    this.updateUserBroker(broker);
+                }
+            });
+        }
+        
+        // NUEVO: Listener para generar enlace de referido
+        if (this.generateReferralLinkBtn) {
+            this.generateReferralLinkBtn.addEventListener('click', () => {
+                this.generateReferralLink();
+            });
+        }
+        
+        // NUEVO: Listener para copiar enlace de referido
+        if (this.copyReferralLinkBtn) {
+            this.copyReferralLinkBtn.addEventListener('click', () => {
+                this.copyReferralLink();
+            });
+        }
+        
+        // NUEVO: Listener para compartir enlace de referido
+        if (this.shareReferralLinkBtn) {
+            this.shareReferralLinkBtn.addEventListener('click', () => {
+                this.shareReferralLink();
             });
         }
         
@@ -830,133 +1021,6 @@ class SignalManager {
         console.log('✅ [APP] Event listeners inicializados correctamente');
     }
 
-    // NUEVO: Mostrar broker selection
-    renderBrokerSelection() {
-        const brokerSelect = document.getElementById('brokerSelect');
-        if (!brokerSelect) return;
-        
-        brokerSelect.innerHTML = '';
-        
-        this.brokers.forEach(broker => {
-            const option = document.createElement('option');
-            option.value = broker.id;
-            option.textContent = broker.name;
-            brokerSelect.appendChild(option);
-        });
-        
-        // Seleccionar el broker actual del usuario
-        if (this.userData?.preferred_broker) {
-            brokerSelect.value = this.userData.preferred_broker;
-        }
-    }
-    
-    // NUEVO: Mostrar referidos
-    renderReferrals() {
-        const referralsContainer = document.getElementById('referralsContainer');
-        if (!referralsContainer || !this.userReferrals) return;
-        
-        const { referrals, stats, discount, bonus, next_month_free } = this.userReferrals;
-        
-        let html = `
-            <div class="referral-stats">
-                <div class="stat-card">
-                    <div class="stat-label">Total Referidos</div>
-                    <div class="stat-value">${stats.total}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Referidos VIP</div>
-                    <div class="stat-value">${stats.vip}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Descuento</div>
-                    <div class="stat-value">${discount}%</div>
-                </div>
-            </div>
-        `;
-        
-        if (next_month_free) {
-            html += `<div class="bonus-alert"><i class="fas fa-gift"></i> ¡PRÓXIMO MES GRATIS!</div>`;
-        }
-        
-        if (bonus) {
-            html += `<div class="bonus-alert"><i class="fas fa-money-bill-wave"></i> ${bonus}</div>`;
-        }
-        
-        html += `
-            <div class="referral-actions">
-                <button id="generateReferralLink" class="btn-primary">
-                    <i class="fas fa-link"></i> Generar Enlace
-                </button>
-                <button id="copyReferralLink" class="btn-secondary" style="display: none;">
-                    <i class="fas fa-copy"></i> Copiar Enlace
-                </button>
-            </div>
-        `;
-        
-        if (referrals && referrals.length > 0) {
-            html += `
-                <div class="referrals-list">
-                    <h4><i class="fas fa-users"></i> Tus Referidos</h4>
-                    <table class="referrals-table">
-                        <thead>
-                            <tr>
-                                <th>Usuario</th>
-                                <th>Estado</th>
-                                <th>Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            referrals.forEach(ref => {
-                html += `
-                    <tr>
-                        <td>${ref.first_name || ref.username || ref.telegram_id}</td>
-                        <td><span class="status-badge ${ref.is_vip ? 'status-vip' : 'status-regular'}">${ref.is_vip ? 'VIP' : 'Regular'}</span></td>
-                        <td>${new Date(ref.referred_at).toLocaleDateString()}</td>
-                    </tr>
-                `;
-            });
-            
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-        
-        referralsContainer.innerHTML = html;
-        
-        // Añadir event listeners
-        document.getElementById('generateReferralLink')?.addEventListener('click', () => {
-            this.generateReferralLink();
-        });
-        
-        document.getElementById('copyReferralLink')?.addEventListener('click', () => {
-            this.copyReferralLink();
-        });
-    }
-    
-    // NUEVO: Mostrar enlace de referido
-    showReferralLink() {
-        const copyBtn = document.getElementById('copyReferralLink');
-        const generateBtn = document.getElementById('generateReferralLink');
-        
-        if (copyBtn && generateBtn) {
-            copyBtn.style.display = 'block';
-            generateBtn.style.display = 'none';
-            
-            const linkDisplay = document.createElement('div');
-            linkDisplay.className = 'referral-link-display';
-            linkDisplay.innerHTML = `
-                <p>Tu enlace de referido:</p>
-                <div class="referral-link">${this.referralLink}</div>
-            `;
-            
-            copyBtn.parentElement.insertBefore(linkDisplay, copyBtn);
-        }
-    }
-    
     // MÉTODO MEJORADO PARA CAMBIAR VISTAS
     showView(viewName) {
         console.log('👁️ [APP] Cambiando a vista:', viewName);
@@ -964,7 +1028,7 @@ class SignalManager {
         // Ocultar todas las vistas y paneles
         const views = ['signals', 'stats', 'users', 'userManagement', 'brokers', 'referrals'];
         views.forEach(view => {
-            const container = document.getElementById(`${view}Container`) || document.getElementById(`${view}Panel`);
+            const container = document.getElementById(`${view}Container`);
             if (container) {
                 container.classList.remove('active');
                 container.style.display = 'none';
@@ -977,7 +1041,8 @@ class SignalManager {
         }
         
         // Remover clase active de todos los botones
-        const buttons = [this.showSignals, this.showStats, this.showUsers, this.showUserManagement, this.showBrokers, this.showReferrals];
+        const buttons = [this.showSignals, this.showStats, this.showUsers, 
+                        this.showUserManagement, this.showBrokers, this.showReferrals];
         buttons.forEach(btn => {
             if (btn) btn.classList.remove('active');
         });
@@ -1023,7 +1088,7 @@ class SignalManager {
                 if (this.showUserManagement) this.showUserManagement.classList.add('active');
                 break;
                 
-            case 'brokers': // NUEVO
+            case 'brokers':
                 if (this.brokersContainer) {
                     this.brokersContainer.classList.add('active');
                     this.brokersContainer.style.display = 'block';
@@ -1031,7 +1096,7 @@ class SignalManager {
                 if (this.showBrokers) this.showBrokers.classList.add('active');
                 break;
                 
-            case 'referrals': // NUEVO
+            case 'referrals':
                 if (this.referralsContainer) {
                     this.referralsContainer.classList.add('active');
                     this.referralsContainer.style.display = 'block';
@@ -1365,7 +1430,7 @@ class SignalManager {
             expires: new Date(signalData.expires_at),
             status: signalData.status || 'pending',
             isFree: signalData.is_free || false,
-            broker: signalData.broker || 'olymptrade' // NUEVO: broker
+            broker: signalData.broker || 'olymptrade'
         };
         
         const canReceiveSignal = this.canUserReceiveSignal(signal);
@@ -1411,16 +1476,15 @@ class SignalManager {
         }
     }
 
-    // NUEVO: Verificar si usuario puede recibir señal (incluye broker)
     canUserReceiveSignal(signal) {
         // Verificar broker primero
         const userBroker = this.userData?.preferred_broker || 'olymptrade';
         if (signal.broker !== userBroker) {
-            return false; // No es el broker del usuario
+            return false;
         }
         
         if (this.isAdmin || this.isVIP) {
-            return true; // Admin y VIP reciben todas las señales de su broker
+            return true;
         }
         
         // Usuarios regulares: solo primera señal gratis por sesión de su broker
@@ -1492,11 +1556,13 @@ class SignalManager {
     updateUserStatus() {
         if (!this.userStatus) return;
         
+        const brokerName = this.userData?.preferred_broker === 'olymptrade' ? 'Olymptrade' : 'Quotex';
+        
         if (this.isVIP) {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--vip);">
                     <i class="fas fa-crown"></i> Estado: <span class="vip-badge">USUARIO VIP</span> - Recibiendo todas las señales
-                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
+                    <br><small>Broker: ${brokerName}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.vip} señales</small>
                 </div>
             `;
@@ -1504,7 +1570,7 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--primary);">
                     <i class="fas fa-user-shield"></i> Estado: <span style="color: var(--primary); font-weight: bold;">ADMINISTRADOR</span> - Acceso completo al sistema
-                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
+                    <br><small>Broker: ${brokerName}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.admin} señales</small>
                 </div>
             `;
@@ -1512,7 +1578,7 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info">
                     <i class="fas fa-user"></i> Estado: Usuario Regular - Solo primera señal gratuita por sesión
-                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
+                    <br><small>Broker: ${brokerName}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.regular} señales free</small>
                 </div>
             `;
@@ -1762,6 +1828,7 @@ class SignalManager {
             if (response.ok) {
                 const result = await response.json();
                 asset.value = '';
+                if (isFreeCheckbox) isFreeCheckbox.checked = false;
                 
                 this.showNotification('Señal enviada correctamente', 'success');
                 
