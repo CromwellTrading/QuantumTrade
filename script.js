@@ -107,25 +107,21 @@ function initializeTermsAndConditions() {
     const confirmBtn = document.getElementById('confirmTerms');
     const declineBtn = document.getElementById('declineTerms');
     
-    // Verificar si ya aceptó los términos
     const termsAccepted = localStorage.getItem('quantum_terms_accepted');
     
     if (!termsAccepted) {
-        // Mostrar modal de términos
         setTimeout(() => {
             termsModal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }, 1000);
     }
     
-    // Habilitar/deshabilitar botón de aceptar
     if (acceptCheckbox && confirmBtn) {
         acceptCheckbox.addEventListener('change', function() {
             confirmBtn.disabled = !this.checked;
         });
     }
     
-    // Manejar aceptación de términos
     if (confirmBtn) {
         confirmBtn.addEventListener('click', function() {
             if (!acceptCheckbox.checked) return;
@@ -136,7 +132,6 @@ function initializeTermsAndConditions() {
             termsModal.classList.remove('active');
             document.body.style.overflow = 'auto';
             
-            // Habilitar funcionalidades
             if (signalManager) {
                 signalManager.enableFunctionalityAfterTermsAccepted();
                 signalManager.showNotification('Términos aceptados correctamente. ¡Bienvenido a Quantum Signal Trader!', 'success');
@@ -144,10 +139,8 @@ function initializeTermsAndConditions() {
         });
     }
     
-    // Manejar rechazo de términos
     if (declineBtn) {
         declineBtn.addEventListener('click', function() {
-            // Mostrar mensaje de despedida
             const declineMessage = document.createElement('div');
             declineMessage.className = 'terms-decline-message';
             declineMessage.innerHTML = `
@@ -170,17 +163,8 @@ function initializeTermsAndConditions() {
     }
 }
 
-// Función para mostrar términos nuevamente (útil para admin)
-function showTermsAndConditions() {
-    const termsModal = document.getElementById('termsModal');
-    if (termsModal) {
-        termsModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
 // =============================================
-// CLASE SIGNAL MANAGER - ACTUALIZADA CON LÍMITES MENSUALES
+// CLASE SIGNAL MANAGER - ACTUALIZADA
 // =============================================
 
 class SignalManager {
@@ -200,13 +184,17 @@ class SignalManager {
         this.userData = null;
         this.searchedUser = null;
         
-        this.currentView = 'signals'; // Vista actual
+        // NUEVAS PROPIEDADES
+        this.brokers = [];
+        this.userReferrals = null;
+        this.referralLink = '';
+        this.currentView = 'signals';
         
-        // NUEVO: Límites mensuales
+        // Límites mensuales
         this.MONTHLY_SIGNAL_LIMITS = {
-            admin: 600,   // 20 señales/día × 30 días
-            vip: 600,     // 20 señales/día × 30 días  
-            regular: 60   // 2 señales/día × 30 días (solo free)
+            admin: 600,
+            vip: 600,
+            regular: 60
         };
         
         try {
@@ -216,13 +204,16 @@ class SignalManager {
             this.updateStats();
             this.initChart();
             
-            // Verificar términos antes de permitir cualquier acción
             this.checkTermsAcceptance();
             
             this.loadUserData();
             this.loadInitialSignals();
             this.setupRealtimeSubscription();
             this.checkServerConnection();
+            
+            // Cargar brokers y referidos
+            this.loadBrokers();
+            this.loadReferrals();
             
             setInterval(() => this.checkServerConnection(), 30000);
             
@@ -239,7 +230,6 @@ class SignalManager {
     }
     
     disableFunctionalityUntilTermsAccepted() {
-        // Deshabilitar botones importantes
         const elementsToDisable = [
             this.sendSignalBtn,
             this.readyBtn,
@@ -254,7 +244,6 @@ class SignalManager {
             }
         });
         
-        // Mostrar tooltip explicativo
         this.showNotification('Debe aceptar los términos y condiciones para usar todas las funciones', 'warning');
     }
     
@@ -302,7 +291,6 @@ class SignalManager {
                 this.isAdmin = Boolean(result.data.is_admin);
                 this.isVIP = Boolean(result.data.is_vip);
                 
-                // ✅ USAR free_signals_used DEL SERVIDOR
                 this.hasReceivedFreeSignal = Boolean(result.data.free_signals_used) && result.data.free_signals_used > 0;
                 
                 console.log('✅ [APP] Estados desde servidor - Admin:', this.isAdmin, 'VIP:', this.isVIP, 'FreeSignalUsed:', this.hasReceivedFreeSignal);
@@ -321,16 +309,15 @@ class SignalManager {
         try {
             console.log('📡 [APP] Cargando señales iniciales desde Supabase');
             
-            // NUEVO: Determinar límite según tipo de usuario
             let signalLimit;
             if (this.isAdmin) {
-                signalLimit = this.MONTHLY_SIGNAL_LIMITS.admin; // 600 señales
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.admin;
                 console.log('👑 [APP] Cargando señales para ADMIN - Límite:', signalLimit);
             } else if (this.isVIP) {
-                signalLimit = this.MONTHLY_SIGNAL_LIMITS.vip; // 600 señales
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.vip;
                 console.log('💎 [APP] Cargando señales para VIP - Límite:', signalLimit);
             } else {
-                signalLimit = this.MONTHLY_SIGNAL_LIMITS.regular; // 60 señales
+                signalLimit = this.MONTHLY_SIGNAL_LIMITS.regular;
                 console.log('👤 [APP] Cargando señales para REGULAR - Límite:', signalLimit);
             }
             
@@ -351,10 +338,10 @@ class SignalManager {
                     timestamp: new Date(signal.created_at),
                     expires: new Date(signal.expires_at),
                     status: signal.status || 'pending',
-                    isFree: signal.is_free || false
+                    isFree: signal.is_free || false,
+                    broker: signal.broker || 'olymptrade' // NUEVO: broker
                 }));
                 
-                // CORRECCIÓN: Cargar operaciones según tipo de usuario
                 this.loadUserOperations();
                 this.renderSignals();
                 this.updateStats();
@@ -369,17 +356,133 @@ class SignalManager {
         }
     }
     
-    // MÉTODO: Cargar operaciones según tipo de usuario
     loadUserOperations() {
         if (this.isAdmin || this.isVIP) {
-            // Admin y VIP ven todas las operaciones (hasta el límite mensual)
             this.operations = [...this.signals];
             console.log('👑 [APP] Cargando TODAS las operaciones para Admin/VIP:', this.operations.length);
         } else {
-            // Usuarios regulares: solo señales free (hasta 60 mensuales)
             const freeSignals = this.signals.filter(signal => signal.isFree);
             this.operations = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
             console.log('👤 [APP] Cargando operaciones FREE para usuario regular:', this.operations.length);
+        }
+    }
+    
+    // NUEVO: Cargar brokers
+    async loadBrokers() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/brokers`);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.brokers = result.data;
+                this.renderBrokerSelection();
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error cargando brokers:', error);
+        }
+    }
+    
+    // NUEVO: Cargar referidos
+    async loadReferrals() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/referrals/${this.currentUserId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.userReferrals = result.data;
+                this.renderReferrals();
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error cargando referidos:', error);
+        }
+    }
+    
+    // NUEVO: Actualizar broker del usuario
+    async updateUserBroker(broker) {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/users/update-broker`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    telegramId: this.currentUserId,
+                    broker: broker
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(`Broker actualizado a: ${broker}`, 'success');
+                this.userData.preferred_broker = broker;
+                this.updateUI();
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error actualizando broker:', error);
+            this.showNotification('Error actualizando broker', 'error');
+        }
+    }
+    
+    // NUEVO: Enviar alerta de activo previo (solo admin)
+    async sendAssetPreview() {
+        if (!this.isAdmin) return;
+        
+        const asset = document.getElementById('previewAsset')?.value;
+        const broker = document.getElementById('previewBroker')?.value;
+        
+        if (!asset || !broker) {
+            this.showNotification('Completa todos los campos', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${SERVER_URL}/api/signals/preview`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    asset: asset,
+                    broker: broker,
+                    userId: this.currentUserId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+            } else {
+                this.showNotification(result.error, 'error');
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error enviando alerta de activo:', error);
+            this.showNotification('Error enviando alerta', 'error');
+        }
+    }
+    
+    // NUEVO: Generar enlace de referido
+    async generateReferralLink() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/referrals/link/${this.currentUserId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.referralLink = result.data.referral_link;
+                this.showReferralLink();
+            }
+        } catch (error) {
+            console.error('❌ [APP] Error generando enlace:', error);
+        }
+    }
+    
+    // NUEVO: Copiar enlace de referido al portapapeles
+    async copyReferralLink() {
+        if (!this.referralLink) return;
+        
+        try {
+            await navigator.clipboard.writeText(this.referralLink);
+            this.showNotification('Enlace copiado al portapapeles', 'success');
+        } catch (error) {
+            console.error('❌ [APP] Error copiando enlace:', error);
+            this.showNotification('Error copiando enlace', 'error');
         }
     }
     
@@ -420,6 +523,12 @@ class SignalManager {
             if (this.showUserManagement) {
                 this.showUserManagement.style.display = 'block';
             }
+            if (this.showBrokers) { // NUEVO
+                this.showBrokers.style.display = 'block';
+            }
+            if (this.showReferrals) { // NUEVO
+                this.showReferrals.style.display = 'block';
+            }
             this.loadUsersFromSupabase();
         } else {
             if (this.adminBtn) {
@@ -430,6 +539,12 @@ class SignalManager {
             }
             if (this.showUserManagement) {
                 this.showUserManagement.style.display = 'none';
+            }
+            if (this.showBrokers) { // NUEVO
+                this.showBrokers.style.display = 'none';
+            }
+            if (this.showReferrals) { // NUEVO
+                this.showReferrals.style.display = 'block'; // Referidos visible para todos
             }
             if (this.adminPanel) {
                 this.adminPanel.style.display = 'none';
@@ -460,11 +575,15 @@ class SignalManager {
         this.showStats = document.getElementById('showStats');
         this.showUsers = document.getElementById('showUsers');
         this.showUserManagement = document.getElementById('showUserManagement');
+        this.showBrokers = document.getElementById('showBrokers'); // NUEVO
+        this.showReferrals = document.getElementById('showReferrals'); // NUEVO
         this.vipAccess = document.getElementById('vipAccess');
         this.adminBtn = document.getElementById('adminBtn');
         this.statsContainer = document.getElementById('statsContainer');
         this.usersContainer = document.getElementById('usersContainer');
         this.userManagementContainer = document.getElementById('userManagementContainer');
+        this.brokersContainer = document.getElementById('brokersContainer'); // NUEVO
+        this.referralsContainer = document.getElementById('referralsContainer'); // NUEVO
         this.sessionInfo = document.getElementById('sessionInfo');
         this.userStatus = document.getElementById('userStatus');
         this.startSession = document.getElementById('startSession');
@@ -490,6 +609,13 @@ class SignalManager {
         this.assetInput = document.getElementById('asset');
         this.timeframeSelect = document.getElementById('timeframe');
         this.directionSelect = document.getElementById('direction');
+        this.brokerSelect = document.getElementById('brokerSelect'); // NUEVO
+        this.isFreeCheckbox = document.getElementById('isFreeCheckbox'); // NUEVO
+        
+        // NUEVOS: Elementos para alerta de activo previo
+        this.previewAsset = document.getElementById('previewAsset');
+        this.previewBroker = document.getElementById('previewBroker');
+        this.previewAssetBtn = document.getElementById('previewAssetBtn');
         
         this.isReady = false;
         
@@ -532,7 +658,6 @@ class SignalManager {
         }
     }
     
-    // FUNCIÓN: Enviar notificaciones al bot de Telegram
     async sendTelegramNotification(message, type = 'session') {
         try {
             console.log('📤 [TELEGRAM] Enviando notificación al bot:', message);
@@ -562,6 +687,7 @@ class SignalManager {
     initEventListeners() {
         console.log('🔧 [APP] Inicializando event listeners');
         
+        // Listeners existentes
         if (this.sendSignalBtn) {
             this.sendSignalBtn.addEventListener('click', () => {
                 this.sendSignal();
@@ -601,6 +727,19 @@ class SignalManager {
         if (this.showUserManagement) {
             this.showUserManagement.addEventListener('click', () => {
                 this.showView('userManagement');
+            });
+        }
+        
+        // NUEVOS: Listeners para brokers y referidos
+        if (this.showBrokers) {
+            this.showBrokers.addEventListener('click', () => {
+                this.showView('brokers');
+            });
+        }
+        
+        if (this.showReferrals) {
+            this.showReferrals.addEventListener('click', () => {
+                this.showView('referrals');
             });
         }
         
@@ -666,6 +805,20 @@ class SignalManager {
             });
         }
         
+        // NUEVO: Listener para cambiar broker
+        if (this.brokerSelect) {
+            this.brokerSelect.addEventListener('change', (e) => {
+                this.updateUserBroker(e.target.value);
+            });
+        }
+        
+        // NUEVO: Listener para alerta de activo previo
+        if (this.previewAssetBtn) {
+            this.previewAssetBtn.addEventListener('click', () => {
+                this.sendAssetPreview();
+            });
+        }
+        
         document.querySelectorAll('.time-filter').forEach(filter => {
             filter.addEventListener('click', () => {
                 document.querySelectorAll('.time-filter').forEach(f => f.classList.remove('active'));
@@ -677,12 +830,139 @@ class SignalManager {
         console.log('✅ [APP] Event listeners inicializados correctamente');
     }
 
-    // MÉTODO MEJORADO PARA CAMBIAR VISTAS - CORREGIDO
+    // NUEVO: Mostrar broker selection
+    renderBrokerSelection() {
+        const brokerSelect = document.getElementById('brokerSelect');
+        if (!brokerSelect) return;
+        
+        brokerSelect.innerHTML = '';
+        
+        this.brokers.forEach(broker => {
+            const option = document.createElement('option');
+            option.value = broker.id;
+            option.textContent = broker.name;
+            brokerSelect.appendChild(option);
+        });
+        
+        // Seleccionar el broker actual del usuario
+        if (this.userData?.preferred_broker) {
+            brokerSelect.value = this.userData.preferred_broker;
+        }
+    }
+    
+    // NUEVO: Mostrar referidos
+    renderReferrals() {
+        const referralsContainer = document.getElementById('referralsContainer');
+        if (!referralsContainer || !this.userReferrals) return;
+        
+        const { referrals, stats, discount, bonus, next_month_free } = this.userReferrals;
+        
+        let html = `
+            <div class="referral-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total Referidos</div>
+                    <div class="stat-value">${stats.total}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Referidos VIP</div>
+                    <div class="stat-value">${stats.vip}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Descuento</div>
+                    <div class="stat-value">${discount}%</div>
+                </div>
+            </div>
+        `;
+        
+        if (next_month_free) {
+            html += `<div class="bonus-alert"><i class="fas fa-gift"></i> ¡PRÓXIMO MES GRATIS!</div>`;
+        }
+        
+        if (bonus) {
+            html += `<div class="bonus-alert"><i class="fas fa-money-bill-wave"></i> ${bonus}</div>`;
+        }
+        
+        html += `
+            <div class="referral-actions">
+                <button id="generateReferralLink" class="btn-primary">
+                    <i class="fas fa-link"></i> Generar Enlace
+                </button>
+                <button id="copyReferralLink" class="btn-secondary" style="display: none;">
+                    <i class="fas fa-copy"></i> Copiar Enlace
+                </button>
+            </div>
+        `;
+        
+        if (referrals && referrals.length > 0) {
+            html += `
+                <div class="referrals-list">
+                    <h4><i class="fas fa-users"></i> Tus Referidos</h4>
+                    <table class="referrals-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            referrals.forEach(ref => {
+                html += `
+                    <tr>
+                        <td>${ref.first_name || ref.username || ref.telegram_id}</td>
+                        <td><span class="status-badge ${ref.is_vip ? 'status-vip' : 'status-regular'}">${ref.is_vip ? 'VIP' : 'Regular'}</span></td>
+                        <td>${new Date(ref.referred_at).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        referralsContainer.innerHTML = html;
+        
+        // Añadir event listeners
+        document.getElementById('generateReferralLink')?.addEventListener('click', () => {
+            this.generateReferralLink();
+        });
+        
+        document.getElementById('copyReferralLink')?.addEventListener('click', () => {
+            this.copyReferralLink();
+        });
+    }
+    
+    // NUEVO: Mostrar enlace de referido
+    showReferralLink() {
+        const copyBtn = document.getElementById('copyReferralLink');
+        const generateBtn = document.getElementById('generateReferralLink');
+        
+        if (copyBtn && generateBtn) {
+            copyBtn.style.display = 'block';
+            generateBtn.style.display = 'none';
+            
+            const linkDisplay = document.createElement('div');
+            linkDisplay.className = 'referral-link-display';
+            linkDisplay.innerHTML = `
+                <p>Tu enlace de referido:</p>
+                <div class="referral-link">${this.referralLink}</div>
+            `;
+            
+            copyBtn.parentElement.insertBefore(linkDisplay, copyBtn);
+        }
+    }
+    
+    // MÉTODO MEJORADO PARA CAMBIAR VISTAS
     showView(viewName) {
         console.log('👁️ [APP] Cambiando a vista:', viewName);
         
         // Ocultar todas las vistas y paneles
-        const views = ['signals', 'stats', 'users', 'userManagement'];
+        const views = ['signals', 'stats', 'users', 'userManagement', 'brokers', 'referrals'];
         views.forEach(view => {
             const container = document.getElementById(`${view}Container`) || document.getElementById(`${view}Panel`);
             if (container) {
@@ -697,7 +977,7 @@ class SignalManager {
         }
         
         // Remover clase active de todos los botones
-        const buttons = [this.showSignals, this.showStats, this.showUsers, this.showUserManagement];
+        const buttons = [this.showSignals, this.showStats, this.showUsers, this.showUserManagement, this.showBrokers, this.showReferrals];
         buttons.forEach(btn => {
             if (btn) btn.classList.remove('active');
         });
@@ -741,6 +1021,22 @@ class SignalManager {
                     this.userManagementContainer.style.display = 'block';
                 }
                 if (this.showUserManagement) this.showUserManagement.classList.add('active');
+                break;
+                
+            case 'brokers': // NUEVO
+                if (this.brokersContainer) {
+                    this.brokersContainer.classList.add('active');
+                    this.brokersContainer.style.display = 'block';
+                }
+                if (this.showBrokers) this.showBrokers.classList.add('active');
+                break;
+                
+            case 'referrals': // NUEVO
+                if (this.referralsContainer) {
+                    this.referralsContainer.classList.add('active');
+                    this.referralsContainer.style.display = 'block';
+                }
+                if (this.showReferrals) this.showReferrals.classList.add('active');
                 break;
         }
         
@@ -1011,7 +1307,7 @@ class SignalManager {
     }
     
     setupRealtimeSubscription() {
-        console.log('📡 [APP] Configurando suscripción en tiempo real MEJORADA');
+        console.log('📡 [APP] Configurando suscripción en tiempo real');
         
         const subscription = supabase
             .channel('public:signals')
@@ -1057,7 +1353,6 @@ class SignalManager {
         return subscription;
     }
     
-    // CORRECCIÓN MEJORADA: Manejo de nuevas señales
     handleNewSignal(signalData) {
         console.log('📨 [APP] Procesando nueva señal en tiempo real:', signalData);
         
@@ -1069,26 +1364,25 @@ class SignalManager {
             timestamp: new Date(signalData.created_at),
             expires: new Date(signalData.expires_at),
             status: signalData.status || 'pending',
-            isFree: signalData.is_free || false
+            isFree: signalData.is_free || false,
+            broker: signalData.broker || 'olymptrade' // NUEVO: broker
         };
         
-        // CORRECCIÓN CRÍTICA: Verificar si el usuario puede recibir esta señal
         const canReceiveSignal = this.canUserReceiveSignal(signal);
         
-        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree, 'HasReceivedFree:', this.hasReceivedFreeSignal);
+        console.log('📨 [APP] Usuario puede recibir señal:', canReceiveSignal, 'VIP:', this.isVIP, 'Free:', signal.isFree, 'HasReceivedFree:', this.hasReceivedFreeSignal, 'Broker:', signal.broker, 'UserBroker:', this.userData?.preferred_broker);
         
         if (canReceiveSignal) {
             const signalExists = this.signals.some(s => s.id === signal.id);
             
             if (!signalExists) {
-                // NUEVO: Aplicar límites mensuales al agregar señales
                 this.addSignalWithLimits(signal);
                 
-                console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction);
+                console.log('✅ [APP] Señal agregada a la lista:', signal.asset, signal.direction, signal.broker);
                 
                 this.renderSignals();
                 
-                this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'}`, 'success');
+                this.showNotification(`Nueva señal: ${signal.asset} ${signal.direction === 'up' ? 'ALZA' : 'BAJA'} (${signal.broker})`, 'success');
                 
                 if (this.isReady) {
                     console.log('🔔 [APP] Mostrando alerta de señal');
@@ -1097,7 +1391,6 @@ class SignalManager {
                 
                 this.updateStats();
                 
-                // CORRECCIÓN: Marcar que ya recibió señal gratis si corresponde
                 if (signal.isFree && !this.isVIP) {
                     this.hasReceivedFreeSignal = true;
                     this.saveToLocalStorage();
@@ -1112,53 +1405,51 @@ class SignalManager {
             console.log('ℹ️ [APP] Señal no disponible para este usuario');
             if (!signal.isFree && !this.isVIP) {
                 this.showNotification('Señal VIP enviada (solo para usuarios VIP)', 'info');
+            } else if (signal.broker !== (this.userData?.preferred_broker || 'olymptrade')) {
+                this.showNotification(`Señal para ${signal.broker} (tu broker: ${this.userData?.preferred_broker || 'olymptrade'})`, 'info');
             }
         }
     }
 
-    // NUEVO MÉTODO: Agregar señal aplicando límites mensuales
-    addSignalWithLimits(signal) {
-        // Agregar señal al principio del array
-        this.signals.unshift(signal);
-        
-        // Aplicar límites según tipo de usuario
-        if (this.isAdmin || this.isVIP) {
-            // Admin y VIP: máximo 600 señales
-            if (this.signals.length > this.MONTHLY_SIGNAL_LIMITS.admin) {
-                this.signals = this.signals.slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
-                console.log(`📊 [APP] Límite mensual alcanzado para Admin/VIP. Señales recortadas a: ${this.MONTHLY_SIGNAL_LIMITS.admin}`);
-            }
-        } else {
-            // Regulares: máximo 60 señales free
-            const freeSignals = this.signals.filter(s => s.isFree);
-            if (freeSignals.length > this.MONTHLY_SIGNAL_LIMITS.regular) {
-                // Mantener solo las señales free más recientes
-                const recentFreeSignals = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
-                // Combinar con señales no free (si las hay) y mantener el orden
-                const nonFreeSignals = this.signals.filter(s => !s.isFree);
-                this.signals = [...recentFreeSignals, ...nonFreeSignals]
-                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                    .slice(0, this.MONTHLY_SIGNAL_LIMITS.regular + nonFreeSignals.length);
-                console.log(`📊 [APP] Límite mensual alcanzado para Regular. Señales free recortadas a: ${this.MONTHLY_SIGNAL_LIMITS.regular}`);
-            }
-        }
-        
-        // Actualizar operaciones después de aplicar límites
-        this.loadUserOperations();
-    }
-    
-    // MÉTODO: Verificar si usuario puede recibir señal
+    // NUEVO: Verificar si usuario puede recibir señal (incluye broker)
     canUserReceiveSignal(signal) {
-        if (this.isAdmin || this.isVIP) {
-            return true; // Admin y VIP reciben todas las señales
+        // Verificar broker primero
+        const userBroker = this.userData?.preferred_broker || 'olymptrade';
+        if (signal.broker !== userBroker) {
+            return false; // No es el broker del usuario
         }
         
-        // Usuarios regulares: solo primera señal gratis por sesión
+        if (this.isAdmin || this.isVIP) {
+            return true; // Admin y VIP reciben todas las señales de su broker
+        }
+        
+        // Usuarios regulares: solo primera señal gratis por sesión de su broker
         if (signal.isFree && !this.hasReceivedFreeSignal) {
             return true;
         }
         
         return false;
+    }
+    
+    addSignalWithLimits(signal) {
+        this.signals.unshift(signal);
+        
+        if (this.isAdmin || this.isVIP) {
+            if (this.signals.length > this.MONTHLY_SIGNAL_LIMITS.admin) {
+                this.signals = this.signals.slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
+            }
+        } else {
+            const freeSignals = this.signals.filter(s => s.isFree);
+            if (freeSignals.length > this.MONTHLY_SIGNAL_LIMITS.regular) {
+                const recentFreeSignals = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
+                const nonFreeSignals = this.signals.filter(s => !s.isFree);
+                this.signals = [...recentFreeSignals, ...nonFreeSignals]
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                    .slice(0, this.MONTHLY_SIGNAL_LIMITS.regular + nonFreeSignals.length);
+            }
+        }
+        
+        this.loadUserOperations();
     }
     
     handleUpdatedSignal(signalData) {
@@ -1169,18 +1460,14 @@ class SignalManager {
         
         if (signalIndex !== -1) {
             this.signals[signalIndex].status = signalData.status;
-            console.log('✅ [APP] Señal actualizada en lista principal');
         }
         
         if (operationIndex !== -1) {
             this.operations[operationIndex].status = signalData.status;
-            console.log('✅ [APP] Señal actualizada en operaciones');
         }
         
         this.renderSignals();
         this.updateStats();
-        
-        console.log('✅ [APP] Señal actualizada correctamente en tiempo real');
     }
     
     showVipModal() {
@@ -1209,6 +1496,7 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--vip);">
                     <i class="fas fa-crown"></i> Estado: <span class="vip-badge">USUARIO VIP</span> - Recibiendo todas las señales
+                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.vip} señales</small>
                 </div>
             `;
@@ -1216,6 +1504,7 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info" style="border-color: var(--primary);">
                     <i class="fas fa-user-shield"></i> Estado: <span style="color: var(--primary); font-weight: bold;">ADMINISTRADOR</span> - Acceso completo al sistema
+                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.admin} señales</small>
                 </div>
             `;
@@ -1223,6 +1512,7 @@ class SignalManager {
             this.userStatus.innerHTML = `
                 <div class="session-info">
                     <i class="fas fa-user"></i> Estado: Usuario Regular - Solo primera señal gratuita por sesión
+                    <br><small>Broker: ${this.userData?.preferred_broker || 'olymptrade'}</small>
                     <br><small>Límite mensual: ${this.MONTHLY_SIGNAL_LIMITS.regular} señales free</small>
                 </div>
             `;
@@ -1242,7 +1532,6 @@ class SignalManager {
             });
             
             if (response.ok) {
-                // CORRECCIÓN: Resetear estado de señal gratis al iniciar sesión
                 this.hasReceivedFreeSignal = false;
                 
                 this.currentSession = {
@@ -1266,7 +1555,6 @@ class SignalManager {
                 
                 this.showNotification('Sesión de trading iniciada', 'success');
                 
-                // ENVIAR INICIO DE SESIÓN AL BOT
                 const startMessage = `🚀 *SESIÓN INICIADA* 🚀\n\n¡La sesión de trading ha comenzado! Prepárate para las señales. ⚡\n\n🎁 *Recuerda:* La primera señal es GRATIS`;
                 await this.sendTelegramNotification(startMessage, 'session_start');
                 
@@ -1316,7 +1604,6 @@ class SignalManager {
                 
                 this.showNotification('Sesión de trading finalizada', 'info');
                 
-                // ENVIAR FIN DE SESIÓN AL BOT
                 const endMessage = `🏁 *SESIÓN FINALIZADA* 🏁\n\nLa sesión de trading ha terminado. ¡Gracias por participar!\n\n📅 *Próxima Sesión:*\n🕙 10:00 AM | 10:00 PM`;
                 await this.sendTelegramNotification(endMessage, 'session_end');
                 
@@ -1354,7 +1641,6 @@ class SignalManager {
             if (response.ok) {
                 this.showNotification('Notificación enviada a los clientes', 'success');
                 
-                // ENVIAR ALERTA DE 10 MINUTOS AL BOT
                 const alertMessage = `⏰ *ALERTA DE SESIÓN* ⏰\n\nLa sesión de trading comenzará en 10 minutos. ¡Prepárate! 🚀\n\n📅 Próximas señales en: 10:00 AM\n🎁 Primera señal GRATIS`;
                 await this.sendTelegramNotification(alertMessage, '10_minutes');
                 
@@ -1439,12 +1725,16 @@ class SignalManager {
         const asset = document.getElementById('asset');
         const timeframe = document.getElementById('timeframe');
         const direction = document.getElementById('direction');
+        const brokerSelect = document.getElementById('brokerSelect');
+        const isFreeCheckbox = document.getElementById('isFreeCheckbox');
         
-        if (!asset || !timeframe || !direction) return;
+        if (!asset || !timeframe || !direction || !brokerSelect) return;
         
         const assetValue = asset.value;
         const timeframeValue = timeframe.value;
         const directionValue = direction.value;
+        const brokerValue = brokerSelect.value;
+        const isFreeValue = isFreeCheckbox ? isFreeCheckbox.checked : false;
         
         if(!assetValue) {
             alert('Por favor, ingresa un activo');
@@ -1452,7 +1742,7 @@ class SignalManager {
         }
         
         try {
-            console.log('📤 [APP] Enviando señal:', assetValue, directionValue, timeframeValue);
+            console.log('📤 [APP] Enviando señal:', assetValue, directionValue, timeframeValue, brokerValue, isFreeValue);
             
             const response = await fetch(`${SERVER_URL}/api/signals`, {
                 method: 'POST',
@@ -1463,6 +1753,8 @@ class SignalManager {
                     asset: assetValue.toUpperCase(),
                     timeframe: parseInt(timeframeValue),
                     direction: directionValue,
+                    broker: brokerValue,
+                    is_free: isFreeValue,
                     userId: this.currentUserId
                 })
             });
@@ -1501,7 +1793,6 @@ class SignalManager {
             if (response.ok) {
                 this.showNotification(`Operación marcada como: ${status.toUpperCase()}`, 'success');
                 
-                // Actualizar también en Supabase para sincronización en tiempo real
                 const { data, error } = await supabase
                     .from('signals')
                     .update({ status: status })
@@ -1511,7 +1802,6 @@ class SignalManager {
                     console.error('❌ [APP] Error actualizando en Supabase:', error);
                 }
                 
-                // Actualizar localmente
                 const signalIndex = this.signals.findIndex(s => s.id == operationId);
                 const operationIndex = this.operations.findIndex(o => o.id == operationId);
                 
@@ -1539,15 +1829,21 @@ class SignalManager {
     renderSignals() {
         if (!this.signalsContainer) return;
         
-        // CORRECCIÓN: Filtrar señales para mostrar solo las que corresponden al usuario
         let signalsToShow = [];
         
+        // Filtrar por broker del usuario
+        const userBroker = this.userData?.preferred_broker || 'olymptrade';
+        
         if (this.isAdmin || this.isVIP) {
-            // Admin y VIP ven todas las señales (hasta el límite)
-            signalsToShow = this.signals.slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
+            // Admin y VIP ven todas las señales de su broker
+            signalsToShow = this.signals
+                .filter(signal => signal.broker === userBroker)
+                .slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
         } else {
-            // Usuarios regulares: solo señales free (hasta el límite)
-            const freeSignals = this.signals.filter(signal => signal.isFree);
+            // Usuarios regulares: solo señales free de su broker
+            const freeSignals = this.signals.filter(signal => 
+                signal.isFree && signal.broker === userBroker
+            );
             signalsToShow = freeSignals.slice(0, this.MONTHLY_SIGNAL_LIMITS.regular);
         }
         
@@ -1571,10 +1867,8 @@ class SignalManager {
             const seconds = timeRemaining % 60;
             const isExpired = timeRemaining <= 0;
             
-            // ACTUALIZACIÓN CRÍTICA: Si la señal está expirada y sigue como pending, actualizar estado
             if (isExpired && signal.status === 'pending') {
                 signal.status = 'expired';
-                // Si es admin, actualizar también en el servidor
                 if (this.isAdmin) {
                     this.updateSignalToExpired(signal.id);
                 }
@@ -1601,14 +1895,17 @@ class SignalManager {
                 statusIcon = '<i class="fas fa-hourglass-end"></i>';
             }
             
-            // MOSTRAR BOTONES DE ADMIN SOLO PARA SEÑALES EXPIRADAS
+            const brokerBadge = signal.broker === 'olymptrade' ? 
+                '<span class="broker-badge broker-olymptrade">OLYMPTRADE</span>' : 
+                '<span class="broker-badge broker-quotex">QUOTEX</span>';
+            
             const showAdminButtons = this.isAdmin && signal.status === 'expired';
             
             return `
                 <div class="signal-card" data-signal-id="${signal.id}">
                     ${resultBadge}
                     <div class="signal-header">
-                        <div class="asset">${signal.asset} ${signal.isFree ? '<span class="free-badge">GRATIS</span>' : '<span class="vip-badge">VIP</span>'}</div>
+                        <div class="asset">${signal.asset} ${brokerBadge} ${signal.isFree ? '<span class="free-badge">GRATIS</span>' : '<span class="vip-badge">VIP</span>'}</div>
                         <div class="direction ${signal.direction}">
                             <span class="arrow ${signal.direction}">${signal.direction === 'up' ? '↑' : '↓'}</span>
                             <span>${signal.direction === 'up' ? 'ALZA' : 'BAJA'}</span>
@@ -1651,7 +1948,6 @@ class SignalManager {
         this.startTimeUpdates();
     }
 
-    // Método para actualizar señales a expiradas
     async updateSignalToExpired(signalId) {
         try {
             console.log(`🔄 [APP] Actualizando señal ${signalId} a expirada en servidor`);
@@ -1670,7 +1966,6 @@ class SignalManager {
             if (response.ok) {
                 console.log(`✅ [APP] Señal ${signalId} actualizada a expirada en servidor`);
                 
-                // Actualizar también en tiempo real para otros clientes
                 const { data, error } = await supabase
                     .from('signals')
                     .update({ status: 'expired' })
@@ -1702,7 +1997,6 @@ class SignalManager {
                         if (timeRemaining > 0) {
                             timeElement.innerHTML = `<i class="fas fa-clock"></i> Tiempo restante: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
                         } else {
-                            // Cuando expira, actualizar el estado
                             signal.status = 'expired';
                             if (this.isAdmin) {
                                 this.updateSignalToExpired(signal.id);
@@ -1762,6 +2056,7 @@ class SignalManager {
             alertTime.innerHTML = `
                 <div style="margin-bottom: 8px; font-size: 1.1rem;">
                     <i class="fas fa-clock"></i> Duración: ${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}
+                    <br><i class="fas fa-building"></i> Broker: ${signal.broker === 'olymptrade' ? 'Olymptrade' : 'Quotex'}
                 </div>
                 <div style="font-size: 1.3rem; font-weight: bold; color: var(--primary);">
                     Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
@@ -1783,6 +2078,7 @@ class SignalManager {
                     alertTime.innerHTML = `
                         <div style="margin-bottom: 8px; font-size: 1.1rem;">
                             <i class="fas fa-clock"></i> Duración: ${signal.timeframe} minuto${signal.timeframe > 1 ? 's' : ''}
+                            <br><i class="fas fa-building"></i> Broker: ${signal.broker === 'olymptrade' ? 'Olymptrade' : 'Quotex'}
                         </div>
                         <div style="font-size: 1.3rem; font-weight: bold; color: var(--primary);">
                             Expira en: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}
@@ -1805,33 +2101,13 @@ class SignalManager {
         }
     }
     
-    // MÉTODOS ACTUALIZADOS PARA CAMBIAR VISTAS
-    showSignalsView() {
-        this.showView('signals');
-    }
-    
-    showStatsView() {
-        this.showView('stats');
-    }
-    
-    showUsersView() {
-        this.showView('users');
-    }
-    
-    showUserManagementView() {
-        this.showView('userManagement');
-    }
-    
-    // CORRECCIÓN COMPLETA: Función de estadísticas
     updateStats(period = 'day') {
         console.log(`📊 [STATS] Actualizando estadísticas para periodo: ${period}`);
         
         const now = new Date();
         let filteredOperations = [];
         
-        // CORRECCIÓN: Filtrar operaciones por período correctamente
         if (period === 'day') {
-            // Solo operaciones de hoy
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
             
@@ -1843,7 +2119,6 @@ class SignalManager {
             console.log(`📊 [STATS] Hoy - Operaciones encontradas: ${filteredOperations.length}`);
             
         } else if (period === 'week') {
-            // Operaciones de los últimos 7 días
             const startOfWeek = new Date();
             startOfWeek.setDate(now.getDate() - 7);
             startOfWeek.setHours(0, 0, 0, 0);
@@ -1856,7 +2131,6 @@ class SignalManager {
             console.log(`📊 [STATS] Esta semana - Operaciones encontradas: ${filteredOperations.length}`);
             
         } else if (period === 'month') {
-            // Operaciones de los últimos 30 días
             const startOfMonth = new Date();
             startOfMonth.setDate(now.getDate() - 30);
             startOfMonth.setHours(0, 0, 0, 0);
@@ -1997,7 +2271,7 @@ class SignalManager {
             currentSession: this.currentSession,
             isVIP: this.isVIP,
             hasReceivedFreeSignal: this.hasReceivedFreeSignal,
-            operations: this.operations // GUARDAR OPERACIONES DEL USUARIO
+            operations: this.operations
         };
         localStorage.setItem('quantumTraderData', JSON.stringify(data));
     }
@@ -2009,7 +2283,7 @@ class SignalManager {
             this.currentSession = data.currentSession || null;
             this.isVIP = data.isVIP !== undefined ? data.isVIP : false;
             this.hasReceivedFreeSignal = data.hasReceivedFreeSignal || false;
-            this.operations = data.operations || []; // CARGAR OPERACIONES DEL USUARIO
+            this.operations = data.operations || [];
             
             if (this.currentSession) {
                 this.currentSession.startTime = new Date(this.currentSession.startTime);
@@ -2048,7 +2322,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     createParticles();
     
-    // Inicializar términos y condiciones
     initializeTermsAndConditions();
     
     try {
