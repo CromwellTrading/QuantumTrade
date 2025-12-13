@@ -14,7 +14,7 @@ const ADMIN_ID = process.env.ADMIN_ID || '5376388604';
 const RENDER_URL = process.env.RENDER_URL || 'https://quantumtrade-ie33.onrender.com';
 const BOT_USERNAME = 'QuantumQvabot';
 
-console.log('=== 🤖 INICIANDO BOT CORREGIDO ===');
+console.log('=== 🤖 INICIANDO BOT CORRECCIÓN DE BROKERS ===');
 
 // Verificar configuración
 if (!TELEGRAM_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -50,7 +50,7 @@ const processedSignals = new Set();
 const processedResults = new Set();
 
 // =============================================
-// CONFIGURACIÓN DE BROKERS ACTUALIZADA
+// CONFIGURACIÓN DE BROKERS CORREGIDA
 // =============================================
 
 const BROKERS = {
@@ -164,6 +164,85 @@ async function getUserFast(userId) {
         return null;
     }
 }
+
+// =============================================
+// ✅ CORRECCIÓN CRÍTICA: MANEJADOR DE BROKERS SIMPLIFICADO
+// =============================================
+
+bot.on('callback_query', async (callbackQuery) => {
+    const chatId = callbackQuery.message.chat.id;
+    const userId = callbackQuery.from.id.toString();
+    const data = callbackQuery.data;
+    
+    console.log(`🔘 [BOT] Callback recibido: ${data} de usuario ${userId}`);
+    
+    try {
+        // Manejar selección de broker
+        if (data === 'broker_olymptrade' || data === 'broker_quotex') {
+            const broker = data.replace('broker_', '');
+            
+            console.log(`🔘 [BOT] Usuario ${userId} seleccionó broker: ${broker}`);
+            
+            if (BROKERS[broker]) {
+                // Actualizar broker en la base de datos
+                const { error } = await supabase
+                    .from('users')
+                    .update({ 
+                        preferred_broker: broker,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('telegram_id', userId);
+                
+                if (error) {
+                    console.error('❌ [BOT] Error en supabase al actualizar broker:', error);
+                    throw error;
+                }
+                
+                const brokerInfo = BROKERS[broker];
+                const message = `✅ *Broker actualizado correctamente*\n\n` +
+                               `Ahora recibirás señales para *${brokerInfo.name}*\n\n` +
+                               `🔗 *Enlace de registro:* ${brokerInfo.affiliate_link}\n` +
+                               `📝 *Descripción:* ${brokerInfo.description}\n\n` +
+                               `*Nota:* Las señales serán específicas para este broker.`;
+                
+                await bot.answerCallbackQuery(callbackQuery.id, { text: `✅ Broker actualizado a ${brokerInfo.name}` });
+                await sendFastMessage(chatId, message);
+                
+                console.log(`✅ [BOT] Broker actualizado a ${broker} para usuario ${userId}`);
+            }
+        } 
+        // Manejar vista de broker actual
+        else if (data === 'view_current_broker') {
+            console.log(`🔘 [BOT] Usuario ${userId} solicitó ver su broker actual`);
+            
+            const { data: user, error } = await supabase
+                .from('users')
+                .select('preferred_broker')
+                .eq('telegram_id', userId)
+                .single();
+            
+            if (error || !user) {
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al obtener información' });
+                return;
+            }
+            
+            const currentBroker = user.preferred_broker || 'olymptrade';
+            const brokerInfo = BROKERS[currentBroker];
+            
+            const message = `🏢 *TU BROKER ACTUAL*\n\n` +
+                           `• *Broker:* ${brokerInfo.name}\n` +
+                           `• *Estado:* ✅ Activado\n` +
+                           `• *Descripción:* ${brokerInfo.description}\n\n` +
+                           `*Nota:* Recibes señales específicas para ${brokerInfo.name}`;
+            
+            await bot.answerCallbackQuery(callbackQuery.id, { text: `Tu broker actual: ${brokerInfo.name}` });
+            await sendFastMessage(chatId, message);
+        }
+    } catch (error) {
+        console.error('❌ [BOT] Error en callback:', error);
+        await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al procesar la solicitud' });
+    }
+});
 
 // =============================================
 // MANEJADORES PRINCIPALES - COMPLETOS
@@ -371,6 +450,8 @@ async function handleFastReferrals(chatId, userId) {
 }
 
 async function handleFastBroker(chatId, userId) {
+    console.log(`🏢 [BOT] Usuario ${userId} solicitó selección de broker`);
+    
     const keyboard = {
         reply_markup: {
             inline_keyboard: [
@@ -443,7 +524,7 @@ async function handleFastPlatform(chatId) {
 // SISTEMA DE NOTIFICACIONES
 // =============================================
 
-console.log('🔔 [BOT] Activando notificaciones con sistema anti-duplicados...');
+console.log('🔔 [BOT] Activando notificaciones...');
 
 let signalsSubscription = null;
 
@@ -822,80 +903,6 @@ app.post('/api/telegram/preview-asset', async (req, res) => {
 });
 
 // =============================================
-// ✅ CORRECCIÓN CRÍTICA: MANEJADOR DE CALLBACKS CORREGIDO
-// =============================================
-
-bot.on('callback_query', async (callbackQuery) => {
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id.toString();
-    const data = callbackQuery.data;
-    
-    console.log(`🔘 [BOT] Callback recibido: ${data} de usuario ${userId}`);
-    
-    // ✅ CORREGIDO: Manejar correctamente los callbacks de brokers
-    if (data === 'broker_olymptrade' || data === 'broker_quotex') {
-        const broker = data.replace('broker_', '');
-        
-        if (BROKERS[broker]) {
-            try {
-                const { error } = await supabase
-                    .from('users')
-                    .update({ 
-                        preferred_broker: broker,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('telegram_id', userId);
-                
-                if (error) throw error;
-                
-                const brokerInfo = BROKERS[broker];
-                const message = `✅ *Broker actualizado correctamente*\n\n` +
-                               `Ahora recibirás señales para *${brokerInfo.name}*\n\n` +
-                               `🔗 *Enlace de registro:* ${brokerInfo.affiliate_link}\n` +
-                               `📝 *Descripción:* ${brokerInfo.description}\n\n` +
-                               `*Nota:* Las señales serán específicas para este broker.`;
-                
-                await bot.answerCallbackQuery(callbackQuery.id, { text: `✅ Broker actualizado a ${brokerInfo.name}` });
-                await sendFastMessage(chatId, message);
-                
-            } catch (error) {
-                console.error('❌ [BOT] Error actualizando broker:', error);
-                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al actualizar el broker' });
-            }
-        }
-    } else if (data === 'view_current_broker') {
-        try {
-            const { data: user, error } = await supabase
-                .from('users')
-                .select('preferred_broker')
-                .eq('telegram_id', userId)
-                .single();
-            
-            if (error || !user) {
-                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al obtener información' });
-                return;
-            }
-            
-            const currentBroker = user.preferred_broker || 'olymptrade';
-            const brokerInfo = BROKERS[currentBroker];
-            
-            const message = `🏢 *TU BROKER ACTUAL*\n\n` +
-                           `• *Broker:* ${brokerInfo.name}\n` +
-                           `• *Estado:* ✅ Activado\n` +
-                           `• *Descripción:* ${brokerInfo.description}\n\n` +
-                           `*Nota:* Recibes señales específicas para ${brokerInfo.name}`;
-            
-            await bot.answerCallbackQuery(callbackQuery.id, { text: `Tu broker actual: ${brokerInfo.name}` });
-            await sendFastMessage(chatId, message);
-            
-        } catch (error) {
-            console.error('❌ [BOT] Error obteniendo broker actual:', error);
-            await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Error al obtener broker actual' });
-        }
-    }
-});
-
-// =============================================
 // COMANDOS DE ADMIN
 // =============================================
 
@@ -1122,7 +1129,6 @@ bot.onText(/\/start ref_(.+)/, async (msg, match) => {
     
     await sendFastMessage(chatId, welcomeMessage, createMainKeyboard());
     
-    // ✅ Enviar mensaje con AMBOS botones de registro
     setTimeout(async () => {
         const platformMessage = `📊 *PLATAFORMA RECOMENDADA*\n\nPara operar con nuestras señales, te recomendamos:\n\n🔗 *Olymptrade* - Plataforma regulada internacionalmente\n🔗 *Quotex* - Plataforma moderna con múltiples activos\n\n👉 Regístrate usando nuestros enlaces oficiales:`;
         await sendFastMessage(chatId, platformMessage, {
@@ -1222,11 +1228,10 @@ bot.onText(/\/reset_free/, async (msg) => {
 // =============================================
 
 bot.getMe().then((me) => {
-    console.log('🎉 === BOT CORREGIDO OPERATIVO ===');
+    console.log('🎉 === BOT CON BROKERS CORREGIDOS ===');
     console.log(`🤖 Bot: @${me.username}`);
     console.log(`🔗 Enlace: https://t.me/${me.username}`);
-    console.log('📊 Sistema anti-duplicados activado');
-    console.log('✅ Callback de brokers corregido');
+    console.log('✅ Callback de brokers simplificado y corregido');
     console.log('🔔 Endpoint notificaciones activo en puerto:', NOTIFICATION_PORT);
     console.log('🕙 Horarios: 10AM y 10PM');
     console.log('🎁 Primera señal gratis por sesión');
@@ -1235,6 +1240,7 @@ bot.getMe().then((me) => {
     console.log('🔗 Enlace Olymptrade: https://olymptrade.com/pages/referral/?rf=108107566');
     console.log('🔗 Enlace Quotex: https://broker-qx.pro/sign-up/?lid=1307202');
     console.log('✅ Mensaje de inicio con ambos botones de registro');
+    console.log('⚠️ VERIFICAR: Si Olymptrade no funciona, puede ser bloqueo regional');
 });
 
 // Iniciar servidor de notificaciones
