@@ -50,6 +50,25 @@ const processedSignals = new Set(); // ✅ NUEVO: Para evitar duplicados
 const processedResults = new Set(); // ✅ NUEVO: Para evitar resultados duplicados
 
 // =============================================
+// CONFIGURACIÓN DE BROKERS ACTUALIZADA
+// =============================================
+
+const BROKERS = {
+    olimptrade: {
+        name: 'Olymptrade',
+        affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
+        registration_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
+        description: 'Plataforma regulada internacionalmente'
+    },
+    quotex: {
+        name: 'Quotex',
+        affiliate_link: 'https://broker-qx.pro/sign-up/?lid=1307202',
+        registration_link: 'https://broker-qx.pro/sign-up/?lid=1307202',
+        description: 'Plataforma moderna con múltiples activos'
+    }
+};
+
+// =============================================
 // FUNCIONES PRINCIPALES
 // =============================================
 
@@ -71,7 +90,10 @@ function createPlatformKeyboard() {
     return {
         reply_markup: {
             inline_keyboard: [[
-                { text: '🚀 REGISTRARSE EN OLYMPTRADE', url: 'https://olymptrade.com/pages/referral/?rf=108107566' }
+                { 
+                    text: '🚀 REGISTRARSE EN OLYMPTRADE', 
+                    url: 'https://olymptrade.com/pages/referral/?rf=108107566'
+                }
             ]]
         }
     };
@@ -162,7 +184,16 @@ bot.onText(/\/start/, async (msg) => {
     // Enviar mensaje adicional sobre la plataforma
     setTimeout(async () => {
         const platformMessage = `📊 *PLATAFORMA RECOMENDADA*\n\nPara operar con nuestras señales, te recomendamos:\n\n🔗 *Olymptrade* - Plataforma regulada\n\n👉 Regístrate usando nuestro enlace oficial:`;
-        await sendFastMessage(chatId, platformMessage, createPlatformKeyboard());
+        await sendFastMessage(chatId, platformMessage, {
+            reply_markup: {
+                inline_keyboard: [[
+                    { 
+                        text: '🚀 REGISTRARSE EN OLYMPTRADE', 
+                        url: 'https://olymptrade.com/pages/referral/?rf=108107566'
+                    }
+                ]]
+            }
+        });
     }, 1000);
 });
 
@@ -383,7 +414,7 @@ async function handleFastPlatform(chatId) {
                 [
                     { 
                         text: '📊 REGISTRARSE EN QUOTEX', 
-                        url: 'https://qxbroker.com/es/promo/partner/108107566?qa=signals'
+                        url: 'https://broker-qx.pro/sign-up/?lid=1307202'
                     }
                 ]
             ]
@@ -922,23 +953,6 @@ bot.onText(/\/pendientes/, async (msg) => {
 });
 
 // =============================================
-// CONFIGURACIÓN DE BROKERS
-// =============================================
-
-const BROKERS = {
-    olimptrade: {
-        name: 'Olymptrade',
-        affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
-        description: 'Plataforma regulada internacionalmente'
-    },
-    quotex: {
-        name: 'Quotex',
-        affiliate_link: 'https://qxbroker.com/es/promo/partner/108107566?qa=signals',
-        description: 'Plataforma moderna con múltiples activos'
-    }
-};
-
-// =============================================
 // MANEJADOR PARA BROKERS - ACTUALIZADO
 // =============================================
 
@@ -1275,6 +1289,8 @@ bot.getMe().then((me) => {
     console.log('🎁 Primera señal gratis por sesión');
     console.log('🏢 Brokers soportados: Olymptrade, Quotex');
     console.log('👥 Sistema de referidos activo');
+    console.log('🔗 Enlace Olymptrade: https://olymptrade.com/pages/referral/?rf=108107566');
+    console.log('🔗 Enlace Quotex: https://broker-qx.pro/sign-up/?lid=1307202');
 });
 
 // Iniciar servidor de notificaciones
