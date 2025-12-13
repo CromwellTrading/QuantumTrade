@@ -54,7 +54,7 @@ const processedResults = new Set();
 // =============================================
 
 const BROKERS = {
-    olimptrade: {
+    olymptrade: {  // ¡CORREGIDO! Ahora con 'y' en lugar de 'i'
         name: 'Olymptrade',
         affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
         registration_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
@@ -634,12 +634,12 @@ async function handleFastPlatform(chatId) {
 bot.onText(/\/force_broker (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id.toString();
-    const broker = match[1].toLowerCase(); // olimptrade o quotex
+    const broker = match[1].toLowerCase(); // olymptrade o quotex
     
     console.log(`🔧 [DEBUG] Forzando broker ${broker} para usuario ${userId}`);
     
     if (!BROKERS[broker]) {
-        await sendFastMessage(chatId, `❌ Broker "${broker}" no válido. Usa: olimptrade o quotex`);
+        await sendFastMessage(chatId, `❌ Broker "${broker}" no válido. Usa: olymptrade o quotex`);
         return;
     }
     
