@@ -724,7 +724,7 @@ class SignalManager {
         
         // Elementos existentes
         this.sendSignalBtn = document.getElementById('sendSignal');
-        this.signalsContainer = document.getElementById('signalsContainer');
+        this.signalsList = document.getElementById('signalsList');
         this.notification = document.getElementById('notification');
         this.signalAlert = document.getElementById('signalAlert');
         this.readyBtn = document.getElementById('readyBtn');
@@ -737,11 +737,16 @@ class SignalManager {
         this.showReferrals = document.getElementById('showReferrals');
         this.vipAccess = document.getElementById('vipAccess');
         this.adminBtn = document.getElementById('adminBtn');
+        this.adminPanel = document.getElementById('adminPanel');
+        
+        // Paneles de contenido
+        this.signalsContainer = document.getElementById('signalsContainer');
         this.statsContainer = document.getElementById('statsContainer');
         this.usersContainer = document.getElementById('usersContainer');
         this.userManagementContainer = document.getElementById('userManagementContainer');
         this.brokersContainer = document.getElementById('brokersContainer');
         this.referralsContainer = document.getElementById('referralsContainer');
+        
         this.sessionInfo = document.getElementById('sessionInfo');
         this.userStatus = document.getElementById('userStatus');
         this.startSession = document.getElementById('startSession');
@@ -754,8 +759,6 @@ class SignalManager {
         this.connectionStatus = document.getElementById('connectionStatus');
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
-        
-        this.adminPanel = document.getElementById('adminPanel');
         
         this.userSearchInput = document.getElementById('userSearchInput');
         this.searchUserBtn = document.getElementById('searchUserBtn');
@@ -873,39 +876,45 @@ class SignalManager {
             });
         }
         
+        // ✅ CORRECCIÓN: Listeners para cambio de vistas (CORREGIDO)
         if (this.showSignals) {
-            this.showSignals.addEventListener('click', () => {
+            this.showSignals.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('signals');
             });
         }
         
         if (this.showStats) {
-            this.showStats.addEventListener('click', () => {
+            this.showStats.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('stats');
             });
         }
         
         if (this.showUsers) {
-            this.showUsers.addEventListener('click', () => {
+            this.showUsers.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('users');
             });
         }
         
         if (this.showUserManagement) {
-            this.showUserManagement.addEventListener('click', () => {
+            this.showUserManagement.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('userManagement');
             });
         }
         
-        // NUEVOS: Listeners para brokers y referidos
         if (this.showBrokers) {
-            this.showBrokers.addEventListener('click', () => {
+            this.showBrokers.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('brokers');
             });
         }
         
         if (this.showReferrals) {
-            this.showReferrals.addEventListener('click', () => {
+            this.showReferrals.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showView('referrals');
             });
         }
@@ -1010,6 +1019,7 @@ class SignalManager {
             });
         }
         
+        // Listeners para filtros de tiempo
         document.querySelectorAll('.time-filter').forEach(filter => {
             filter.addEventListener('click', () => {
                 document.querySelectorAll('.time-filter').forEach(f => f.classList.remove('active'));
@@ -1021,96 +1031,110 @@ class SignalManager {
         console.log('✅ [APP] Event listeners inicializados correctamente');
     }
 
-    // MÉTODO MEJORADO PARA CAMBIAR VISTAS
+    // ✅ CORRECCIÓN COMPLETA: MÉTODO PARA CAMBIAR VISTAS
     showView(viewName) {
         console.log('👁️ [APP] Cambiando a vista:', viewName);
         
-        // Ocultar todas las vistas y paneles
-        const views = ['signals', 'stats', 'users', 'userManagement', 'brokers', 'referrals'];
-        views.forEach(view => {
-            const container = document.getElementById(`${view}Container`);
-            if (container) {
-                container.classList.remove('active');
-                container.style.display = 'none';
+        // Ocultar todos los paneles de contenido
+        const contentPanels = [
+            this.signalsContainer,
+            this.statsContainer,
+            this.usersContainer,
+            this.userManagementContainer,
+            this.brokersContainer,
+            this.referralsContainer
+        ];
+        
+        contentPanels.forEach(panel => {
+            if (panel) {
+                panel.classList.remove('active');
+                panel.style.display = 'none';
             }
         });
         
-        // Ocultar paneles adicionales
-        if (this.adminPanel) {
-            this.adminPanel.style.display = 'none';
-        }
+        // Remover clase active de todos los botones del header
+        const headerButtons = [
+            this.showSignals,
+            this.showStats,
+            this.showUsers,
+            this.showUserManagement,
+            this.showBrokers,
+            this.showReferrals,
+            this.vipAccess,
+            this.adminBtn
+        ];
         
-        // Remover clase active de todos los botones
-        const buttons = [this.showSignals, this.showStats, this.showUsers, 
-                        this.showUserManagement, this.showBrokers, this.showReferrals];
-        buttons.forEach(btn => {
+        headerButtons.forEach(btn => {
             if (btn) btn.classList.remove('active');
         });
         
-        // Mostrar vista seleccionada
+        // Mostrar el panel seleccionado
+        let panelToShow = null;
+        let buttonToActivate = null;
+        
         switch(viewName) {
             case 'signals':
-                if (this.signalsContainer) {
-                    const signalsPanel = document.getElementById('signalsPanel');
-                    if (signalsPanel) {
-                        signalsPanel.classList.add('active');
-                        signalsPanel.style.display = 'block';
-                    }
-                }
+                panelToShow = this.signalsContainer;
+                buttonToActivate = this.showSignals;
                 // Mostrar panel de admin si es admin
                 if (this.isAdmin && this.adminPanel) {
                     this.adminPanel.style.display = 'block';
                 }
-                if (this.showSignals) this.showSignals.classList.add('active');
                 break;
                 
             case 'stats':
-                if (this.statsContainer) {
-                    this.statsContainer.classList.add('active');
-                    this.statsContainer.style.display = 'block';
+                panelToShow = this.statsContainer;
+                buttonToActivate = this.showStats;
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'none';
                 }
-                if (this.showStats) this.showStats.classList.add('active');
+                this.updateStats();
                 break;
                 
             case 'users':
-                if (this.usersContainer) {
-                    this.usersContainer.classList.add('active');
-                    this.usersContainer.style.display = 'block';
+                panelToShow = this.usersContainer;
+                buttonToActivate = this.showUsers;
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'none';
                 }
-                if (this.showUsers) this.showUsers.classList.add('active');
                 break;
                 
             case 'userManagement':
-                if (this.userManagementContainer) {
-                    this.userManagementContainer.classList.add('active');
-                    this.userManagementContainer.style.display = 'block';
+                panelToShow = this.userManagementContainer;
+                buttonToActivate = this.showUserManagement;
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'none';
                 }
-                if (this.showUserManagement) this.showUserManagement.classList.add('active');
                 break;
                 
             case 'brokers':
-                if (this.brokersContainer) {
-                    this.brokersContainer.classList.add('active');
-                    this.brokersContainer.style.display = 'block';
+                panelToShow = this.brokersContainer;
+                buttonToActivate = this.showBrokers;
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'none';
                 }
-                if (this.showBrokers) this.showBrokers.classList.add('active');
                 break;
                 
             case 'referrals':
-                if (this.referralsContainer) {
-                    this.referralsContainer.classList.add('active');
-                    this.referralsContainer.style.display = 'block';
+                panelToShow = this.referralsContainer;
+                buttonToActivate = this.showReferrals;
+                if (this.isAdmin && this.adminPanel) {
+                    this.adminPanel.style.display = 'none';
                 }
-                if (this.showReferrals) this.showReferrals.classList.add('active');
                 break;
         }
         
-        this.currentView = viewName;
-        
-        // Actualizar estadísticas si se muestra la vista de stats
-        if (viewName === 'stats') {
-            this.updateStats();
+        if (panelToShow) {
+            panelToShow.classList.add('active');
+            panelToShow.style.display = 'block';
         }
+        
+        if (buttonToActivate) {
+            buttonToActivate.classList.add('active');
+        }
+        
+        this.currentView = viewName;
+        console.log(`✅ [APP] Vista cambiada a: ${viewName}`);
     }
 
     async searchUser() {
@@ -1894,7 +1918,7 @@ class SignalManager {
     }
 
     renderSignals() {
-        if (!this.signalsContainer) return;
+        if (!this.signalsList) return;
         
         let signalsToShow = [];
         
@@ -1915,7 +1939,7 @@ class SignalManager {
         }
         
         if(signalsToShow.length === 0) {
-            this.signalsContainer.innerHTML = `
+            this.signalsList.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-satellite-dish"></i>
                     <p>Esperando señales de trading...</p>
@@ -1926,7 +1950,7 @@ class SignalManager {
             return;
         }
         
-        this.signalsContainer.innerHTML = signalsToShow.map(signal => {
+        this.signalsList.innerHTML = signalsToShow.map(signal => {
             const expiresDate = new Date(signal.expires);
             const now = new Date();
             const timeRemaining = Math.max(0, Math.floor((expiresDate - now) / 1000));
