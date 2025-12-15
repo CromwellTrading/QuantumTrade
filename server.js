@@ -58,7 +58,9 @@ app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
         message: 'Quantum Signal Trader with Notifications System is running',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        version: '2.0.0',
+        features: ['signals', 'brokers', 'referrals', 'admin', 'notifications']
     });
 });
 
@@ -411,7 +413,7 @@ app.post('/api/users/reset-free-signals', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS PARA BROKERS - NUEVOS
+// ENDPOINTS PARA BROKERS
 // =============================================
 
 // Endpoint para obtener brokers disponibles
@@ -433,7 +435,7 @@ app.get('/api/brokers', async (req, res) => {
                 description: 'Plataforma moderna con múltiples activos',
                 min_deposit: 10,
                 currency: 'USD',
-                affiliate_link: 'https://qxbroker.com/es/promo/partner/108107566?qa=signals',
+                affiliate_link: 'https://broker-qx.pro/sign-up/?lid=1307202',
                 active: true
             }
         ];
@@ -454,7 +456,7 @@ app.post('/api/users/update-broker', async (req, res) => {
 
         // Validar broker
         if (!['olymptrade', 'quotex'].includes(broker)) {
-            return res.status(400).json({ error: 'Broker inválido. Use: olimptrade o quotex' });
+            return res.status(400).json({ error: 'Broker inválido. Use: olymptrade o quotex' });
         }
 
         // Verificar si el usuario existe
@@ -503,7 +505,7 @@ app.post('/api/users/update-broker', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINT PARA "MOSTRAR ACTIVO" (Alerta Previa) - NUEVO
+// ENDPOINT PARA "MOSTRAR ACTIVO" (Alerta Previa)
 // =============================================
 
 app.post('/api/signals/preview', async (req, res) => {
@@ -560,7 +562,7 @@ app.post('/api/signals/preview', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE REFERIDOS - NUEVOS
+// ENDPOINTS DE REFERIDOS
 // =============================================
 
 // Endpoint para obtener referidos de un usuario
@@ -723,7 +725,7 @@ app.get('/api/referrals/link/:userId', async (req, res) => {
 });
 
 // =============================================
-// ENDPOINTS DE SEÑALES - MODIFICADOS PARA BROKER
+// ENDPOINTS DE SEÑALES
 // =============================================
 
 // Endpoint para enviar señales (solo admin)
@@ -744,7 +746,7 @@ app.post('/api/signals', async (req, res) => {
 
         // Validar broker
         if (!['olymptrade', 'quotex'].includes(broker)) {
-            return res.status(400).json({ error: 'Broker inválido. Use: olimptrade o quotex' });
+            return res.status(400).json({ error: 'Broker inválido. Use: olymptrade o quotex' });
         }
 
         // Calcular fecha de expiración
