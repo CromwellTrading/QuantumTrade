@@ -54,7 +54,7 @@ const processedResults = new Set();
 // =============================================
 
 const BROKERS = {
-    olymptrade: {  // ¡CORREGIDO! Ahora con 'y' en lugar de 'i'
+    olymptrade: {
         name: 'Olymptrade',
         affiliate_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
         registration_link: 'https://olymptrade.com/pages/referral/?rf=108107566',
@@ -113,7 +113,7 @@ function createVIPKeyboard(userId) {
             inline_keyboard: [[
                 { 
                     text: '💎 SOLICITAR ACCESO VIP', 
-                    url: `https://t.me/Asche90`
+                    url: `https://t.me/Quantum_PaymentBot`
                 }
             ]]
         }
@@ -469,7 +469,7 @@ async function handleFastSignals(chatId, userId) {
 async function handleFastVIP(chatId, userId) {
     console.log(`💎 [BOT] Usuario ${userId} solicitó información VIP`);
     
-    const message = `💎 *PLAN VIP - ACCESO COMPLETO*\n\n✨ *Beneficios Exclusivos:*\n\n• ✅ Todas las señales ilimitadas\n• ⚡ Alertas instantáneas\n• 🎯 Señales premium\n• 📊 Estadísticas avanzadas\n• 🔔 Soporte prioritario\n• 📈 Mejores oportunidades\n\n💰 *Inversión:* 5000 CUP/mes (30 días)\n\n👤 *Tu ID:* \`${userId}\`\n\n*¡Solicita tu acceso VIP ahora!* 🚀`;
+    const message = `💎 *PLAN VIP - ACCESO COMPLETO*\n\n✨ *Beneficios Exclusivos:*\n\n• ✅ Todas las señales ilimitadas\n• ⚡ Alertas instantáneas\n• 🎯 Señales premium\n• 📊 Estadísticas avanzadas\n• 🔔 Soporte prioritario\n• 📈 Mejores oportunidades\n\n💰 *Inversión:* 15 USDT/mes (30 días)\n\n👤 *Tu ID:* \`${userId}\`\n\n*¡Solicita tu acceso VIP ahora!* 🚀`;
     
     await sendFastMessage(chatId, message, createVIPKeyboard(userId));
 }
@@ -587,7 +587,7 @@ async function handleFastBroker(chatId, userId) {
 async function handleFastHelp(chatId) {
     console.log(`❓ [BOT] Enviando ayuda a ${chatId}`);
     
-    const message = `❓ *GUÍA COMPLETA - QUANTUM SIGNAL TRADER*\n\n*¿CÓMO FUNCIONA?*\n\n🤖 *EL BOT:*\n• Envía señales de trading automáticamente\n• Opera con opciones binarias\n• Horarios: 10AM y 10PM\n• Primera señal GRATIS por sesión\n\n📱 *BOTONES PRINCIPALES:*\n\n📈 *SEÑALES:*\nMuestra las últimas señales enviadas\n\n💎 *VIP:*\nAcceso a todas las señales ilimitadas\n\n🌐 *WEBAPP:*\nPlataforma web con interfaz completa\n\n👥 *REFERIDOS:*\nSistema de referidos con beneficios\n\n🏢 *BROKER:*\nSelecciona tu broker preferido\n\n❓ *AYUDA:*\nEsta guía de uso\n\nℹ️ *INFORMACIÓN:*\nDetalles del sistema\n\n📊 *PLATAFORMA:*\nEnlace para registrarse\n\n⚡ *PARA RECIBIR SEÑALES:*\n1. Selecciona tu broker (botón 🏢 BROKER)\n2. Abre la WEBAPP (botón 🌐 WEBAPP)\n3. Toca \"PREPARADOS\" para activar alertas\n4. Recibe señales automáticamente\n5. Opera en tu broker seleccionado\n\n📅 *HORARIOS DE SESIONES:*\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *LA PRIMERA SEÑAL DE CADA SESIÓN ES GRATIS*\n\n🔗 *PLATAFORMAS DISPONIBLES:*\n• Olymptrade - Regulada internacionalmente\n• Quotex - Plataforma moderna\n\n*¡Éxitos en tus operaciones!* 🚀`;
+    const message = `❓ *GUÍA COMPLETA - QUANTUM SIGNAL TRADER*\n\n*¿CÓMO FUNCIONA?*\n\n🤖 *EL BOT:*\n• Envía señales de trading automáticamente\n• Opera con opciones binarias\n• Horarios: 10AM y 10PM\n• Primera señal GRATIS por sesión\n\n📱 *BOTONES PRINCIPALES:*\n\n📈 *SEÑALES:*\nMuestra las últimas señales enviadas\n\n💎 *VIP:*\nAcceso a todas las señales ilimitadas (15 USDT/mes)\n\n🌐 *WEBAPP:*\nPlataforma web con interfaz completa\n\n👥 *REFERIDOS:*\nSistema de referidos con beneficios\n\n🏢 *BROKER:*\nSelecciona tu broker preferido\n\n❓ *AYUDA:*\nEsta guía de uso\n\nℹ️ *INFORMACIÓN:*\nDetalles del sistema\n\n📊 *PLATAFORMA:*\nEnlace para registrarse\n\n⚡ *PARA RECIBIR SEÑALES:*\n1. Selecciona tu broker (botón 🏢 BROKER)\n2. Abre la WEBAPP (botón 🌐 WEBAPP)\n3. Toca \"PREPARADOS\" para activar alertas\n4. Recibe señales automáticamente\n5. Opera en tu broker seleccionado\n\n📅 *HORARIOS DE SESIONES:*\n🕙 10:00 AM - Sesión Matutina\n🕙 10:00 PM - Sesión Nocturna\n\n🎁 *LA PRIMERA SEÑAL DE CADA SESIÓN ES GRATIS*\n\n🔗 *PLATAFORMAS DISPONIBLES:*\n• Olymptrade - Regulada internacionalmente\n• Quotex - Plataforma moderna\n\n*¡Éxitos en tus operaciones!* 🚀`;
     
     await sendFastMessage(chatId, message);
 }
@@ -595,7 +595,7 @@ async function handleFastHelp(chatId) {
 async function handleFastInfo(chatId) {
     console.log(`ℹ️ [BOT] Enviando información a ${chatId}`);
     
-    const message = `ℹ️ *INFORMACIÓN DEL SISTEMA*\n\n*QUANTUM SIGNAL TRADER PRO*\n\n🎯 *Qué Hacemos:*\nProveemos señales de trading automatizadas para opciones binarias con alta precisión.\n\n⏰ *Horarios Operativos:*\n• 🕙 10:00 AM - Sesión Matutina\n• 🕙 10:00 PM - Sesión Nocturna\n\n💰 *Modelo de Servicio:*\n• 🎁 Primera señal de cada sesión: GRATIS\n• 💎 Acceso completo: Plan VIP (5000 CUP/mes)\n\n📊 *Características Técnicas:*\n• 🤖 Bot completamente automatizado\n• ⚡ Señales en tiempo real\n• 📱 Plataforma web responsive\n• 🔔 Sistema de alertas instantáneas\n• 📈 Panel de estadísticas\n• 🏢 Soporte para múltiples brokers\n• 👥 Sistema de referidos\n\n🎯 *Recomendaciones:*\n• Opera con capital que puedas arriesgar\n• Usa gestión de riesgo\n• Sigue las señales disciplinadamente\n• La primera señal de cada sesión es gratuita\n\n*¡Trading responsable y exitoso!* 📈`;
+    const message = `ℹ️ *INFORMACIÓN DEL SISTEMA*\n\n*QUANTUM SIGNAL TRADER PRO*\n\n🎯 *Qué Hacemos:*\nProveemos señales de trading automatizadas para opciones binarias con alta precisión.\n\n⏰ *Horarios Operativos:*\n• 🕙 10:00 AM - Sesión Matutina\n• 🕙 10:00 PM - Sesión Nocturna\n\n💰 *Modelo de Servicio:*\n• 🎁 Primera señal de cada sesión: GRATIS\n• 💎 Acceso completo: Plan VIP (15 USDT/mes)\n\n📊 *Características Técnicas:*\n• 🤖 Bot completamente automatizado\n• ⚡ Señales en tiempo real\n• 📱 Plataforma web responsive\n• 🔔 Sistema de alertas instantáneas\n• 📈 Panel de estadísticas\n• 🏢 Soporte para múltiples brokers\n• 👥 Sistema de referidos\n\n🎯 *Recomendaciones:*\n• Opera con capital que puedas arriesgar\n• Usa gestión de riesgo\n• Sigue las señales disciplinadamente\n• La primera señal de cada sesión es gratuita\n\n*¡Trading responsable y exitoso!* 📈`;
     
     await sendFastMessage(chatId, message);
 }
@@ -1394,11 +1394,12 @@ bot.getMe().then((me) => {
     console.log('🎁 Primera señal gratis por sesión');
     console.log('🏢 Brokers soportados: Olymptrade, Quotex');
     console.log('👥 Sistema de referidos activo');
+    console.log('💰 Plan VIP: 15 USDT/mes');
+    console.log('🤖 Bot de pagos: @Quantum_PaymentBot');
     console.log('🔗 Enlace Olymptrade: https://olymptrade.com/pages/referral/?rf=108107566');
     console.log('🔗 Enlace Quotex: https://broker-qx.pro/sign-up/?lid=1307202');
     console.log('✅ Mensaje de inicio con ambos botones de registro');
     console.log('🔧 Comando debug: /force_broker <olymptrade|quotex>');
-    console.log('⚠️ VERIFICAR: Si Olymptrade no funciona, usar comando debug para diagnosticar');
 });
 
 // Iniciar servidor de notificaciones
