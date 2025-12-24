@@ -38,14 +38,36 @@ console.log('✅ [SERVER] Conexión a Supabase establecida');
 // =============================================
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+
+// Manejar preflight requests
+app.options('*', cors());
+
+// Middleware para verificar errores en JSON
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('❌ [SERVER] Error en JSON:', err.message);
+        return res.status(400).json({ error: 'JSON mal formado' });
+    }
+    next();
+});
 
 // Middleware de logging
 app.use((req, res, next) => {
     console.log(`🌐 [SERVER] ${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
+});
+
+// Endpoint para favicon (evitar error 404)
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // No Content
 });
 
 // Servir el archivo HTML principal
@@ -95,14 +117,33 @@ async function verifyAdmin(userId) {
 }
 
 // =============================================
-// ENDPOINTS DE USUARIO
+// ENDPOINTS DE USUARIO - CORREGIDO CON SOPORTE PARA GUEST
 // =============================================
 
 app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         
-        console.log(`👤 [SERVER] GET /api/user/${userId}`);
+        console.log(`👤 [SERVER] GET /api/user/${userId} - Solicitado desde: ${req.headers.origin || 'desconocido'}`);
+        
+        // Si el userId es invitado o inválido
+        if (!userId || userId.startsWith('guest_')) {
+            console.log('ℹ️ [SERVER] Usuario invitado o ID inválido');
+            return res.json({ 
+                success: true, 
+                data: {
+                    telegram_id: userId,
+                    is_admin: false,
+                    is_vip: false,
+                    vip_expires_at: null,
+                    username: null,
+                    first_name: null,
+                    preferred_broker: 'olymptrade',
+                    free_signals_used: 0,
+                    created_at: new Date().toISOString()
+                }
+            });
+        }
         
         // Verificación de admin
         const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
@@ -129,6 +170,7 @@ app.get('/api/user/:userId', async (req, res) => {
                     created_at: new Date().toISOString()
                 };
                 
+                console.log('✅ [SERVER] Usuario creado (no existía en BD):', userData);
                 return res.json({ success: true, data: userData });
             } else {
                 throw error;
@@ -150,10 +192,15 @@ app.get('/api/user/:userId', async (req, res) => {
             free_signals_used: user.free_signals_used || 0
         };
         
+        console.log('✅ [SERVER] Usuario encontrado en BD:', userData);
         res.json({ success: true, data: userData });
     } catch (error) {
         console.error('❌ [SERVER] Error obteniendo usuario:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
     }
 });
 
