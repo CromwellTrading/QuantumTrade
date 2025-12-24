@@ -11,40 +11,81 @@ const ADMIN_ID = "5376388604";
 let signalManager = null;
 
 // =============================================
-// FUNCIÓN DE DETECCIÓN DE USER ID
+// FUNCIÓN DE DETECCIÓN DE USER ID - MEJORADA
 // =============================================
 
 function getUserIdSuperRobust() {
+    console.log('🕵️ [TELEGRAM] Iniciando detección de User ID');
+    
+    // 1. Parámetros de URL (Telegram WebApp)
     const urlParams = new URLSearchParams(window.location.search);
     const tgId = urlParams.get('tgid');
     if (tgId) {
+        console.log('✅ [TELEGRAM] User ID encontrado en URL (tgid):', tgId);
         return tgId;
     }
     
+    // 2. Telegram WebApp SDK
     if (window.Telegram && window.Telegram.WebApp) {
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        
-        const user = tg.initDataUnsafe?.user;
-        if (user && user.id) {
-            return user.id.toString();
+        try {
+            const tg = window.Telegram.WebApp;
+            console.log('📱 [TELEGRAM] WebApp SDK disponible');
+            
+            // Expandir la WebApp
+            tg.expand();
+            
+            // Obtener datos del usuario
+            const user = tg.initDataUnsafe?.user;
+            if (user && user.id) {
+                console.log('✅ [TELEGRAM] User ID del WebApp SDK:', user.id);
+                return user.id.toString();
+            }
+            
+            // También intentar con initData
+            const initData = tg.initData;
+            if (initData) {
+                console.log('📊 [TELEGRAM] initData disponible');
+                const params = new URLSearchParams(initData);
+                const userParam = params.get('user');
+                if (userParam) {
+                    try {
+                        const userData = JSON.parse(userParam);
+                        if (userData && userData.id) {
+                            console.log('✅ [TELEGRAM] User ID de initData:', userData.id);
+                            return userData.id.toString();
+                        }
+                    } catch (e) {
+                        console.error('❌ [TELEGRAM] Error parseando user de initData:', e);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ [TELEGRAM] Error con WebApp SDK:', error);
         }
     }
     
+    // 3. Intentar con localStorage
+    const storedId = localStorage.getItem('tg_user_id');
+    if (storedId) {
+        console.log('💾 [TELEGRAM] User ID del localStorage:', storedId);
+        return storedId;
+    }
+    
+    // 4. Como último recurso, usar parámetros de fragmento
     try {
-        const fragment = window.location.hash.substring(1);
-        if (fragment) {
-            const fragmentParams = new URLSearchParams(fragment);
-            const tgWebAppData = fragmentParams.get('tgWebAppData');
-            
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            const hashParams = new URLSearchParams(hash);
+            const tgWebAppData = hashParams.get('tgWebAppData');
             if (tgWebAppData) {
-                const decodedWebAppData = decodeURIComponent(tgWebAppData);
-                const webAppParams = new URLSearchParams(decodedWebAppData);
-                const userString = webAppParams.get('user');
+                const decodedData = decodeURIComponent(tgWebAppData);
+                const dataParams = new URLSearchParams(decodedData);
+                const userString = dataParams.get('user');
                 
                 if (userString) {
                     const userData = JSON.parse(decodeURIComponent(userString));
                     if (userData && userData.id) {
+                        console.log('✅ [TELEGRAM] User ID del fragmento hash:', userData.id);
                         return userData.id.toString();
                     }
                 }
@@ -54,12 +95,9 @@ function getUserIdSuperRobust() {
         console.error('❌ [TELEGRAM] Error parseando fragmento:', error);
     }
     
-    const storedId = localStorage.getItem('tg_user_id');
-    if (storedId) {
-        return storedId;
-    }
-    
+    // 5. Si todo falla, crear un ID de invitado
     const guestId = 'guest_' + Math.random().toString(36).substr(2, 9);
+    console.log('👤 [TELEGRAM] Usando ID de invitado:', guestId);
     return guestId;
 }
 
@@ -164,12 +202,12 @@ function initializeTermsAndConditions() {
 }
 
 // =============================================
-// CLASE SIGNAL MANAGER - COMPLETA Y CORREGIDA
+// CLASE SIGNAL MANAGER - CORREGIDA COMPLETA
 // =============================================
 
 class SignalManager {
-    constructor() {
-        console.log('🚀 [APP] Inicializando SignalManager con User ID:', detectedUserId);
+    constructor(userId) {
+        console.log('🚀 [APP] Inicializando SignalManager con User ID:', userId);
         
         this.signals = [];
         this.operations = [];
@@ -180,11 +218,10 @@ class SignalManager {
         this.hasReceivedFreeSignal = false;
         this.serverConnected = false;
         
-        this.currentUserId = detectedUserId;
+        this.currentUserId = userId;
         this.userData = null;
         this.searchedUser = null;
         
-        // NUEVAS PROPIEDADES
         this.brokers = [];
         this.userReferrals = null;
         this.referralLink = '';
@@ -206,14 +243,19 @@ class SignalManager {
             
             this.checkTermsAcceptance();
             
-            this.loadUserData();
-            this.loadInitialSignals();
+            // Si es usuario invitado, no cargar datos del servidor
+            if (this.currentUserId && !this.currentUserId.startsWith('guest_')) {
+                this.loadUserData();
+                this.loadInitialSignals();
+                this.loadBrokers();
+                this.loadReferrals();
+            } else {
+                console.log('👤 [APP] Usuario invitado, datos limitados');
+                this.updateUI();
+            }
+            
             this.setupRealtimeSubscription();
             this.checkServerConnection();
-            
-            // Cargar brokers y referidos
-            this.loadBrokers();
-            this.loadReferrals();
             
             setInterval(() => this.checkServerConnection(), 30000);
             
@@ -265,7 +307,7 @@ class SignalManager {
     
     async loadUserData() {
         if (!this.currentUserId || this.currentUserId.startsWith('guest_')) {
-            console.log('❌ [APP] No hay User ID válido para cargar datos');
+            console.log('👤 [APP] No hay User ID válido para cargar datos (invitado)');
             this.updateUserStatus();
             return;
         }
@@ -274,6 +316,7 @@ class SignalManager {
             console.log('🔍 [APP] Cargando datos del usuario desde servidor:', this.currentUserId);
             
             const apiUrl = `${SERVER_URL}/api/user/${this.currentUserId}`;
+            console.log('🌐 [APP] URL de API:', apiUrl);
             
             const response = await fetch(apiUrl);
             
@@ -367,9 +410,9 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Cargar brokers
     async loadBrokers() {
         try {
+            console.log('🏢 [APP] Cargando brokers desde servidor');
             const response = await fetch(`${SERVER_URL}/api/brokers`);
             const result = await response.json();
             
@@ -383,9 +426,14 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Cargar referidos
     async loadReferrals() {
+        if (this.currentUserId.startsWith('guest_')) {
+            console.log('👤 [APP] Usuario invitado, no cargando referidos');
+            return;
+        }
+        
         try {
+            console.log('👥 [APP] Cargando referidos para usuario:', this.currentUserId);
             const response = await fetch(`${SERVER_URL}/api/referrals/${this.currentUserId}`);
             const result = await response.json();
             
@@ -398,9 +446,13 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Actualizar broker del usuario
     async updateUserBroker(broker) {
         try {
+            if (this.currentUserId.startsWith('guest_')) {
+                this.showNotification('Usuarios invitados no pueden cambiar de broker', 'error');
+                return;
+            }
+            
             const response = await fetch(`${SERVER_URL}/api/users/update-broker`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -428,7 +480,6 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Actualizar visualización del broker actual
     updateCurrentBrokerDisplay() {
         const currentBrokerName = document.getElementById('currentBrokerName');
         const currentBrokerStatus = document.getElementById('currentBrokerStatus');
@@ -447,7 +498,6 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Enviar alerta de activo previo (solo admin)
     async sendAssetPreview() {
         if (!this.isAdmin) return;
         
@@ -484,8 +534,12 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Generar enlace de referido
     async generateReferralLink() {
+        if (this.currentUserId.startsWith('guest_')) {
+            this.showNotification('Usuarios invitados no pueden generar enlaces de referido', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch(`${SERVER_URL}/api/referrals/link/${this.currentUserId}`);
             const result = await response.json();
@@ -500,7 +554,6 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Copiar enlace de referido al portapapeles
     async copyReferralLink() {
         if (!this.referralLink) {
             await this.generateReferralLink();
@@ -516,7 +569,6 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Compartir enlace de referido
     async shareReferralLink() {
         if (!this.referralLink) {
             await this.generateReferralLink();
@@ -539,7 +591,6 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Mostrar enlace de referido
     showReferralLink() {
         const referralLinkDisplay = document.getElementById('referralLinkDisplay');
         const referralLinkText = document.getElementById('referralLinkText');
@@ -556,9 +607,7 @@ class SignalManager {
         }
     }
     
-    // IMPLEMENTADO: Mostrar broker selection
     renderBrokerSelection() {
-        // Broker para señales (admin)
         const brokerSelect = document.getElementById('brokerSelect');
         if (brokerSelect && this.brokers.length > 0) {
             brokerSelect.innerHTML = '';
@@ -570,7 +619,6 @@ class SignalManager {
             });
         }
         
-        // Broker para usuario (panel de brokers)
         const userBrokerSelect = document.getElementById('userBrokerSelect');
         if (userBrokerSelect && this.brokers.length > 0) {
             userBrokerSelect.innerHTML = '';
@@ -581,14 +629,12 @@ class SignalManager {
                 userBrokerSelect.appendChild(option);
             });
             
-            // Seleccionar el broker actual del usuario
             if (this.userData?.preferred_broker) {
                 userBrokerSelect.value = this.userData.preferred_broker;
             }
         }
     }
     
-    // IMPLEMENTADO: Mostrar referidos
     renderReferrals() {
         if (!this.userReferrals) return;
         
@@ -599,14 +645,12 @@ class SignalManager {
         const bonusText = document.getElementById('bonusText');
         const referralsTableBody = document.getElementById('referralsTableBody');
         
-        // Actualizar estadísticas
         if (totalReferrals && vipReferrals && referralDiscount) {
             totalReferrals.textContent = this.userReferrals.stats?.total || 0;
             vipReferrals.textContent = this.userReferrals.stats?.vip || 0;
             referralDiscount.textContent = `${this.userReferrals.discount || 0}%`;
         }
         
-        // Mostrar bonificación
         if (bonusAlert && bonusText) {
             if (this.userReferrals.bonus) {
                 bonusText.textContent = this.userReferrals.bonus;
@@ -616,7 +660,6 @@ class SignalManager {
             }
         }
         
-        // Actualizar tabla de referidos
         if (referralsTableBody && this.userReferrals.referrals) {
             if (this.userReferrals.referrals.length === 0) {
                 referralsTableBody.innerHTML = `
@@ -664,7 +707,6 @@ class SignalManager {
 
         this.updateUserStatus();
         
-        // Mostrar/ocultar elementos según privilegios
         if (this.isAdmin) {
             if (this.adminBtn) {
                 this.adminBtn.style.display = 'block';
@@ -695,10 +737,10 @@ class SignalManager {
                 this.showUserManagement.style.display = 'none';
             }
             if (this.showBrokers) {
-                this.showBrokers.style.display = 'block'; // Broker visible para todos
+                this.showBrokers.style.display = 'block';
             }
             if (this.showReferrals) {
-                this.showReferrals.style.display = 'block'; // Referidos visible para todos
+                this.showReferrals.style.display = 'block';
             }
             if (this.adminPanel) {
                 this.adminPanel.style.display = 'none';
@@ -715,14 +757,12 @@ class SignalManager {
             }
         }
         
-        // Actualizar display del broker
         this.updateCurrentBrokerDisplay();
     }
 
     initializeDOMElements() {
         console.log('🏗️ [APP] Inicializando elementos DOM');
         
-        // Elementos existentes
         this.sendSignalBtn = document.getElementById('sendSignal');
         this.signalsList = document.getElementById('signalsList');
         this.notification = document.getElementById('notification');
@@ -739,7 +779,6 @@ class SignalManager {
         this.adminBtn = document.getElementById('adminBtn');
         this.adminPanel = document.getElementById('adminPanel');
         
-        // Paneles de contenido
         this.signalsContainer = document.getElementById('signalsContainer');
         this.statsContainer = document.getElementById('statsContainer');
         this.usersContainer = document.getElementById('usersContainer');
@@ -773,14 +812,12 @@ class SignalManager {
         this.brokerSelect = document.getElementById('brokerSelect');
         this.isFreeCheckbox = document.getElementById('isFreeCheckbox');
         
-        // NUEVOS: Elementos para brokers
         this.previewAsset = document.getElementById('previewAsset');
         this.previewBroker = document.getElementById('previewBroker');
         this.previewAssetBtn = document.getElementById('previewAssetBtn');
         this.updateBrokerBtn = document.getElementById('updateBrokerBtn');
         this.userBrokerSelect = document.getElementById('userBrokerSelect');
         
-        // NUEVOS: Elementos para referidos
         this.generateReferralLinkBtn = document.getElementById('generateReferralLinkBtn');
         this.copyReferralLinkBtn = document.getElementById('copyReferralLinkBtn');
         this.shareReferralLinkBtn = document.getElementById('shareReferralLinkBtn');
@@ -857,7 +894,6 @@ class SignalManager {
     initEventListeners() {
         console.log('🔧 [APP] Inicializando event listeners');
         
-        // Listeners existentes
         if (this.sendSignalBtn) {
             this.sendSignalBtn.addEventListener('click', () => {
                 this.sendSignal();
@@ -876,7 +912,6 @@ class SignalManager {
             });
         }
         
-        // ✅ CORRECCIÓN: Listeners para cambio de vistas (CORREGIDO)
         if (this.showSignals) {
             this.showSignals.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -981,14 +1016,12 @@ class SignalManager {
             });
         }
         
-        // NUEVO: Listener para alerta de activo previo
         if (this.previewAssetBtn) {
             this.previewAssetBtn.addEventListener('click', () => {
                 this.sendAssetPreview();
             });
         }
         
-        // NUEVO: Listener para actualizar broker
         if (this.updateBrokerBtn) {
             this.updateBrokerBtn.addEventListener('click', () => {
                 const broker = this.userBrokerSelect?.value;
@@ -998,28 +1031,24 @@ class SignalManager {
             });
         }
         
-        // NUEVO: Listener para generar enlace de referido
         if (this.generateReferralLinkBtn) {
             this.generateReferralLinkBtn.addEventListener('click', () => {
                 this.generateReferralLink();
             });
         }
         
-        // NUEVO: Listener para copiar enlace de referido
         if (this.copyReferralLinkBtn) {
             this.copyReferralLinkBtn.addEventListener('click', () => {
                 this.copyReferralLink();
             });
         }
         
-        // NUEVO: Listener para compartir enlace de referido
         if (this.shareReferralLinkBtn) {
             this.shareReferralLinkBtn.addEventListener('click', () => {
                 this.shareReferralLink();
             });
         }
         
-        // Listeners para filtros de tiempo
         document.querySelectorAll('.time-filter').forEach(filter => {
             filter.addEventListener('click', () => {
                 document.querySelectorAll('.time-filter').forEach(f => f.classList.remove('active'));
@@ -1031,11 +1060,9 @@ class SignalManager {
         console.log('✅ [APP] Event listeners inicializados correctamente');
     }
 
-    // ✅ CORRECCIÓN COMPLETA: MÉTODO PARA CAMBIAR VISTAS
     showView(viewName) {
         console.log('👁️ [APP] Cambiando a vista:', viewName);
         
-        // Ocultar todos los paneles de contenido
         const contentPanels = [
             this.signalsContainer,
             this.statsContainer,
@@ -1052,7 +1079,6 @@ class SignalManager {
             }
         });
         
-        // Remover clase active de todos los botones del header
         const headerButtons = [
             this.showSignals,
             this.showStats,
@@ -1068,7 +1094,6 @@ class SignalManager {
             if (btn) btn.classList.remove('active');
         });
         
-        // Mostrar el panel seleccionado
         let panelToShow = null;
         let buttonToActivate = null;
         
@@ -1076,7 +1101,6 @@ class SignalManager {
             case 'signals':
                 panelToShow = this.signalsContainer;
                 buttonToActivate = this.showSignals;
-                // Mostrar panel de admin si es admin
                 if (this.isAdmin && this.adminPanel) {
                     this.adminPanel.style.display = 'block';
                 }
@@ -1501,7 +1525,10 @@ class SignalManager {
     }
 
     canUserReceiveSignal(signal) {
-        // Verificar broker primero
+        if (this.currentUserId.startsWith('guest_')) {
+            return false;
+        }
+        
         const userBroker = this.userData?.preferred_broker || 'olymptrade';
         if (signal.broker !== userBroker) {
             return false;
@@ -1511,7 +1538,6 @@ class SignalManager {
             return true;
         }
         
-        // Usuarios regulares: solo primera señal gratis por sesión de su broker
         if (signal.isFree && !this.hasReceivedFreeSignal) {
             return true;
         }
@@ -1580,6 +1606,16 @@ class SignalManager {
     updateUserStatus() {
         if (!this.userStatus) return;
         
+        if (this.currentUserId.startsWith('guest_')) {
+            this.userStatus.innerHTML = `
+                <div class="session-info">
+                    <i class="fas fa-user-clock"></i> Estado: <span style="color: var(--warning);">USUARIO INVITADO</span>
+                    <br><small>Funciones limitadas. Abre desde Telegram para acceso completo.</small>
+                </div>
+            `;
+            return;
+        }
+        
         const brokerName = this.userData?.preferred_broker === 'olymptrade' ? 'Olymptrade' : 'Quotex';
         
         if (this.isVIP) {
@@ -1610,6 +1646,11 @@ class SignalManager {
     }
     
     async startTradingSession() {
+        if (this.currentUserId.startsWith('guest_')) {
+            this.showNotification('Usuarios invitados no pueden iniciar sesiones', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch(`${SERVER_URL}/api/sessions/start`, {
                 method: 'POST',
@@ -1717,6 +1758,11 @@ class SignalManager {
     }
     
     async sendClientNotification() {
+        if (this.currentUserId.startsWith('guest_')) {
+            this.showNotification('Usuarios invitados no pueden enviar notificaciones', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch(`${SERVER_URL}/api/notify`, {
                 method: 'POST',
@@ -1812,6 +1858,11 @@ class SignalManager {
     }
     
     async sendSignal() {
+        if (this.currentUserId.startsWith('guest_')) {
+            this.showNotification('Usuarios invitados no pueden enviar señales', 'error');
+            return;
+        }
+        
         const asset = document.getElementById('asset');
         const timeframe = document.getElementById('timeframe');
         const direction = document.getElementById('direction');
@@ -1922,16 +1973,13 @@ class SignalManager {
         
         let signalsToShow = [];
         
-        // Filtrar por broker del usuario
         const userBroker = this.userData?.preferred_broker || 'olymptrade';
         
         if (this.isAdmin || this.isVIP) {
-            // Admin y VIP ven todas las señales de su broker
             signalsToShow = this.signals
                 .filter(signal => signal.broker === userBroker)
                 .slice(0, this.MONTHLY_SIGNAL_LIMITS.admin);
         } else {
-            // Usuarios regulares: solo señales free de su broker
             const freeSignals = this.signals.filter(signal => 
                 signal.isFree && signal.broker === userBroker
             );
@@ -2400,41 +2448,60 @@ class SignalManager {
 }
 
 // =============================================
-// INICIALIZACIÓN DE LA APLICACIÓN
+// INICIALIZACIÓN DE LA APLICACIÓN - CORREGIDA
 // =============================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 [APP] DOM cargado - Iniciando aplicación');
     
+    // Primero detectar el User ID
+    const detectedUserId = getUserIdSuperRobust();
+    console.log('🆔 [APP] User ID detectado:', detectedUserId);
+    
+    // Mostrar el User ID en la interfaz inmediatamente
     const userIdDisplay = document.getElementById('userIdDisplay');
     if (userIdDisplay) {
         userIdDisplay.innerHTML = `<i class="fas fa-user"></i> ID: ${detectedUserId}`;
+        
+        // Aplicar clase según tipo de usuario
+        if (String(detectedUserId).trim() === String(ADMIN_ID).trim()) {
+            userIdDisplay.classList.add('admin');
+        } else if (detectedUserId.startsWith('guest_')) {
+            userIdDisplay.classList.add('guest');
+        }
     }
     
+    // Guardar en localStorage si no es un invitado
+    if (detectedUserId && !detectedUserId.startsWith('guest_')) {
+        localStorage.setItem('tg_user_id', detectedUserId);
+        console.log('💾 [APP] User ID guardado en localStorage');
+    }
+    
+    // Crear partículas
     createParticles();
     
+    // Inicializar términos y condiciones
     initializeTermsAndConditions();
     
     try {
-        signalManager = new SignalManager();
+        // Inicializar el SignalManager con el User ID
+        signalManager = new SignalManager(detectedUserId);
+        console.log('✅ [APP] SignalManager inicializado correctamente');
+        
+        // Forzar carga inicial de datos después de un breve retraso
+        setTimeout(() => {
+            if (signalManager) {
+                signalManager.updateUI();
+            }
+        }, 500);
+        
     } catch (error) {
         console.error('❌ [APP] Error inicializando SignalManager:', error);
+        
+        // Mostrar error al usuario
+        if (userIdDisplay) {
+            userIdDisplay.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error inicializando. Recarga la página.`;
+            userIdDisplay.style.color = 'var(--warning)';
+        }
     }
 });
-
-// =============================================
-// DETECCIÓN INMEDIATA DE USER ID
-// =============================================
-
-const detectedUserId = getUserIdSuperRobust();
-console.log('🚀 [APP] User ID detectado al inicio:', detectedUserId);
-
-if (detectedUserId && !detectedUserId.startsWith('guest_')) {
-    localStorage.setItem('tg_user_id', detectedUserId);
-    console.log('💾 [APP] User ID guardado en localStorage');
-}
-
-console.log('=== 🔍 VERIFICACIÓN DE ADMIN INICIADA ===');
-console.log('User ID detectado:', detectedUserId);
-console.log('ADMIN_ID configurado:', ADMIN_ID);
-console.log('¿Coinciden?:', String(detectedUserId).trim() === String(ADMIN_ID).trim());
