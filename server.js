@@ -38,25 +38,28 @@ console.log('✅ [SERVER] Conexión a Supabase establecida');
 // =============================================
 
 // Middleware
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Manejar preflight requests
-app.options('*', cors());
+// =============================================
+// MANEJO DE FAVICON.ICO Y RUTAS NO ENCONTRADAS
+// =============================================
 
-// Middleware para verificar errores en JSON
-app.use((err, req, res, next) => {
-    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-        console.error('❌ [SERVER] Error en JSON:', err.message);
-        return res.status(400).json({ error: 'JSON mal formado' });
-    }
-    next();
+// Manejar peticiones de favicon.ico para evitar errores en logs
+app.get('/favicon.ico', (req, res) => {
+    console.log(`🖼️ [SERVER] Petición de favicon.ico recibida, enviando 204`);
+    res.status(204).end();
+});
+
+// Manejar cualquier ruta que empiece con /get/ para evitar errores
+app.all('/get/*', (req, res) => {
+    console.log(`⚠️ [SERVER] Ruta no encontrada: ${req.url} - Método: ${req.method}`);
+    res.status(404).json({ 
+        success: false, 
+        error: 'Ruta no encontrada',
+        message: 'Por favor, use las rutas de API documentadas'
+    });
 });
 
 // Middleware de logging
@@ -65,13 +68,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// Endpoint para favicon (evitar error 404)
-app.get('/favicon.ico', (req, res) => {
-    res.status(204).end(); // No Content
-});
+// =============================================
+// RUTAS PRINCIPALES
+// =============================================
 
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
+    console.log('🏠 [SERVER] Sirviendo index.html');
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
@@ -84,6 +87,23 @@ app.get('/health', (req, res) => {
         version: '2.0.0',
         features: ['signals', 'brokers', 'referrals', 'admin', 'notifications']
     });
+});
+
+// Endpoint de diagnóstico
+app.get('/api/debug', (req, res) => {
+    const debugInfo = {
+        timestamp: new Date().toISOString(),
+        url: req.url,
+        method: req.method,
+        query: req.query,
+        params: req.params,
+        headers: req.headers,
+        userAgent: req.headers['user-agent'],
+        referer: req.headers['referer'] || 'No referer'
+    };
+    
+    console.log('🔧 [DEBUG] Información de la petición:', debugInfo);
+    res.json({ success: true, data: debugInfo });
 });
 
 // =============================================
@@ -117,33 +137,14 @@ async function verifyAdmin(userId) {
 }
 
 // =============================================
-// ENDPOINTS DE USUARIO - CORREGIDO CON SOPORTE PARA GUEST
+// ENDPOINTS DE USUARIO
 // =============================================
 
 app.get('/api/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         
-        console.log(`👤 [SERVER] GET /api/user/${userId} - Solicitado desde: ${req.headers.origin || 'desconocido'}`);
-        
-        // Si el userId es invitado o inválido
-        if (!userId || userId.startsWith('guest_')) {
-            console.log('ℹ️ [SERVER] Usuario invitado o ID inválido');
-            return res.json({ 
-                success: true, 
-                data: {
-                    telegram_id: userId,
-                    is_admin: false,
-                    is_vip: false,
-                    vip_expires_at: null,
-                    username: null,
-                    first_name: null,
-                    preferred_broker: 'olymptrade',
-                    free_signals_used: 0,
-                    created_at: new Date().toISOString()
-                }
-            });
-        }
+        console.log(`👤 [SERVER] GET /api/user/${userId}`);
         
         // Verificación de admin
         const isAdminByID = String(userId).trim() === String(ADMIN_ID).trim();
@@ -170,7 +171,6 @@ app.get('/api/user/:userId', async (req, res) => {
                     created_at: new Date().toISOString()
                 };
                 
-                console.log('✅ [SERVER] Usuario creado (no existía en BD):', userData);
                 return res.json({ success: true, data: userData });
             } else {
                 throw error;
@@ -192,15 +192,10 @@ app.get('/api/user/:userId', async (req, res) => {
             free_signals_used: user.free_signals_used || 0
         };
         
-        console.log('✅ [SERVER] Usuario encontrado en BD:', userData);
         res.json({ success: true, data: userData });
     } catch (error) {
         console.error('❌ [SERVER] Error obteniendo usuario:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -1111,6 +1106,18 @@ app.get('/api/stats', async (req, res) => {
     } catch (error) {
         console.error('❌ [SERVER] Error obteniendo estadísticas:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =============================================
+// MANEJO DE RUTAS NO ENCONTRADAS PARA SPA
+// =============================================
+
+// Sirve index.html para cualquier ruta no manejada (para SPA)
+app.get('*', (req, res) => {
+    if (!req.url.startsWith('/api/')) {
+        console.log('🏠 [SERVER] Redirigiendo a index.html para:', req.url);
+        res.sendFile(path.join(__dirname, 'index.html'));
     }
 });
 
