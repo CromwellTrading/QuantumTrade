@@ -477,17 +477,33 @@ async function handleFastVIP(chatId, userId) {
 async function handleFastWebApp(chatId, userId) {
     console.log(`🌐 [BOT] Usuario ${userId} solicitó webapp`);
     
-    const webAppUrl = `${RENDER_URL}?tgid=${userId}`;
-    const message = `🌐 *PLATAFORMA WEB - QUANTUM TRADER*\n\n*Características Principales:*\n\n• 📱 Interfaz moderna y responsive\n• ⚡ Señales en tiempo real\n• 📊 Panel de estadísticas\n• 🔔 Sistema de alertas\n• 👑 Panel VIP integrado\n• 📈 Historial completo\n\n*Para recibir alertas:*\n1. Abre la plataforma\n2. Toca el botón \"PREPARADOS\"\n3. Recibe señales automáticamente\n\n*Tu acceso personalizado:*`;
+    // CORREGIDO: Usar parámetro directo y forzar WebApp
+    const webAppUrl = `${RENDER_URL}?tgid=${userId}&forcewebapp=true`;
+    
+    console.log(`🔗 [BOT] URL de WebApp generada: ${webAppUrl}`);
+    
+    const message = `🌐 *PLATAFORMA WEB - QUANTUM TRADER*\n\n*Para acceder:*\n\n1. Haz clic en el botón "Abrir Plataforma Web" abajo\n2. Tu ID (${userId}) se cargará automáticamente\n3. ¡Listo para recibir señales!`;
     
     await sendFastMessage(chatId, message, {
         reply_markup: {
             inline_keyboard: [[
-                { text: '🚀 ABRIR PLATAFORMA WEB', web_app: { url: webAppUrl } }
+                { 
+                    text: '🚀 ABRIR PLATAFORMA WEB', 
+                    web_app: { 
+                        url: webAppUrl 
+                    } 
+                }
             ]]
         }
     });
+    
+    // También enviar enlace directo como mensaje
+    setTimeout(async () => {
+        const directLinkMessage = `🔗 *Enlace directo:*\n${webAppUrl}\n\n*Alternativa:* Si el botón no funciona, copia y pega este enlace en tu navegador.`;
+        await sendFastMessage(chatId, directLinkMessage);
+    }, 1000);
 }
+
 
 async function handleFastReferrals(chatId, userId) {
     console.log(`👥 [BOT] Usuario ${userId} solicitó referidos`);
